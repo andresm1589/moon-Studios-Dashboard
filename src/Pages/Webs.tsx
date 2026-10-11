@@ -12,13 +12,14 @@ import {
   AlertTriangle,
   BarChart3, CreditCard, Handshake, ToggleLeft, ToggleRight,
   ArrowUp, ArrowDown, ExternalLink as ExtLink,
-  Briefcase, Star, Newspaper
+  Briefcase, Star, Newspaper, CalendarDays
 } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { LegalLunaPanel } from '@/components/LegalLunaPanel';
 import { WebLunaPanel } from '@/components/WebLunaPanel';
+import { EventosLunaPanel } from '@/components/EventosLunaPanel';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -3534,6 +3535,7 @@ const TABS_CONFIG = [
   { id: 'luna',       label: 'Luna NET',    Icon: Moon,           color: '#a5b4fc' },
   { id: 'legal',      label: 'Legal Luna',  Icon: FileText,       color: '#c4b5fd' },
   { id: 'webluna',    label: 'Web Luna',    Icon: Newspaper,      color: '#f472b6' },
+  { id: 'eventos',    label: 'Eventos',     Icon: CalendarDays,   color: '#fb923c' },
   { id: 'incidentes', label: 'Incidentes',  Icon: AlertTriangle,  color: '#f87171' },
   { id: 'portal',     label: 'Portal',      Icon: Users,          color: '#60a5fa' },
   { id: 'correo',     label: 'Correo',      Icon: Mail,           color: '#818cf8' },
@@ -3617,6 +3619,7 @@ const Webs: React.FC = () => {
             {activeTab === 'luna'       && 'Luna NET — Gestión de Aliados'}
             {activeTab === 'legal'      && 'Luna NET — Privacidad, términos y cookies'}
             {activeTab === 'webluna'    && 'Luna NET — Sobre nosotros, contacto y blog'}
+            {activeTab === 'eventos'    && 'Luna NET — Calendario de eventos de temporada'}
             {activeTab === 'incidentes' && 'Luna NET — Incidentes del Sistema'}
             {activeTab === 'portal'     && 'Portal de Clientes · Solicitudes & Socios'}
             {activeTab === 'correo'     && 'Correo Masivo · Moon Fest 2026'}
@@ -3655,6 +3658,7 @@ const Webs: React.FC = () => {
           {activeTab === 'luna'       && <AlliesPanel />}
           {activeTab === 'legal'      && <LegalLunaPanel lunaFetch={lunaFetch} />}
           {activeTab === 'webluna'    && <WebLunaPanel lunaFetch={lunaFetch} />}
+          {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} />}
           {activeTab === 'incidentes' && <IncidentsPanel />}
           {activeTab === 'portal'  && <PortalClientesPanel />}
           {activeTab === 'correo'  && <CorreoFestPanel />}
