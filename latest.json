@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.47",
-    "notes":  "Nueva pestaña Web Luna: edita Sobre nosotros, Contacto y Blog de Luna NET. Mensajeria marca los mensajes de la web de Luna.",
-    "pub_date":  "2026-10-07T19:19:28Z",
+    "version":  "2.1.48",
+    "notes":  "Nueva pestaña Eventos en Webs: calendario de eventos de Luna (Halloween y futuras ediciones).",
+    "pub_date":  "2026-10-11T00:24:22Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNHd0amNVdCt1bkROQnpEa0FUWGx1NVFyMXBXdktvSEk3UXdWU25SYkZMcUYvSzBsclBJSDBaMG5RTTBpQmoxalc5UUFIZkVKdldTSjdSTEo2dWVlR2dnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNDE4NzY3CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS40N194NjQtc2V0dXAuZXhlCmdZSDM1OXdJUzJWSllJTDdoQ2tYcURmUHVHNmhhZUNwZm9DS0RqeW5XN1J6MnJDeWs0ZU1kWnF5bENwc1ozYmlaTnJkUW5XNHBHbXFrbktNWWNHSkF3PT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.47/moon.Studios_2.1.47_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNHk0QWo2K0xteE4vMWVhWjAySXovZDliU0NIZ1RtMjlFZjBzdEY2SmRIYWRTSjBTa1NXMk93S0VNVWR3djUzb3lmSFRzZ2o1T0ltS2Z1b2N2ZEphYXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjk2MjYwCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS40OF94NjQtc2V0dXAuZXhlCmtwZnZ2UzloUkJBZlE2R2FKeGVabGUrajQ0aThZQjgySHVwM2RRRnU4SjJ2RGwyY2Z1MG1OY0xRUjNqUzBnck9KbFE0aXY1dkRnT2tvT3NhT3NLMkN3PT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.48/moon.Studios_2.1.48_x64-setup.exe"
                                          }
                   }
 }
