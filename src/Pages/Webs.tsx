@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import { LegalLunaPanel } from '@/components/LegalLunaPanel';
 import { WebLunaPanel } from '@/components/WebLunaPanel';
 import { EventosLunaPanel } from '@/components/EventosLunaPanel';
+import { ProteccionErrores } from '@/components/ProteccionErrores';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -3666,6 +3667,8 @@ const Webs: React.FC = () => {
 
         {/* Panel body */}
         <div className="p-5">
+          {/* Si un panel se rompe, solo ese muestra el error (antes la app quedaba en negro). */}
+          <ProteccionErrores nombre={activeTab}>
           {activeTab === 'sitios'  && <MoonFestPanel />}
           {activeTab === 'equipo'     && <EquipoPanel />}
           {activeTab === 'portafolio' && <PortfolioPanel />}
@@ -3676,6 +3679,7 @@ const Webs: React.FC = () => {
           {activeTab === 'incidentes' && <IncidentsPanel />}
           {activeTab === 'portal'  && <PortalClientesPanel />}
           {activeTab === 'correo'  && <CorreoFestPanel />}
+          </ProteccionErrores>
         </div>
       </div>
     </div>

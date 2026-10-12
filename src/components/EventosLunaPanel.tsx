@@ -240,7 +240,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-light" style={{ color: mt }}>
             <span className="inline-flex items-center gap-1"><Terminal className="w-3 h-3" strokeWidth={1.5} />
-              {e.comandos.map(x => `/${x}`).join(', ')}:{' '}
+              {(e.comandos ?? []).map(x => `/${x}`).join(', ')}:{' '}
               <span style={{ color: e.comandosVisibles ? '#4ade80' : tenue }}>{e.comandosVisibles ? 'visible en Discord' : 'oculto en Discord'}</span>
             </span>
             {e.esActual && <span title="La edición que usa el bot ahora (juego, cierre y premios)">· edición en uso del bot</span>}
@@ -489,7 +489,9 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
           <div className="flex flex-wrap items-center gap-2 text-xs font-light" style={{ color: mt }}>
             {datos.tipos.map(t => {
               const on = comandos.visibles.includes(t.id);
-              return <Pastilla key={t.id} color={on ? '#4ade80' : '#94a3b8'}>{t.emoji} /{t.comando} · {on ? 'visible' : 'oculto'}</Pastilla>;
+              // (Un bot anterior mandaba `comandos`: una lista.)
+              const cmd = t.comando ?? (t as { comandos?: string[] }).comandos?.[0] ?? t.id;
+              return <Pastilla key={t.id} color={on ? '#4ade80' : '#94a3b8'}>{t.emoji} /{cmd} · {on ? 'visible' : 'oculto'}</Pastilla>;
             })}
             <span>·</span>
             {alDia

@@ -177,7 +177,7 @@ export const TiposPanel: React.FC<{ tipos: TipoEvento[]; lunaFetch: LunaFetch; l
                   </span>
                 </div>
                 <p className="text-[11px] font-light mt-0.5" style={{ color: mt }}>
-                  /{t.comando} · {fechaCorta(t.fechas.inicio)} → {fechaCorta(ultimoDia(t.fechas.fin))} · {t.moneda.emoji} {t.moneda.nombre} · insignias {t.prefijo}AA_… · {t.ediciones} {t.ediciones === 1 ? 'edición' : 'ediciones'}
+                  /{t.comando} · {fechaCorta(t.fechas.inicio)} → {fechaCorta(ultimoDia(t.fechas.fin))} · {t.moneda?.emoji} {t.moneda?.nombre} · insignias {t.prefijo}AA_… · {t.ediciones ?? 0} {t.ediciones === 1 ? 'edición' : 'ediciones'}
                 </p>
               </div>
             </header>
