@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.49",
-    "notes":  "Eventos: editor completo de tipos y contenido (Navidad, San Valentin, Aniversario, Ano Nuevo y eventos nuevos), con imagenes.",
-    "pub_date":  "2026-10-11T23:42:35Z",
+    "version":  "2.1.50",
+    "notes":  "Arreglo: la pestana Eventos ya no deja la app en negro. Proteccion de errores en todos los paneles.",
+    "pub_date":  "2026-10-11T23:52:06Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDdaKytKMVVKVGtRSC9JNE5zOUVpY1NTVTd2a2krUXhZSVdWU3JtZjYyTTJZNmF1THQ5enJGaCtvT2R2dGRHNmM5WW8yeURld1N1MUFqK3QxZTZkUmdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzgwMTUzCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS40OV94NjQtc2V0dXAuZXhlCmhPTnNTOEZCVVBWNlZjNWJ1Qzc5N1YzTm5Ca0JPVTdSUC9SbFNmbngxbjd0WE16emYxZUVVQXl0ZHdpbGs5OWlHaThQb2UvaXdlcWZid1pWYzRnSkRBPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.49/moon.Studios_2.1.49_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDVEcHVrZ2JiQTRzc3ZTb2hFeCtzcXExcnpMclQ1TkZtVFpmZW5zYm0xMXJZNDZyenVhVzcrSnpNekhCOG4xd2FQS3ZBYmlQNTBtbUVMVXhxejBOVkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzgwNzI1CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41MF94NjQtc2V0dXAuZXhlCi9kVjB5ajdaYmt2YXZ4WWx1K2JuclpPNWk1MXVZa3FtREpuMjdPdm5vVkN3ZWgwMFY0ZmhsMXhXeGVmWXp3a2s2MnRZUTV4VG1LK0I4b0RIcmRla0NRPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.50/moon.Studios_2.1.50_x64-setup.exe"
                                          }
                   }
 }
