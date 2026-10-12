@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.50",
-    "notes":  "Arreglo: la pestana Eventos ya no deja la app en negro. Proteccion de errores en todos los paneles.",
-    "pub_date":  "2026-10-11T23:52:06Z",
+    "version":  "2.1.51",
+    "notes":  "Arreglo: la pestana Comandos del bot ya no deja la app en negro.",
+    "pub_date":  "2026-10-11T23:55:55Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDVEcHVrZ2JiQTRzc3ZTb2hFeCtzcXExcnpMclQ1TkZtVFpmZW5zYm0xMXJZNDZyenVhVzcrSnpNekhCOG4xd2FQS3ZBYmlQNTBtbUVMVXhxejBOVkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzgwNzI1CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41MF94NjQtc2V0dXAuZXhlCi9kVjB5ajdaYmt2YXZ4WWx1K2JuclpPNWk1MXVZa3FtREpuMjdPdm5vVkN3ZWgwMFY0ZmhsMXhXeGVmWXp3a2s2MnRZUTV4VG1LK0I4b0RIcmRla0NRPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.50/moon.Studios_2.1.50_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDc5Mm81WkpZeC9tUHJiR3p4RE9EbW04NDBLZzBVN1lSd2cvTHJ3eE5acHJVY3N4TExQaFgvQ1FuQU1FNEp1cmkvQjRhKy90VjQvZHpqSmwvTU9DNkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzgwOTUxCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41MV94NjQtc2V0dXAuZXhlCkRzT0RUNXZXemFNTW9ZSTRyQkNpYitEODNSRzVQa2d4OEhWZ2RCRmtIQ2xHVmpXOHhqbzlUVlRBQm91UVgvOUxMd244WTRvTUNENTU0b3JobUVJVEFBPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.51/moon.Studios_2.1.51_x64-setup.exe"
                                          }
                   }
 }
