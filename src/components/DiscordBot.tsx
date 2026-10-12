@@ -33,9 +33,14 @@ interface ServerInfo {
   memberCount?: number; boostLevel?: number; boostCount?: number; description?: string;
 }
 interface ChannelInfo { id: string; name: string; type?: number; parent?: string | null; }
-interface CommandOption { name: string; description: string; type: string; required: boolean; choices: { name: string; value: string }[]; }
-interface BotCommand { id: string; name: string; description: string; type: string; scope: 'global' | 'guild'; options: CommandOption[]; nsfw: boolean; }
-interface CommandsData { total: number; global: number; guild: number; commands: BotCommand[]; }
+// Lo que manda GET /api/bot/commands (bot: src/api/routes/bot.routes.js). Antes
+// se esperaba otra forma (options, scope, global/guild) que la API nunca mandó:
+// cada tarjeta leía cmd.options.length y la app entera quedaba en negro.
+interface BotCommand {
+  name: string; type: 'slash' | 'prefix'; category: string; description: string; usage: string;
+  aliases: string[]; premium: boolean; cooldown: number; nsfw: boolean;
+}
+interface CommandsData { total: number; slash: number; prefix: number; categories: number; prefixChar?: string; commands: BotCommand[]; }
 interface UptimeDay { date: string; status: string; uptimePct: number | null; snapshots: number; avgPing?: number; }
 interface Incident {
   id: string; title: string; status: string; impact: string;
@@ -205,65 +210,41 @@ const MiniStat: React.FC<{
   </div>
 );
 
-const CommandCard: React.FC<{ cmd: BotCommand; accentColor: string }> = ({ cmd, accentColor }) => {
+const CommandCard: React.FC<{ cmd: BotCommand }> = ({ cmd }) => {
   const [open, setOpen] = useState(false);
-  const typeColor: Record<string, string> = { SLASH: '#818cf8', USER: '#38bdf8', MESSAGE: '#fbbf24' };
-  const tc = typeColor[cmd.type] ?? accentColor;
+  const tc = cmd.type === 'slash' ? '#818cf8' : '#38bdf8';
+  const aliases = cmd.aliases ?? [];
   return (
-    <div
-      className="rounded-2xl overflow-hidden border transition-colors"
-      style={{ borderColor: 'var(--border-main)', background: 'var(--sidebar-card-bg)' }}
-    >
-      <button
-        onClick={() => cmd.options.length > 0 && setOpen(!open)}
-        className={`w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors ${cmd.options.length === 0 ? 'cursor-default' : ''}`}
-      >
+    <div className="rounded-2xl overflow-hidden border transition-colors" style={{ borderColor: 'var(--border-main)', background: 'var(--sidebar-card-bg)' }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors">
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `${tc}15`, border: `1px solid ${tc}25` }}
-          >
-            <span className="text-sm font-light" style={{ color: tc }}>/</span>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${tc}15`, border: `1px solid ${tc}25` }}>
+            <span className="text-sm font-light" style={{ color: tc }}>{cmd.type === 'slash' ? '/' : '·'}</span>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-0.5">
               <span style={{ color: 'var(--text-primary)' }} className="font-light text-sm">{cmd.name}</span>
-              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: `${tc}15`, color: tc }}>{cmd.type}</span>
-              {cmd.scope === 'guild' && (
-                <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(192,132,252,0.1)', color: '#c084fc' }}>guild</span>
-              )}
-              {cmd.nsfw && (
-                <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">NSFW</span>
-              )}
+              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: `${tc}15`, color: tc }}>{cmd.type === 'slash' ? 'Slash' : 'Prefijo'}</span>
+              {cmd.category && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'var(--overlay-bg)', color: 'var(--text-muted)' }}>{cmd.category}</span>}
+              {cmd.premium && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15' }}>Premium</span>}
+              {cmd.nsfw && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">NSFW</span>}
             </div>
             <p className="text-xs font-light truncate" style={{ color: 'var(--text-muted)' }}>{cmd.description}</p>
           </div>
         </div>
-        {cmd.options.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-            <span className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>{cmd.options.length} opts</span>
-            {open
-              ? <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-              : <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-            }
-          </div>
-        )}
+        <span className="flex-shrink-0 ml-3" style={{ color: 'var(--text-muted)' }}>
+          {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        </span>
       </button>
-      {open && cmd.options.length > 0 && (
-        <div className="border-t divide-y" style={{ borderColor: 'var(--border-main)' }}>
-          {cmd.options.map(opt => (
-            <div key={opt.name} className="flex items-start gap-3 px-4 py-3">
-              <Hash className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-light font-mono" style={{ color: 'var(--content-secondary)' }}>{opt.name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md font-light" style={{ background: 'var(--overlay-bg)', color: 'var(--text-muted)' }}>{opt.type}</span>
-                  {opt.required && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-light bg-red-500/10 text-red-400">req</span>}
-                </div>
-                <p className="text-xs font-light mt-0.5" style={{ color: 'var(--text-muted)' }}>{opt.description}</p>
-              </div>
-            </div>
-          ))}
+      {open && (
+        <div className="border-t px-4 py-3 space-y-1.5" style={{ borderColor: 'var(--border-main)' }}>
+          <div className="flex items-start gap-3">
+            <Hash className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+            <span className="text-sm font-light font-mono break-all" style={{ color: 'var(--content-secondary)' }}>{cmd.usage}</span>
+          </div>
+          <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>
+            Espera: {cmd.cooldown ?? 3} s{aliases.length ? ` · Alias: ${aliases.join(', ')}` : ''}
+          </p>
         </div>
       )}
     </div>
@@ -314,7 +295,7 @@ const DiscordBot: React.FC = () => {
   const [commandsData,    setCommandsData]    = useState<CommandsData | null>(null);
   const [loadingCommands, setLoadingCommands] = useState(false);
   const [commandSearch,   setCommandSearch]   = useState('');
-  const [commandFilter,   setCommandFilter]   = useState<'all' | 'global' | 'guild'>('all');
+  const [commandFilter,   setCommandFilter]   = useState<'all' | 'slash' | 'prefix'>('all');
 
   // Uptime
   const [uptimeData,      setUptimeData]      = useState<UptimeDay[]>([]);
@@ -665,8 +646,9 @@ const DiscordBot: React.FC = () => {
   };
 
   const filteredCommands = (commandsData?.commands || []).filter(cmd => {
-    const ms = cmd.name.toLowerCase().includes(commandSearch.toLowerCase()) || cmd.description.toLowerCase().includes(commandSearch.toLowerCase());
-    const mf = commandFilter === 'all' || cmd.scope === commandFilter;
+    const q = commandSearch.toLowerCase();
+    const ms = (cmd.name ?? '').toLowerCase().includes(q) || (cmd.description ?? '').toLowerCase().includes(q) || (cmd.category ?? '').toLowerCase().includes(q);
+    const mf = commandFilter === 'all' || cmd.type === commandFilter;
     return ms && mf;
   });
 
@@ -1567,9 +1549,9 @@ const DiscordBot: React.FC = () => {
               {commandsData && (
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Total',    value: commandsData.total,  color: 'var(--text-primary)' },
-                    { label: 'Globales', value: commandsData.global, color: 'var(--text-primary)' },
-                    { label: 'Guild',    value: commandsData.guild,  color: '#c084fc' },
+                    { label: 'Total',   value: commandsData.total,  color: 'var(--text-primary)' },
+                    { label: 'Slash',   value: commandsData.slash,  color: '#818cf8' },
+                    { label: 'Prefijo', value: commandsData.prefix, color: '#38bdf8' },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="p-4 rounded-2xl border text-center"
                       style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
@@ -1585,7 +1567,7 @@ const DiscordBot: React.FC = () => {
                   className="db-input rounded-xl text-sm font-light outline-none max-w-xs"
                   style={inputStyle} />
                 <div className="flex gap-1">
-                  {(['all', 'global', 'guild'] as const).map(f => (
+                  {(['all', 'slash', 'prefix'] as const).map(f => (
                     <button key={f} onClick={() => setCommandFilter(f)}
                       className="px-3 py-1.5 rounded-xl text-xs font-light transition-all"
                       style={{
@@ -1594,7 +1576,7 @@ const DiscordBot: React.FC = () => {
                         border: `1px solid ${commandFilter === f ? accentColor : 'var(--border-main)'}`,
                         cursor: 'pointer',
                       }}>
-                      {f === 'all' ? 'Todos' : f === 'global' ? 'Globales' : 'Guild'}
+                      {f === 'all' ? 'Todos' : f === 'slash' ? 'Slash' : `Prefijo (${commandsData?.prefixChar ?? 'l.'})`}
                     </button>
                   ))}
                 </div>
@@ -1616,7 +1598,7 @@ const DiscordBot: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   {filteredCommands.map(cmd => (
-                    <CommandCard key={cmd.id} cmd={cmd} accentColor={accentColor} />
+                    <CommandCard key={`${cmd.type}:${cmd.name}`} cmd={cmd} />
                   ))}
                   <p className="text-xs font-light text-right pt-2" style={{ color: 'var(--content-quaternary)' }}>
                     {filteredCommands.length} de {commandsData?.total ?? 0} comandos
