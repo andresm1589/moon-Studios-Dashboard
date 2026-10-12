@@ -1,18 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, RefreshCw, CalendarDays, Plus, Trash2, ExternalLink, Trophy, Users, Award, Gift, Ghost,
-  Terminal, Settings2, Loader2, Save, X, PlayCircle, PauseCircle, Wand2, Clock, CheckCircle2, Archive,
+  Terminal, Settings2, Loader2, Save, X, PlayCircle, PauseCircle, Wand2, Clock, CheckCircle2, Archive, Palette, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BotonSec, Bloque, Entrada, Etiqueta, Interruptor, Seleccion } from './webLuna/ui';
 import { WEB, bd, sc, sf, mt, tenue, mensajeError, type LunaFetch } from './webLuna/comun';
+import { TiposPanel } from './eventos/TiposPanel';
+import { EditorContenido } from './eventos/EditorContenido';
+import type { LunaSubir } from './eventos/campos';
+import type { Contenido, TipoEvento } from './eventos/modelo';
 
 // ─── Eventos de Luna — el calendario de temporada ────────────────────────────
-// Cada evento (Halloween…) tiene una edición por año. El bot decide solo, por
-// fechas, cuándo una edición está en curso: ese día aparecen sus comandos en
-// Discord y su página en la web; al terminar, los comandos desaparecen, se
-// entregan los premios y la página pasa al archivo. Desde aquí se cambian las
-// fechas, se fuerza o se pausa una edición y se crea la del año siguiente.
+// Cada evento (Halloween, Navidad, San Valentín…) es un TIPO con su comando,
+// sus fechas y su plantilla de contenido, y tiene una EDICIÓN por año. El bot
+// decide solo, por fechas, cuándo una edición está en curso: ese día aparece
+// su comando en Discord y su página en la web; al terminar, el comando
+// desaparece, se entregan los premios y la página pasa al archivo.
+//
+//   Ediciones        fechas, pausa, forzar, preparación, cifras y premios;
+//                    «Personalizar» cambia el contenido de esa edición sola
+//   Tipos de evento  crear eventos nuevos y cambiar su plantilla (criaturas,
+//                    moneda, insignias, tienda, misiones, bonos, textos, tema)
+//
 // API: /api/bot/eventos (requiere sesión de staff).
 
 type Estado = 'programado' | 'activo' | 'pausado' | 'terminado';
@@ -22,10 +32,11 @@ interface Cifras { participantes: number; top: Ganador[]; premiosEntregadosEn: s
 interface Edicion {
   id: string; tipo: string; anio: number; nombre: string; inicio: string; fin: string;
   modo: Modo; anticipacionDias: number; mostrarEnWeb: boolean; base: boolean; actualizadoEn: string | null;
-  estado: Estado; enPreparacion: boolean; emoji: string; color: string;
+  estado: Estado; enPreparacion: boolean; emoji: string; color: string; tipoNombre?: string; contenidoPropio?: boolean;
+  moneda?: { nombre: string; emoji: string } | null;
   comandos: string[]; comandosVisibles: boolean; esActual: boolean; criaturasSueltas: number | null; cifras: Cifras | null;
 }
-interface Tipo { id: string; nombre: string; emoji: string; color: string; comandos: string[] }
+type Tipo = TipoEvento;
 interface Datos {
   ahora: string; ediciones: Edicion[]; tipos: Tipo[];
   comandos: { firma?: string; en?: string; visibles: string[]; firmaActual: string };
@@ -185,7 +196,7 @@ const Configurar: React.FC<{ e: Edicion; lunaFetch: LunaFetch; onListo: () => vo
 };
 
 // ─── Tarjeta de una edición ──────────────────────────────────────────────────
-const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch; onCambio: () => void }> = ({ e, ahora, lunaFetch, onCambio }) => {
+const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch; onCambio: () => void; onPersonalizar: () => void }> = ({ e, ahora, lunaFetch, onCambio, onPersonalizar }) => {
   const [abierta, setAbierta] = useState(false);
   const [verTop, setVerTop] = useState(false);
   const [trabajando, setTrabajando] = useState<null | 'premios' | 'borrar'>(null);
@@ -195,7 +206,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
   const puedeBorrar = !e.base && e.estado === 'programado';
 
   const premios = async () => {
-    if (!window.confirm(`¿Entregar ya los premios de ${e.nombre}? El top 10 recibe su insignia y el #1 la de Rey Calabaza, con un MD. Solo pasa una vez.`)) return;
+    if (!window.confirm(`¿Entregar ya los premios de ${e.nombre}? Los primeros del ranking reciben sus insignias de premio final, con un MD. Solo pasa una vez.`)) return;
     setTrabajando('premios');
     try {
       const r = await lunaFetch(`/api/bot/eventos/${e.id}/premios`, { method: 'POST' });
@@ -225,6 +236,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
             {e.enPreparacion && <Pastilla color="#60a5fa" title="Su comando ya está en Discord para que el staff lo configure">En preparación</Pastilla>}
             {e.modo !== 'auto' && e.estado !== 'terminado' && <Pastilla color="#fb923c">Modo manual: {MODOS.find(m => m.id === e.modo)?.label}</Pastilla>}
             {!e.mostrarEnWeb && <Pastilla color="#94a3b8">Oculto en la web</Pastilla>}
+            {e.contenidoPropio && <Pastilla color="#c4b5fd" title="Tiene su propio contenido (no el de la plantilla de su tipo)">Personalizada</Pastilla>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-light" style={{ color: mt }}>
             <span className="inline-flex items-center gap-1"><Terminal className="w-3 h-3" strokeWidth={1.5} />
@@ -242,7 +254,8 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
               <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver en la web
             </a>
           )}
-          <BotonSec onClick={() => setAbierta(a => !a)}><Settings2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {abierta ? 'Cerrar' : 'Configurar'}</BotonSec>
+          <BotonSec onClick={onPersonalizar}><Palette className="w-3.5 h-3.5" strokeWidth={1.5} /> Personalizar</BotonSec>
+          <BotonSec onClick={() => setAbierta(a => !a)}><Settings2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {abierta ? 'Cerrar' : 'Fechas y modo'}</BotonSec>
         </div>
       </header>
 
@@ -257,7 +270,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
             : <Cifra Icon={Gift} label="Premios finales" color="#facc15"
                 valor={c.premiosEntregadosEn ? <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-400" strokeWidth={1.5} />{fecha(c.premiosEntregadosEn)}</span>
                   : e.estado === 'terminado' ? 'Pendientes' : 'Al terminar'} />}
-          <Cifra Icon={Trophy} label="Primer puesto" color="#facc15"
+          <Cifra Icon={Trophy} label={`Primer puesto${e.moneda ? ` · ${e.moneda.emoji}` : ''}`} color="#facc15"
             valor={c.top[0] ? <span className="inline-flex items-center gap-1.5 min-w-0">{c.top[0].avatar && <img src={c.top[0].avatar} alt="" className="w-5 h-5 rounded-full flex-shrink-0" />}<span className="truncate">{c.top[0].nombre}</span></span> : '—'} />
         </div>
       )}
@@ -277,7 +290,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
                   <span className="w-6 font-mono flex-shrink-0" style={{ color: g.puesto <= 3 ? '#facc15' : mt }}>#{g.puesto}</span>
                   {g.avatar && <img src={g.avatar} alt="" className="w-5 h-5 rounded-full flex-shrink-0" />}
                   <span className="text-white truncate flex-1 min-w-0">{g.nombre}</span>
-                  <span className="flex-shrink-0" style={{ color: mt }}>🍬 {mil(g.dulces)} · {mil(g.atrapadas)} atrapadas</span>
+                  <span className="flex-shrink-0" style={{ color: mt }}>{e.moneda?.emoji ?? '🍬'} {mil(g.dulces)} · {mil(g.atrapadas)} atrapadas</span>
                 </li>
               ))}
             </ol>
@@ -309,11 +322,11 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
 };
 
 // ─── Crear la edición de otro año ────────────────────────────────────────────
-const NuevaEdicion: React.FC<{ tipos: Tipo[]; ediciones: Edicion[]; lunaFetch: LunaFetch; onCreada: () => void; onCerrar: () => void }> = ({ tipos, ediciones, lunaFetch, onCreada, onCerrar }) => {
+const NuevaEdicion: React.FC<{ tipos: Tipo[]; ediciones: Edicion[]; lunaFetch: LunaFetch; onCreada: () => void; onCerrar: () => void; inicial?: string | null }> = ({ tipos, ediciones, lunaFetch, onCreada, onCerrar, inicial }) => {
   const anioActual = new Date().getFullYear();
-  const [tipo, setTipo] = useState(tipos[0]?.id ?? 'halloween');
+  const [tipo, setTipo] = useState(inicial ?? tipos[0]?.id ?? 'halloween');
   const libre = (t: string) => Array.from({ length: 6 }, (_, i) => anioActual + i).find(a => !ediciones.some(e => e.id === `${t}${a}`)) ?? anioActual + 1;
-  const [anio, setAnio] = useState(() => libre(tipos[0]?.id ?? 'halloween'));
+  const [anio, setAnio] = useState(() => libre(inicial ?? tipos[0]?.id ?? 'halloween'));
   const [creando, setCreando] = useState(false);
   const t = tipos.find(x => x.id === tipo);
   const existe = ediciones.some(e => e.id === `${tipo}${anio}`);
@@ -330,7 +343,7 @@ const NuevaEdicion: React.FC<{ tipos: Tipo[]; ediciones: Edicion[]; lunaFetch: L
 
   return (
     <Bloque Icon={Wand2} titulo="Nueva edición" color="#c4b5fd"
-      texto="Crea el evento de otro año con sus fechas de siempre. Sus insignias son nuevas (de ese año) y las del año anterior quedan en los perfiles."
+      texto="Crea el evento de un año con sus fechas de siempre y la plantilla de su tipo. Sus insignias son nuevas (de ese año) y las de otros años quedan en los perfiles."
       extra={<BotonSec onClick={onCerrar}><X className="w-3.5 h-3.5" strokeWidth={1.5} /> Cerrar</BotonSec>}>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3 items-end">
         <label className="block min-w-0">
@@ -357,7 +370,10 @@ const NuevaEdicion: React.FC<{ tipos: Tipo[]; ediciones: Edicion[]; lunaFetch: L
 };
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
-export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }) => {
+export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaSubir }> = ({ lunaFetch, lunaSubir }) => {
+  const [vista, setVista] = useState<'ediciones' | 'tipos'>('ediciones');
+  const [editando, setEditando] = useState<null | { e: Edicion; contenido: Contenido; propio: boolean }>(null);
+  const [tipoNuevaEdicion, setTipoNuevaEdicion] = useState<string | null>(null);
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -396,6 +412,67 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch
   }
   if (!datos) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: mt }} /></div>;
 
+  const personalizar = async (e: Edicion) => {
+    try {
+      const r = await lunaFetch(`/api/bot/eventos/${e.id}/contenido`);
+      const d = r.data as { propio: boolean; contenido: Contenido };
+      setEditando({ e, contenido: d.contenido, propio: d.propio });
+    } catch (err) { toast.error(mensajeError(err, 'No se pudo abrir el contenido')); }
+  };
+
+  if (editando) {
+    const { e } = editando;
+    return (
+      <EditorContenido
+        key={e.id} titulo={`Personalizar ${e.nombre}`} emoji={e.emoji} inicial={editando.contenido} subir={lunaSubir}
+        aviso={<p className="text-[11px] font-light leading-relaxed px-3.5 py-2.5 rounded-xl" style={{ color: mt, border: `1px solid ${bd}` }}>
+          {editando.propio
+            ? <>Esta edición tiene su <b className="text-white font-normal">propio contenido</b>: los cambios de la plantilla de {e.tipoNombre ?? e.tipo} no la afectan.</>
+            : <>Ahora usa la plantilla de {e.tipoNombre ?? e.tipo}. Al guardar, esta edición pasa a tener su propio contenido (la plantilla no cambia).</>}
+          {e.estado === 'activo' && <> Está <b className="text-white font-normal">en curso</b>: los cambios se ven en Discord al instante. Cambiar ids de criaturas o insignias ya entregadas puede dejarlas sin mostrar.</>}
+        </p>}
+        extra={editando.propio && (
+          <BotonSec onClick={async () => {
+            if (!window.confirm(`¿Quitarle a ${e.nombre} su contenido propio y volver a la plantilla de ${e.tipoNombre ?? e.tipo}?`)) return;
+            try {
+              await lunaFetch(`/api/bot/eventos/${e.id}/contenido`, { method: 'PUT', body: JSON.stringify({ contenido: null }) });
+              toast.success(`${e.nombre} vuelve a usar la plantilla.`);
+              setEditando(null); pedir();
+            } catch (err) { toast.error(mensajeError(err, 'No se pudo')); }
+          }}><Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> Volver a la plantilla</BotonSec>
+        )}
+        onCerrar={() => setEditando(null)}
+        onGuardar={async (contenido) => {
+          await lunaFetch(`/api/bot/eventos/${e.id}/contenido`, { method: 'PUT', body: JSON.stringify({ contenido }) });
+          toast.success(`${e.nombre} guardado. El bot lo usa al instante.`);
+          setEditando(null); pedir();
+        }}
+      />
+    );
+  }
+
+  const pestanas = (
+    <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: sc, border: `1px solid ${bd}` }}>
+      {([['ediciones', 'Ediciones', CalendarDays], ['tipos', 'Tipos de evento', Layers]] as const).map(([id, label, Icon]) => (
+        <button key={id} type="button" onClick={() => setVista(id)}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-light transition-all"
+          style={{ background: vista === id ? 'rgba(255,255,255,0.08)' : 'transparent', color: vista === id ? 'white' : mt }}>
+          <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />{label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (vista === 'tipos') {
+    return (
+      <div className="space-y-4">
+        {pestanas}
+        <TiposPanel tipos={datos.tipos} lunaFetch={lunaFetch} lunaSubir={lunaSubir} onCambio={pedir}
+          onCrearEdicion={(t) => { setTipoNuevaEdicion(t); setCreando(true); setVista('ediciones'); }} />
+      </div>
+    );
+  }
+
   const { comandos } = datos;
   const alDia = comandos.firma === comandos.firmaActual;
   const orden: Estado[] = ['activo', 'pausado', 'programado', 'terminado'];
@@ -404,6 +481,7 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch
 
   return (
     <div className="space-y-4">
+      {pestanas}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-start">
         <Bloque Icon={Terminal} titulo="Comandos de eventos en Discord" color={alDia ? '#4ade80' : '#facc15'}
           texto="El bot revisa el calendario cada minuto: cuando una edición empieza o termina, vuelve a registrar los comandos solo."
@@ -411,9 +489,7 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch
           <div className="flex flex-wrap items-center gap-2 text-xs font-light" style={{ color: mt }}>
             {datos.tipos.map(t => {
               const on = comandos.visibles.includes(t.id);
-              return t.comandos.map(cmd => (
-                <Pastilla key={cmd} color={on ? '#4ade80' : '#94a3b8'}>/{cmd} · {on ? 'visible' : 'oculto'}</Pastilla>
-              ));
+              return <Pastilla key={t.id} color={on ? '#4ade80' : '#94a3b8'}>{t.emoji} /{t.comando} · {on ? 'visible' : 'oculto'}</Pastilla>;
             })}
             <span>·</span>
             {alDia
@@ -422,7 +498,7 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch
           </div>
         </Bloque>
         <div className="flex flex-wrap gap-2 lg:flex-col">
-          <BotonSec onClick={() => setCreando(c => !c)}><Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Nueva edición</BotonSec>
+          <BotonSec onClick={() => { setTipoNuevaEdicion(null); setCreando(c => !c); }}><Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Nueva edición</BotonSec>
           <BotonSec onClick={pedir} disabled={cargando}><RefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin' : ''}`} strokeWidth={1.5} /> Actualizar</BotonSec>
           <a href={`${WEB}/eventos`} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5" style={{ border: `1px solid ${bd}`, color: mt }}>
@@ -432,11 +508,11 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch
       </div>
 
       {error && <p className="text-[11px] font-light" style={{ color: '#f87171' }}>No se pudo actualizar: {error}</p>}
-      {creando && <NuevaEdicion tipos={datos.tipos} ediciones={datos.ediciones} lunaFetch={lunaFetch} onCreada={pedir} onCerrar={() => setCreando(false)} />}
+      {creando && <NuevaEdicion key={tipoNuevaEdicion ?? '-'} inicial={tipoNuevaEdicion} tipos={datos.tipos} ediciones={datos.ediciones} lunaFetch={lunaFetch} onCreada={pedir} onCerrar={() => setCreando(false)} />}
 
       {lista.length === 0
         ? <p className="text-xs font-light px-3.5 py-6 rounded-xl text-center" style={{ color: mt, border: `1px dashed ${bd}` }}>Todavía no hay ediciones.</p>
-        : lista.map(e => <TarjetaEdicion key={e.id} e={e} ahora={ahora} lunaFetch={lunaFetch} onCambio={pedir} />)}
+        : lista.map(e => <TarjetaEdicion key={e.id} e={e} ahora={ahora} lunaFetch={lunaFetch} onCambio={pedir} onPersonalizar={() => void personalizar(e)} />)}
     </div>
   );
 };

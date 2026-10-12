@@ -62,6 +62,20 @@ const lunaFetch = async (path: string, opts: RequestInit = {}) => {
   return json;
 };
 
+/** Sube una imagen a la API de Luna (Cloudinary) y devuelve su URL. Solo staff. */
+const lunaSubir = async (archivo: File): Promise<string> => {
+  const token = await auth.currentUser?.getIdToken();
+  const datos = new FormData();
+  datos.append('imagen', archivo);
+  const res = await fetch(`${LUNA_API}/api/bot/eventos/imagen`, {
+    method: 'POST', body: datos, headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  const json = await res.json().catch(() => null);
+  if (!json) throw new Error(res.status === 404 ? 'La API de Luna NET todavía no tiene esta función: falta subir y reiniciar el bot.' : `HTTP ${res.status}`);
+  if (!res.ok || !json.data?.url) throw new Error(json.error || `HTTP ${res.status}`);
+  return json.data.url as string;
+};
+
 // ── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL as string,
@@ -3658,7 +3672,7 @@ const Webs: React.FC = () => {
           {activeTab === 'luna'       && <AlliesPanel />}
           {activeTab === 'legal'      && <LegalLunaPanel lunaFetch={lunaFetch} />}
           {activeTab === 'webluna'    && <WebLunaPanel lunaFetch={lunaFetch} />}
-          {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} />}
+          {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} lunaSubir={lunaSubir} />}
           {activeTab === 'incidentes' && <IncidentsPanel />}
           {activeTab === 'portal'  && <PortalClientesPanel />}
           {activeTab === 'correo'  && <CorreoFestPanel />}
