@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.52",
-    "notes":  "Webs rediseñado: menú por sitio, resumen y nuevo panel de socios capitalistas (aprobar, confirmar pagos y dejar notas).",
-    "pub_date":  "2026-10-12T19:32:11Z",
+    "version":  "2.1.53",
+    "notes":  "Bot de Discord: nueva pestaña Emojis para ver y cambiar los emojis del bot y subir emojis propios.",
+    "pub_date":  "2026-10-12T19:48:05Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDRJZnhBZ29iYjZkeC8wYm5uVHdEeWVRd3NXV2luUVpxc00wVy81aVZxSzlnSnhyYkRWczhjS2hNL0g4SDY1Rk5vY0Zsc1ZhU3o1N0h6T0ZnSlI5NkFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUxNTMwCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41Ml94NjQtc2V0dXAuZXhlCnEwdldiZFFKajN3WHpRYVorNWdkYnVBMlp2Tng5NExvSldkdkRiWW1YVkVNajQ1M1dpK2V3b0dSME9pR3pQVkJBeE43d2E1VldQM0ZiM3REQklGZER3PT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.52/moon.Studios_2.1.52_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDFqa2YrK0NQT1ZSZTNnLzVVNHNWaFhxSk5wTG1yb1EzVTU4RnJqNE9McHlEQWZjVXpjWDVGSHhlZDhZT2xkQmdoSFIyWXpEU3hjdFhLSmlkR0hjMGdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUyNDg0CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41M194NjQtc2V0dXAuZXhlCmpyTDZMdFNsN3JCZnpaMjdLSTkyYm1LV1JUWjFvTCt3emhaOXpvWmFyNi85YSs5dlp0SEpaSXpGblhkRm9hbkdqYmVURnI3UWI3WlNFSUpsY0pEbEJRPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.53/moon.Studios_2.1.53_x64-setup.exe"
                                          }
                   }
 }
