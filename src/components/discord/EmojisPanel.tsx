@@ -9,6 +9,7 @@ import {
   type DatosEmojis, type EmojiBot, type EmojiPropio,
 } from '@/services/discordApi';
 import { CSS_WEBS } from '@/components/webs/estilos';
+import { SelectorEmojis, Twemoji } from './SelectorEmojis';
 
 // ─── Bot de Discord → Emojis ─────────────────────────────────────────────────
 // Los emojis «con significado» del bot (la moneda, los rangos, las mascotas,
@@ -30,7 +31,7 @@ function Vista({ valor, url, size = 26 }: { valor: string; url?: string | null; 
   const id = valor.match(/:(\d+)>$/)?.[1];
   const src = url ?? (id ? `https://cdn.discordapp.com/emojis/${id}.${valor.startsWith('<a:') ? 'gif' : 'png'}?size=64` : null);
   if (RE_DISCORD.test(valor) && src) return <img src={src} alt={valor} width={size} height={size} style={{ objectFit: 'contain' }} />;
-  return <span style={{ fontSize: size * 0.95, lineHeight: 1 }}>{valor}</span>;
+  return <Twemoji emoji={valor} size={size} />;
 }
 
 export function EmojisPanel() {
@@ -151,7 +152,6 @@ function Editor({ grupo, item, propios, onCerrar, onGuardado }: {
 }) {
   const [valor, setValor] = useState(item.valor);
   const [guardando, setGuardando] = useState(false);
-  const [buscarPropio, setBuscarPropio] = useState('');
   const limpio = valor.trim();
   const valido = RE_DISCORD.test(limpio) || (limpio.length > 0 && limpio.length <= 16 && !/^[\x20-\x7E]+$/.test(limpio));
 
@@ -172,13 +172,11 @@ function Editor({ grupo, item, propios, onCerrar, onGuardado }: {
     setGuardando(false);
   };
 
-  const qp = buscarPropio.trim().toLowerCase();
-  const sugeridos = propios.filter(p => !qp || p.nombre.toLowerCase().includes(qp)).slice(0, 60);
 
   return (
     <>
       <div className="wb-velo" onClick={onCerrar} />
-      <aside className="wb-hoja" role="dialog" aria-label={`Emoji ${item.clave}`}>
+      <aside className="wb-hoja" style={{ width: 'min(520px, 100vw)' }} role="dialog" aria-label={`Emoji ${item.clave}`}>
         <div className="wb-hoja-cab">
           <span className="em-grande"><Vista valor={item.valor} url={item.url} size={36} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -203,21 +201,12 @@ function Editor({ grupo, item, propios, onCerrar, onGuardado }: {
               <span className="em-previa">{valido ? <Vista valor={limpio} size={26} /> : <span style={{ opacity: .4 }}>?</span>}</span>
               <input className="wb-input" value={valor} onChange={e => setValor(e.target.value)} placeholder="🌙 o <:nombre:id>" style={{ fontFamily: RE_DISCORD.test(limpio) ? 'monospace' : undefined }} />
             </div>
-            <small className="em-ayuda">Pega un emoji normal, o uno propio con la forma {'<:nombre:id>'} (animado: {'<a:nombre:id>'}). En Discord: escribe \:nombre: en un mensaje para ver su código.</small>
+            <small className="em-ayuda">Elige uno abajo, o pega un emoji o un código propio {'<:nombre:id>'} (animado: {'<a:nombre:id>'}).</small>
           </div>
 
           <div>
-            <span className="wb-etiqueta">Elegir un emoji propio del bot</span>
-            <div className="wb-buscar" style={{ marginBottom: 8 }}><Search /><input className="wb-input" value={buscarPropio} onChange={e => setBuscarPropio(e.target.value)} placeholder="Buscar por nombre" /></div>
-            {sugeridos.length ? (
-              <div className="em-propios-mini">
-                {sugeridos.map(p => (
-                  <button key={p.id} type="button" title={`${p.nombre} · ${p.origen}`} aria-pressed={limpio === p.codigo} onClick={() => setValor(p.codigo)}>
-                    <img src={p.url} alt={p.nombre} width={26} height={26} />
-                  </button>
-                ))}
-              </div>
-            ) : <small className="em-ayuda">No hay emojis propios con ese nombre.</small>}
+            <span className="wb-etiqueta">Elegir</span>
+            <SelectorEmojis propios={propios} actual={limpio} onElegir={setValor} />
           </div>
 
           <dl className="wb-datos">
@@ -359,10 +348,6 @@ const CSS = `
 .em-ayuda { display: block; margin-top: 6px; font-size: 11px; font-weight: 300; line-height: 1.5; color: hsl(var(--muted-foreground)); }
 .em-alerta { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 12px; line-height: 1.5; color: #ef4444; background: rgba(239, 68, 68, .07); border: 1px solid rgba(239, 68, 68, .25); }
 .em-alerta svg { flex: none; margin-top: 1px; }
-.em-propios-mini { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; max-height: 210px; overflow-y: auto; }
-.em-propios-mini button { height: 40px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; background: ${tinte(3)}; border: 1px solid transparent; }
-.em-propios-mini button:hover { background: ${tinte(8)}; }
-.em-propios-mini button[aria-pressed="true"] { border-color: ${tinte(45)}; background: ${tinte(10)}; }
 .em-subir { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px; }
 .em-soltar { flex: none; width: 88px; height: 88px; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 4px; cursor: pointer; font-size: 11px;
   color: hsl(var(--muted-foreground)); background: ${tinte(3)}; border: 1px dashed ${tinte(25)}; }
@@ -377,6 +362,27 @@ const CSS = `
 .em-propio-acciones { position: absolute; top: 6px; right: 6px; display: none; gap: 4px; }
 .em-propio:hover .em-propio-acciones { display: flex; }
 .em-propio-acciones button { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: ${T}; background: hsl(var(--secondary)); border: 1px solid hsl(var(--border)); }
+/* Selector de emojis (como el de Discord) */
+.se { border-radius: 14px; overflow: hidden; background: hsl(var(--secondary)); border: 1px solid hsl(var(--border)); }
+.se-cab { padding: 8px; border-bottom: 1px solid hsl(var(--border)); }
+.se-cuerpo { display: grid; grid-template-columns: 40px minmax(0, 1fr); height: 300px; }
+.se-cats { display: grid; align-content: start; gap: 2px; padding: 6px 4px; border-right: 1px solid hsl(var(--border)); overflow-y: auto; }
+.se-cats button { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; border: none; background: none; cursor: pointer; color: hsl(var(--muted-foreground)); }
+.se-cats button:hover { color: ${T}; background: ${tinte(6)}; }
+.se-cats button[aria-pressed="true"] { color: ${T}; background: ${tinte(10)}; }
+.se-lista { position: relative; overflow-y: auto; padding: 4px 8px 8px; }
+.se-lista h4 { position: sticky; top: -4px; z-index: 1; margin: 0; padding: 8px 2px 6px; font-size: 10.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); background: hsl(var(--secondary)); }
+.se-lista h4 small { text-transform: none; letter-spacing: 0; font-weight: 300; }
+.se-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 2px; }
+.se-emoji { height: 38px; display: grid; place-items: center; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer; }
+.se-emoji:hover { background: ${tinte(9)}; }
+.se-emoji[aria-pressed="true"] { border-color: ${tinte(45)}; background: ${tinte(10)}; }
+.se-emoji img { object-fit: contain; transition: transform .12s; }
+.se-emoji:hover img { transform: scale(1.12); }
+.se-nota { margin: 0 2px 6px; font-size: 11.5px; font-weight: 300; color: hsl(var(--muted-foreground)); }
+.se-pie { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; border-top: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
+.se-pie b { display: block; font-size: 12.5px; font-weight: 500; color: ${T}; }
+.se-pie small { display: block; font-size: 11px; font-weight: 300; color: hsl(var(--muted-foreground)); }
 @media (max-width: 860px) {
   .em-cuerpo { grid-template-columns: minmax(0, 1fr); }
   .em-grupos { position: static; display: flex; overflow-x: auto; }
