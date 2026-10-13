@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.51",
-    "notes":  "Arreglo: la pestana Comandos del bot ya no deja la app en negro.",
-    "pub_date":  "2026-10-11T23:55:55Z",
+    "version":  "2.1.52",
+    "notes":  "Webs rediseñado: menú por sitio, resumen y nuevo panel de socios capitalistas (aprobar, confirmar pagos y dejar notas).",
+    "pub_date":  "2026-10-12T19:32:11Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDc5Mm81WkpZeC9tUHJiR3p4RE9EbW04NDBLZzBVN1lSd2cvTHJ3eE5acHJVY3N4TExQaFgvQ1FuQU1FNEp1cmkvQjRhKy90VjQvZHpqSmwvTU9DNkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNzgwOTUxCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41MV94NjQtc2V0dXAuZXhlCkRzT0RUNXZXemFNTW9ZSTRyQkNpYitEODNSRzVQa2d4OEhWZ2RCRmtIQ2xHVmpXOHhqbzlUVlRBQm91UVgvOUxMd244WTRvTUNENTU0b3JobUVJVEFBPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.51/moon.Studios_2.1.51_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDRJZnhBZ29iYjZkeC8wYm5uVHdEeWVRd3NXV2luUVpxc00wVy81aVZxSzlnSnhyYkRWczhjS2hNL0g4SDY1Rk5vY0Zsc1ZhU3o1N0h6T0ZnSlI5NkFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUxNTMwCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41Ml94NjQtc2V0dXAuZXhlCnEwdldiZFFKajN3WHpRYVorNWdkYnVBMlp2Tng5NExvSldkdkRiWW1YVkVNajQ1M1dpK2V3b0dSME9pR3pQVkJBeE43d2E1VldQM0ZiM3REQklGZER3PT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.52/moon.Studios_2.1.52_x64-setup.exe"
                                          }
                   }
 }
