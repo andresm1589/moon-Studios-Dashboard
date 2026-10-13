@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.53",
-    "notes":  "Bot de Discord: nueva pestaña Emojis para ver y cambiar los emojis del bot y subir emojis propios.",
-    "pub_date":  "2026-10-12T19:48:05Z",
+    "version":  "2.1.54",
+    "notes":  "Emojis: selector con todos los emojis de Discord (categorías, búsqueda y emojis propios del bot).",
+    "pub_date":  "2026-10-12T19:53:28Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDFqa2YrK0NQT1ZSZTNnLzVVNHNWaFhxSk5wTG1yb1EzVTU4RnJqNE9McHlEQWZjVXpjWDVGSHhlZDhZT2xkQmdoSFIyWXpEU3hjdFhLSmlkR0hjMGdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUyNDg0CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41M194NjQtc2V0dXAuZXhlCmpyTDZMdFNsN3JCZnpaMjdLSTkyYm1LV1JUWjFvTCt3emhaOXpvWmFyNi85YSs5dlp0SEpaSXpGblhkRm9hbkdqYmVURnI3UWI3WlNFSUpsY0pEbEJRPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.53/moon.Studios_2.1.53_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDEvUXJDVVFJdFl4cHhlU2FTMUYrVG0vUXNjdktJTFJVU1RWd1MzVFF5OHlxRzUrbTZwWDA3Rm5nYVJGRW9QRFZPMjh1U1hRNC9OVmdMZDgrTGVQdHdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUyODA3CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41NF94NjQtc2V0dXAuZXhlCmNha0Y5YTZCMXBOL1BCZU1XTlg0ZGhPSTNxYVZMTjUwbmJNbm5xY2FJb3JHamRRUmkvVWZ3QU5Ha1FTV1craVozUHVGMlpRZTBLUUw2NkRUdmk4ckNnPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.54/moon.Studios_2.1.54_x64-setup.exe"
                                          }
                   }
 }
