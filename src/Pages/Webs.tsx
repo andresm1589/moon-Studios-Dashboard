@@ -8,7 +8,7 @@ import {
   Globe, ExternalLink, Save, Settings, Image, MessageCircle, Users, Loader2,
   RefreshCw, Trash2, Mail, Send, X, CheckCircle, UserCheck, AlertCircle,
   Search, AtSign, FileText, Edit, Eye, ChevronDown, Building2, Paperclip,
-  Activity, Tag, Sparkles, DollarSign, Plus, Moon, ChevronUp, Link2,
+  Activity, Tag, Sparkles, Plus, ChevronUp, Link2,
   AlertTriangle,
   BarChart3, CreditCard, Handshake, ToggleLeft, ToggleRight,
   ArrowUp, ArrowDown, ExternalLink as ExtLink,
@@ -21,6 +21,11 @@ import { LegalLunaPanel } from '@/components/LegalLunaPanel';
 import { WebLunaPanel } from '@/components/WebLunaPanel';
 import { EventosLunaPanel } from '@/components/EventosLunaPanel';
 import { ProteccionErrores } from '@/components/ProteccionErrores';
+import { SociosPanel } from '@/components/webs/SociosPanel';
+import { ResumenWebs } from '@/components/webs/ResumenWebs';
+import { cargarDatosWebs, type DatosWebs } from '@/components/webs/datos';
+import { CSS_WEBS } from '@/components/webs/estilos';
+import { LayoutDashboard, ChevronRight as Flecha } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -197,11 +202,11 @@ const formatDateShort = (value: Timestamp | null | undefined): string => {
 };
 
 const getTierLabel = (monto: number): string => {
-  if (monto >= 10000) return '🌙 Socio Fundador';
-  if (monto >= 5000)  return '⭐ Socio Platino';
-  if (monto >= 2500)  return '💎 Socio Oro';
-  if (monto >= 1000)  return '🚀 Socio Plata';
-  return '🌱 Socio Semilla';
+  if (monto >= 10000) return 'Socio Fundador';
+  if (monto >= 5000)  return 'Socio Platino';
+  if (monto >= 2500)  return 'Socio Oro';
+  if (monto >= 1000)  return 'Socio Plata';
+  return 'Socio Semilla';
 };
 
 const TIPO_LABELS: Record<string, string> = {
@@ -1004,7 +1009,7 @@ const AlliesPanel: React.FC = () => {
 // PORTAL CLIENTES
 // ═══════════════════════════════════════════════════════════════════
 
-const PortalClientesPanel: React.FC = () => {
+const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) => {
   const [solicitudes,    setSolicitudes]    = useState<Solicitud[]>([]);
   const [socios,         setSocios]         = useState<Socio[]>([]);
   const [loading,        setLoading]        = useState(true);
@@ -1088,6 +1093,7 @@ const PortalClientesPanel: React.FC = () => {
       ));
       toast.success('Solicitud actualizada');
       setEditingId(null);
+      onCambio?.();
     } catch (e) {
       toast.error('Error al actualizar');
       console.error(e);
@@ -1118,6 +1124,7 @@ const PortalClientesPanel: React.FC = () => {
         estado: newStatus, actualizadoEn: new Date(),
       });
       toast.success(`Estado → ${STATUS_CONFIG[newStatus].label}`);
+      onCambio?.();
     } catch {
       setSolicitudes(prev => prev.map(s =>
         s.id === id ? { ...s, estado: s.estado } : s
@@ -1184,8 +1191,8 @@ const PortalClientesPanel: React.FC = () => {
         {[
           { label: 'Solicitudes',       value: stats.total,       sub: `${stats.pendiente} pend.`,     color: 'rgba(255,255,255,0.7)', icon: <FileText className="w-3.5 h-3.5" /> },
           { label: 'En proceso',        value: stats.en_proceso,  sub: `${stats.completado} OK`,        color: '#60a5fa',               icon: <Activity className="w-3.5 h-3.5" /> },
-          { label: 'Socios',            value: stats.socioTotal,  sub: `${stats.socioPending} revs.`,   color: '#f59e0b',               icon: <Building2 className="w-3.5 h-3.5" /> },
-          { label: 'Inversión aprobada',value: `$${stats.socioMonto.toLocaleString('es-PE')}`, sub: `${stats.socioAprobado} socios`, color: '#4ade80', icon: <DollarSign className="w-3.5 h-3.5" /> },
+          { label: 'Completadas',       value: stats.completado,  sub: 'cerradas con éxito',           color: '#4ade80',               icon: <CheckCircle className="w-3.5 h-3.5" /> },
+          { label: 'Denegadas',         value: stats.denegado,    sub: 'no aprobadas',                 color: '#f87171',               icon: <X className="w-3.5 h-3.5" /> },
         ].map((s, i) => (
           <div key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
             <div className="flex items-center justify-between mb-3">
@@ -1198,8 +1205,8 @@ const PortalClientesPanel: React.FC = () => {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-2xl p-1.5" style={{ background: sc, border: `1px solid ${bd}` }}>
+      {/* Tabs (los socios ahora tienen su propia sección en Webs) */}
+      <div className="hidden">
         {(['solicitudes', 'socios'] as const).map(tab => (
           <button
             key={tab}
@@ -3543,143 +3550,120 @@ const PortfolioPanel: React.FC = () => {
 // WEBS — COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════
 
-const TABS_CONFIG = [
-  { id: 'sitios',     label: 'Sitios Web',  Icon: Globe,          color: '#4ade80' },
-  { id: 'equipo',     label: 'Equipo',      Icon: UserCheck,      color: '#facc15' },
-  { id: 'portafolio', label: 'Portafolio',  Icon: Briefcase,      color: '#fb923c' },
-  { id: 'luna',       label: 'Luna NET',    Icon: Moon,           color: '#a5b4fc' },
-  { id: 'legal',      label: 'Legal Luna',  Icon: FileText,       color: '#c4b5fd' },
-  { id: 'webluna',    label: 'Web Luna',    Icon: Newspaper,      color: '#f472b6' },
-  { id: 'eventos',    label: 'Eventos',     Icon: CalendarDays,   color: '#fb923c' },
-  { id: 'incidentes', label: 'Incidentes',  Icon: AlertTriangle,  color: '#f87171' },
-  { id: 'portal',     label: 'Portal',      Icon: Users,          color: '#60a5fa' },
-  { id: 'correo',     label: 'Correo',      Icon: Mail,           color: '#818cf8' },
-] as const;
+type TabId =
+  | 'resumen' | 'portal' | 'socios' | 'portafolio' | 'equipo'
+  | 'luna' | 'webluna' | 'legal' | 'eventos' | 'incidentes'
+  | 'sitios' | 'correo';
 
-type TabId = typeof TABS_CONFIG[number]['id'];
+interface Seccion { id: TabId; label: string; desc: string; Icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }
+interface Grupo { titulo: string; sitio?: string; items: Seccion[] }
+
+// El menú, agrupado por sitio. Cada grupo lleva el enlace a su web en vivo.
+const GRUPOS: Grupo[] = [
+  { titulo: 'General', items: [
+    { id: 'resumen', label: 'Resumen', desc: 'Los tres sitios de un vistazo y lo que espera respuesta.', Icon: LayoutDashboard },
+  ] },
+  { titulo: 'Moon Studios', sitio: 'https://moon-studios.netlify.app', items: [
+    { id: 'portal',     label: 'Solicitudes',  desc: 'Cotizaciones, tickets, alianzas y soporte del portal de clientes.', Icon: FileText },
+    { id: 'socios',     label: 'Socios',       desc: 'Socios capitalistas: revisar, aprobar, confirmar pagos y dejar notas.', Icon: Building2 },
+    { id: 'portafolio', label: 'Portafolio',   desc: 'Los proyectos que se muestran en la web y en /proyectos.', Icon: Briefcase },
+    { id: 'equipo',     label: 'Equipo',       desc: 'Las personas de la sección «Equipo».', Icon: UserCheck },
+  ] },
+  { titulo: 'Luna NET', sitio: 'https://luna-net.nellyx.xyz', items: [
+    { id: 'luna',       label: 'Aliados',      desc: 'Los aliados que se muestran en la web de Luna.', Icon: Handshake },
+    { id: 'webluna',    label: 'Web Luna',     desc: 'Sobre nosotros, contacto y blog.', Icon: Newspaper },
+    { id: 'legal',      label: 'Legal',        desc: 'Privacidad, términos y cookies.', Icon: FileText },
+    { id: 'eventos',    label: 'Eventos',      desc: 'Eventos de temporada: contenido, imágenes y fechas.', Icon: CalendarDays },
+    { id: 'incidentes', label: 'Incidentes',   desc: 'El estado del sistema que ven los usuarios.', Icon: AlertTriangle },
+  ] },
+  { titulo: 'Moon Fest 2026', sitio: 'https://moon-studios-fest.netlify.app', items: [
+    { id: 'sitios',     label: 'Sitio e inscritos', desc: 'Configuración del evento y la lista de inscritos.', Icon: Globe },
+    { id: 'correo',     label: 'Correo masivo',     desc: 'Correos a los inscritos de Moon Fest.', Icon: Mail },
+  ] },
+];
+const SECCIONES = GRUPOS.flatMap(g => g.items.map(it => ({ ...it, grupo: g })));
+const CLAVE_SECCION = 'webs-seccion';
 
 const Webs: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabId>('sitios');
-  const current = TABS_CONFIG.find(t => t.id === activeTab)!;
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    try { const v = localStorage.getItem(CLAVE_SECCION) as TabId | null; if (v && SECCIONES.some(x => x.id === v)) return v; } catch { /* sin almacenamiento */ }
+    return 'resumen';
+  });
+  const [datos, setDatos] = useState<DatosWebs | null>(null);
+  const actual = SECCIONES.find(x => x.id === activeTab) ?? SECCIONES[0];
+
+  // Lo que alimenta el resumen y las insignias del menú.
+  const recargar = useCallback(() => { cargarDatosWebs(lunaFetch).then(setDatos).catch(e => console.error('Webs:', e)); }, []);
+  useEffect(() => { recargar(); }, [recargar]);
+
+  const ir = (id: string) => {
+    if (!SECCIONES.some(x => x.id === id)) return;
+    setActiveTab(id as TabId);
+    try { localStorage.setItem(CLAVE_SECCION, id); } catch { /* da igual */ }
+    if (id === 'resumen') recargar();
+  };
+
+  const insignia: Partial<Record<TabId, number>> = {
+    portal: datos?.solicitudes.filter(x => x.estado === 'pendiente').length ?? 0,
+    socios: datos?.socios.filter(x => x.estado === 'pendiente').length ?? 0,
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3 mb-1">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `${current.color}18`, border: `1px solid ${current.color}30` }}
-          >
-            <current.Icon className="w-4 h-4" style={{ color: current.color }} strokeWidth={1.5} />
+    <div className="animate-fade-in">
+      <style>{CSS_WEBS}</style>
+      <div className="wb">
+        <nav className="wb-nav" aria-label="Secciones de Webs">
+          <div className="wb-nav-marca">
+            <span className="wb-avatar" style={{ borderRadius: 11 }}><Globe className="w-4 h-4" strokeWidth={1.5} /></span>
+            <div><b>Webs</b><small>Administración de los sitios</small></div>
           </div>
-          <div>
-            <h1 className="text-xl font-light text-white tracking-tight">Webs</h1>
-            <p className="text-xs font-light" style={{ color: mt }}>Moon Studios · Administración web</p>
+          {GRUPOS.map(g => (
+            <div key={g.titulo} className="wb-grupo">
+              <div className="wb-grupo-titulo">
+                {g.titulo}
+                {g.sitio && <a href={g.sitio} target="_blank" rel="noopener noreferrer" title={`Abrir ${g.titulo}`}><ExternalLink className="w-3 h-3" /></a>}
+              </div>
+              {g.items.map(({ id, label, Icon }) => (
+                <button key={id} type="button" className="wb-item" aria-current={activeTab === id ? 'page' : undefined} onClick={() => ir(id)}>
+                  <Icon strokeWidth={1.5} /><span>{label}</span>
+                  {!!insignia[id] && <i className="wb-insignia" style={{ fontStyle: 'normal' }}>{insignia[id]}</i>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="wb-cuerpo">
+          <header className="wb-cab">
+            <div style={{ minWidth: 0 }}>
+              <div className="wb-ruta">Webs<Flecha className="w-3 h-3" />{actual.grupo.titulo}</div>
+              <h1><actual.Icon className="w-5 h-5" strokeWidth={1.5} />{actual.label}</h1>
+              <p>{actual.desc}</p>
+            </div>
+            {actual.grupo.sitio && (
+              <a className="wb-btn" href={actual.grupo.sitio} target="_blank" rel="noopener noreferrer">
+                <ExternalLink />Ver {actual.grupo.titulo}
+              </a>
+            )}
+          </header>
+
+          <div key={activeTab} className={`wb-panel${activeTab === 'resumen' || activeTab === 'socios' ? ' wb-panel-limpio' : ''}`}>
+            {/* Si un panel se rompe, solo ese muestra el error (antes la app quedaba en negro). */}
+            <ProteccionErrores nombre={activeTab}>
+              {activeTab === 'resumen'    && <ResumenWebs datos={datos} ir={ir} />}
+              {activeTab === 'portal'     && <PortalClientesPanel onCambio={recargar} />}
+              {activeTab === 'socios'     && <SociosPanel borrarArchivo={deleteSupabaseImage} onCambio={recargar} />}
+              {activeTab === 'portafolio' && <PortfolioPanel />}
+              {activeTab === 'equipo'     && <EquipoPanel />}
+              {activeTab === 'luna'       && <AlliesPanel />}
+              {activeTab === 'webluna'    && <WebLunaPanel lunaFetch={lunaFetch} />}
+              {activeTab === 'legal'      && <LegalLunaPanel lunaFetch={lunaFetch} />}
+              {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} lunaSubir={lunaSubir} />}
+              {activeTab === 'incidentes' && <IncidentsPanel />}
+              {activeTab === 'sitios'     && <MoonFestPanel />}
+              {activeTab === 'correo'     && <CorreoFestPanel />}
+            </ProteccionErrores>
           </div>
-        </div>
-        {activeTab === 'sitios' && (
-          <a
-            href="https://moon-studios-fest.netlify.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/[0.07]"
-            style={{ border: `1px solid ${bd}`, color: mt }}
-          >
-            <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver Moon Fest
-          </a>
-        )}
-      </div>
-
-      {/* Navegación de tabs */}
-      <div className="flex gap-1 p-1.5 rounded-2xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-        {TABS_CONFIG.map(({ id, label, Icon, color }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-light transition-all"
-            style={{
-              background: activeTab === id ? 'rgba(255,255,255,0.07)' : 'transparent',
-              color:      activeTab === id ? 'white' : mt,
-              border:    `1px solid ${activeTab === id ? 'rgba(255,255,255,0.1)' : 'transparent'}`,
-            }}
-          >
-            <Icon
-              className="w-3.5 h-3.5"
-              style={{ color: activeTab === id ? color : 'inherit' }}
-              strokeWidth={1.5}
-            />
-            <span className="hidden sm:inline">{label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Contenido */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${current.color}18` }}>
-        {/* Panel header */}
-        <div
-          className="flex items-center gap-3 px-5 py-4 border-b"
-          style={{ background: sf, borderColor: `${current.color}15` }}
-        >
-          <div
-            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: `${current.color}12`, border: `1px solid ${current.color}22` }}
-          >
-            <current.Icon className="w-3.5 h-3.5" style={{ color: current.color }} strokeWidth={1.5} />
-          </div>
-          <span className="text-sm font-light text-white">
-            {activeTab === 'sitios'     && 'Moon Studios Fest — Administración'}
-            {activeTab === 'equipo'     && 'Moon Studios — Equipo'}
-            {activeTab === 'portafolio' && 'Moon Studios — Portafolio de proyectos'}
-            {activeTab === 'luna'       && 'Luna NET — Gestión de Aliados'}
-            {activeTab === 'legal'      && 'Luna NET — Privacidad, términos y cookies'}
-            {activeTab === 'webluna'    && 'Luna NET — Sobre nosotros, contacto y blog'}
-            {activeTab === 'eventos'    && 'Luna NET — Calendario de eventos de temporada'}
-            {activeTab === 'incidentes' && 'Luna NET — Incidentes del Sistema'}
-            {activeTab === 'portal'     && 'Portal de Clientes · Solicitudes & Socios'}
-            {activeTab === 'correo'     && 'Correo Masivo · Moon Fest 2026'}
-          </span>
-          {activeTab === 'luna' && (
-            <span
-              className="ml-auto text-[9px] font-light px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(165,180,252,0.08)', color: '#a5b4fc', border: '1px solid rgba(165,180,252,0.18)' }}
-            >
-              Firebase Luna NET
-            </span>
-          )}
-          {activeTab === 'incidentes' && (
-            <span
-              className="ml-auto text-[9px] font-light px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}
-            >
-              Firebase Luna NET
-            </span>
-          )}
-          {activeTab === 'portal' && (
-            <span
-              className="ml-auto text-[9px] font-light px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.18)' }}
-            >
-              Admin
-            </span>
-          )}
-        </div>
-
-        {/* Panel body */}
-        <div className="p-5">
-          {/* Si un panel se rompe, solo ese muestra el error (antes la app quedaba en negro). */}
-          <ProteccionErrores nombre={activeTab}>
-          {activeTab === 'sitios'  && <MoonFestPanel />}
-          {activeTab === 'equipo'     && <EquipoPanel />}
-          {activeTab === 'portafolio' && <PortfolioPanel />}
-          {activeTab === 'luna'       && <AlliesPanel />}
-          {activeTab === 'legal'      && <LegalLunaPanel lunaFetch={lunaFetch} />}
-          {activeTab === 'webluna'    && <WebLunaPanel lunaFetch={lunaFetch} />}
-          {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} lunaSubir={lunaSubir} />}
-          {activeTab === 'incidentes' && <IncidentsPanel />}
-          {activeTab === 'portal'  && <PortalClientesPanel />}
-          {activeTab === 'correo'  && <CorreoFestPanel />}
-          </ProteccionErrores>
         </div>
       </div>
     </div>
