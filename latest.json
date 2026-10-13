@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.56",
-    "notes":  "Configuración: menú lateral sin subrayados, pantalla más ancha con menú por grupos y animaciones más sobrias.",
-    "pub_date":  "2026-10-12T20:29:41Z",
+    "version":  "2.1.57",
+    "notes":  "Notificaciones: lo leído y lo quitado se guarda en tu cuenta y ya no vuelve en cada sesión; panel agrupado por fecha.",
+    "pub_date":  "2026-10-12T20:38:36Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDM1OGxEMHl4a0N3OHRlQitrQm10WDlDQ1ZRcjhPZnc3ZExBZzJkYXpiSWpyL2RYdWttazNSNExuS2dHT3FrekQ0VmlvemIvVnNJbk9hT0EveE1HMXdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU0OTgxCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41Nl94NjQtc2V0dXAuZXhlCmVsQVZtaEJFZy9iTkh2aTNDTStGQ1ZTVGZsUEZaSDlDL2ZRdUw2bjd5T290dHVtVUhncHNkSWQ3NWFaYWpQRy9nYVZ0dG5oZDdIVWlsR1ZxL2dML0NRPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.56/moon.Studios_2.1.56_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNHkzeGZNa0FGZkFXZjlWWFJDdlpnNzMxdVovUkVRTmZqalo4cGUzRGliSDBaa0JiMW5VelladnJaN0d1cnA0VGxENmRJN3h4NTA1L0R0QncwdGhuNVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU1NTE1CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41N194NjQtc2V0dXAuZXhlCmRKT2RzRnNXWE9JNUVvYnpUZ1BIQnZFc3Bwd1ZabVkwNmFDUkh0V040cnVjQnBtOUM1Zy9uZ2NNZ2JaOC9EV3EvNzFoc2FBWmpkKzB6Q0JBREJzaERRPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.57/moon.Studios_2.1.57_x64-setup.exe"
                                          }
                   }
 }
