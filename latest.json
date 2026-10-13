@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.54",
-    "notes":  "Emojis: selector con todos los emojis de Discord (categorías, búsqueda y emojis propios del bot).",
-    "pub_date":  "2026-10-12T19:53:28Z",
+    "version":  "2.1.55",
+    "notes":  "Configuración rehecha: todas las opciones funcionan, se guardan estable y se sincronizan entre la app y la web. Alertas de inicio de sesión, atajos de teclado reales y zona horaria/formato de fecha en todo el portal.",
+    "pub_date":  "2026-10-12T20:20:19Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDEvUXJDVVFJdFl4cHhlU2FTMUYrVG0vUXNjdktJTFJVU1RWd1MzVFF5OHlxRzUrbTZwWDA3Rm5nYVJGRW9QRFZPMjh1U1hRNC9OVmdMZDgrTGVQdHdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODUyODA3CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41NF94NjQtc2V0dXAuZXhlCmNha0Y5YTZCMXBOL1BCZU1XTlg0ZGhPSTNxYVZMTjUwbmJNbm5xY2FJb3JHamRRUmkvVWZ3QU5Ha1FTV1craVozUHVGMlpRZTBLUUw2NkRUdmk4ckNnPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.54/moon.Studios_2.1.54_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNC9IY2U3V0pKWndVbG80MUwwYzF4TmdjOURJZXJkc1VDTGhsQWFwSC9lLytENWNxcGNtMkU4SDl2azBqelhlVDdkS2NXbGJUREErZU41VGdubDBtZ0EwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU0NDE4CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41NV94NjQtc2V0dXAuZXhlCjV4Z2J1Y3N0L080akYzajJLMFEvTUNiRFY4TERYalZSckQ1QWJxNEJsN2dEUFNwcEc5KzQyejJveUpuWmV0VWFDNm1LRmhyalhlUFFrQVhGQkVOakRRPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.55/moon.Studios_2.1.55_x64-setup.exe"
                                          }
                   }
 }
