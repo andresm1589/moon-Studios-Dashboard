@@ -67,18 +67,19 @@ type TabKey =
   | 'storage' | 'activity';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'profile',       label: 'Perfil',         icon: User },
-  { key: 'appearance',    label: 'Apariencia',     icon: Palette },
-  { key: 'notifications', label: 'Notificaciones', icon: Bell },
-  { key: 'security',      label: 'Seguridad',      icon: Shield },
-  { key: 'privacy',       label: 'Privacidad',     icon: Lock },
-  { key: 'accessibility', label: 'Accesibilidad',  icon: Contrast },
-  { key: 'shortcuts',     label: 'Atajos',         icon: Keyboard },
-  { key: 'integrations',  label: 'Integraciones',  icon: Link2 },
-  { key: 'storage',       label: 'Almacenamiento', icon: Database },
-  { key: 'activity',      label: 'Actividad',      icon: Activity },
+const TABS: { key: TabKey; label: string; icon: React.ElementType; grupo: 'Cuenta' | 'Preferencias' | 'Sistema'; desc: string }[] = [
+  { key: 'profile',       label: 'Perfil',         icon: User,     grupo: 'Cuenta',       desc: 'Tu foto, tu nombre y cómo te ve el equipo.' },
+  { key: 'security',      label: 'Seguridad',      icon: Shield,   grupo: 'Cuenta',       desc: 'Contraseña, alertas de inicio de sesión y dispositivos.' },
+  { key: 'privacy',       label: 'Privacidad',     icon: Lock,     grupo: 'Cuenta',       desc: 'Tu presencia en línea y tus datos.' },
+  { key: 'appearance',    label: 'Apariencia',     icon: Palette,  grupo: 'Preferencias', desc: 'Tema, color, fuente, tamaño y efectos visuales.' },
+  { key: 'notifications', label: 'Notificaciones', icon: Bell,     grupo: 'Preferencias', desc: 'Qué te avisa el portal, cómo suena y cuándo callarse.' },
+  { key: 'accessibility', label: 'Accesibilidad',  icon: Contrast, grupo: 'Preferencias', desc: 'Contraste, movimiento, foco, idioma y zona horaria.' },
+  { key: 'shortcuts',     label: 'Atajos',         icon: Keyboard, grupo: 'Preferencias', desc: 'Atajos de teclado para moverte más rápido.' },
+  { key: 'integrations',  label: 'Integraciones',  icon: Link2,    grupo: 'Sistema',      desc: 'Servicios externos conectados al portal.' },
+  { key: 'storage',       label: 'Almacenamiento', icon: Database, grupo: 'Sistema',      desc: 'Espacio en este dispositivo, caché, exportar e importar.' },
+  { key: 'activity',      label: 'Actividad',      icon: Activity, grupo: 'Sistema',      desc: 'Tu historial reciente y las actualizaciones de la app.' },
 ];
+const GRUPOS_TABS = ['Cuenta', 'Preferencias', 'Sistema'] as const;
 
 const SOUND_OPTIONS: { value: SoundType; label: string; desc: string }[] = [
   { value: 'none',    label: 'Silencio', desc: 'Sin sonido' },
@@ -325,7 +326,7 @@ const AvatarCropModal: React.FC<{
         background: 'var(--bg-sidebar, #111)', border: '1px solid var(--border-main)',
         borderRadius: 24, padding: '0', width: 'min(520px, 96vw)', overflow: 'hidden',
         boxShadow: '0 40px 80px rgba(0,0,0,0.7)',
-        animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        animation: 'slideUp 0.28s cubic-bezier(0.2,0.8,0.2,1) forwards',
       }}>
         {/* Header */}
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -470,7 +471,7 @@ const AvatarHistoryModal: React.FC<{
         background: 'var(--bg-sidebar, #111)', border: '1px solid var(--border-main)',
         borderRadius: 24, width: 'min(560px, 96vw)', maxHeight: '80vh', overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
-        animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        animation: 'slideUp 0.25s cubic-bezier(0.2,0.8,0.2,1) forwards',
       }}>
         {/* Header */}
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -931,20 +932,20 @@ avatar = url;
   return (
     <>
       <style>{`
-        @keyframes fadeIn    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn    { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeInUp  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideUp   { from{opacity:0;transform:translateY(24px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes modalIn   { from{opacity:0} to{opacity:1} }
         @keyframes toastIn   { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
         @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes tabSwitch { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes tabSwitch { from{opacity:0} to{opacity:1} }
         @keyframes scaleIn   { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
 
-        .s-fadeIn   { animation: fadeIn   0.28s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .s-fadeIn   { animation: fadeIn   0.22s cubic-bezier(0.2,0.8,0.2,1) both; }
         .s-tabIn    { animation: tabSwitch 0.22s ease forwards; }
         .s-slideIn  { animation: toastIn  0.22s ease forwards; }
-        .s-scaleIn  { animation: scaleIn  0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        .s-scaleIn  { animation: scaleIn  0.25s cubic-bezier(0.2,0.8,0.2,1) forwards; }
 
         .s-scroll::-webkit-scrollbar       { width: 3px; height: 3px; }
         .s-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -973,7 +974,7 @@ avatar = url;
           background: var(--bg-sidebar); border: 1px solid var(--border-main);
           border-radius: 14px; overflow: hidden; z-index: 100;
           backdrop-filter: blur(20px); box-shadow: 0 16px 40px rgba(0,0,0,0.3);
-          animation: scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+          animation: scaleIn 0.2s cubic-bezier(0.2,0.8,0.2,1) forwards;
         }
 
         input::placeholder, textarea::placeholder { color: var(--content-quaternary,#555); }
@@ -987,14 +988,12 @@ avatar = url;
         html.light input[type="time"]::-webkit-calendar-picker-indicator { filter: opacity(0.4); }
         html.light .s-tab-dropdown { box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
 
-        /* Stagger animations for cards */
-        .s-fadeIn > * { animation: fadeInUp 0.25s ease forwards; animation-fill-mode: both; }
-        .s-fadeIn > *:nth-child(1) { animation-delay: 0.02s; }
-        .s-fadeIn > *:nth-child(2) { animation-delay: 0.06s; }
-        .s-fadeIn > *:nth-child(3) { animation-delay: 0.10s; }
-        .s-fadeIn > *:nth-child(4) { animation-delay: 0.14s; }
-        .s-fadeIn > *:nth-child(5) { animation-delay: 0.18s; }
-        .s-fadeIn > *:nth-child(6) { animation-delay: 0.22s; }
+        /* Menú de la configuración */
+        .aj-nav-item { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 10px; border: none; background: none; cursor: pointer; text-align: left; font-size: 13px; color: var(--text-muted); transition: background .18s ease, color .18s ease; }
+        .aj-nav-item:hover { background: var(--overlay-bg, rgba(127,127,127,0.08)); color: var(--text-primary); }
+        .aj-nav-item[aria-current="page"] { color: var(--text-primary); font-weight: 500; }
+        .aj-nav-item[aria-current="page"]::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--accent-user); }
+        .s-card-hover:hover, .history-photo-card:hover { transform: none !important; }
       `}</style>
 
       {/* ── Modales ── */}
@@ -1040,9 +1039,9 @@ avatar = url;
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
       <input ref={importInputRef} type="file" accept="application/json,.json" onChange={handleImportSettings} className="hidden" />
 
-      <div className="w-full mx-auto" style={{ maxWidth: 900, color: 'var(--text-primary)' }}>
-        {/* ── Header ── */}
-        <div className="mb-6 text-center px-4">
+      <div className="w-full mx-auto" style={{ maxWidth: esPantallaAncha ? 1180 : 900, color: 'var(--text-primary)' }}>
+        {/* ── Header (solo en pantallas chicas; en grandes va en la columna) ── */}
+        {!esPantallaAncha && <div className="mb-6 text-center px-4">
           <h1 className="text-xl font-light tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>Configuración</h1>
           <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>Gestiona tu cuenta, privacidad y preferencias</p>
           {/* Se guarda solo, al momento, y se sincroniza con tus otros dispositivos. */}
@@ -1063,7 +1062,7 @@ avatar = url;
               <span style={{ fontSize: 11, color: 'rgba(52,211,153,0.6)' }}>→ Ver</span>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* ── MOBILE ── (solo se monta el layout que corresponde al ancho) */}
         {!esPantallaAncha && (
@@ -1115,29 +1114,49 @@ avatar = url;
 
         {/* ── DESKTOP ── */}
         {esPantallaAncha && (
-        <div className="hidden lg:flex gap-5 px-4">
-          <div style={{ width: 180, flexShrink: 0, padding: 8, borderRadius: 16, background: 'var(--sidebar-card-bg)', border: '1px solid var(--border-main)', height: 'fit-content', position: 'sticky', top: 24 }}>
-            {TABS.map(({ key, label, icon: Icon }) => {
-              const active = activeTab === key;
-              return (
-                <button key={key} onClick={() => setActiveTab(key)} className="s-tab-item" style={{
-                  display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px',
-                  borderRadius: 10, fontSize: 13, fontWeight: active ? 500 : 400,
-                  border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  background: active ? `${accentColor}22` : 'transparent',
-                  color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-                  outline: 'none', marginBottom: 2,
-                }}>
-                  <Icon size={14} strokeWidth={active ? 2 : 1.5} style={{ color: active ? accentColor : undefined }} />
-                  <span style={{ flex: 1 }}>{label}</span>
-                  {key === 'activity' && pendingUpdate && (
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34d399', flexShrink: 0, boxShadow: '0 0 6px rgba(52,211,153,0.7)' }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex-1 min-w-0">
+        <div className="hidden lg:flex gap-8 px-6 py-2">
+          <nav aria-label="Secciones de la configuración" style={{ width: 230, flexShrink: 0, position: 'sticky', top: 16, alignSelf: 'flex-start' }}>
+            <div style={{ padding: '4px 10px 18px' }}>
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 300, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Configuración</h1>
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: estado === 'error' ? '#f87171' : 'var(--text-muted)' }}>
+                {estado === 'guardando' ? <Loader2 size={11} className="animate-spin" /> : estado === 'error' ? <AlertCircle size={11} /> : <CheckCircle2 size={11} style={{ color: '#34d399' }} />}
+                {estado === 'guardando' ? 'Guardando…' : estado === 'error' ? 'No se pudo guardar' : 'Todo guardado'}
+              </div>
+            </div>
+            {GRUPOS_TABS.map(grupo => (
+              <div key={grupo} style={{ marginBottom: 14 }}>
+                <div style={{ padding: '0 10px 6px', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', opacity: 0.8 }}>{grupo}</div>
+                {TABS.filter(t => t.grupo === grupo).map(({ key, label, icon: Icon }) => {
+                  const active = activeTab === key;
+                  return (
+                    <button key={key} type="button" className="aj-nav-item" aria-current={active ? 'page' : undefined} onClick={() => setActiveTab(key)}>
+                      <Icon size={15} strokeWidth={active ? 2 : 1.5} style={{ color: active ? accentColor : undefined, flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{label}</span>
+                      {key === 'activity' && pendingUpdate && (
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} title="Hay una versión nueva" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {pendingUpdate && (
+              <button type="button" onClick={() => setActiveTab('activity')} className="aj-nav-item" style={{ marginTop: 4, color: '#34d399', fontSize: 12 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} />
+                Versión v{pendingUpdate.version} disponible
+              </button>
+            )}
+          </nav>
+          <div className="flex-1 min-w-0" style={{ maxWidth: 860 }}>
+            <header key={`cab-${activeTab}`} className="s-fadeIn" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, display: 'grid', placeItems: 'center', background: `${accentColor}18`, border: `1px solid ${accentColor}33`, flexShrink: 0 }}>
+                <ActiveIcon size={18} style={{ color: accentColor }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 400, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{activeTabData.label}</h2>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{activeTabData.desc}</p>
+              </div>
+            </header>
             <TabContent key={activeTab} activeTab={activeTab} props={buildProps()} />
           </div>
         </div>
@@ -1406,8 +1425,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                         padding: '14px 8px', borderRadius: 12, cursor: 'pointer', textAlign: 'center' as const,
                         border: `1px solid ${isActive ? accentColor + '55' : bd}`,
                         background: isActive ? `${accentColor}14` : 'var(--sidebar-card-bg)',
-                        transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                        transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                        transition: 'all 0.2s cubic-bezier(0.2,0.8,0.2,1)',
                       }}>
                       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                         {t === 'dark' ? <Moon size={18} style={{ color: isActive ? accentColor : 'var(--text-muted)' }} />
@@ -1434,7 +1452,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {accentColors.map((color: string) => (
                   <button key={color} onClick={() => { updateSettings({ accentColor: color }); showMsg('success', 'Color actualizado'); }}
-                    style={{ width: 32, height: 32, borderRadius: '50%', background: color, border: 'none', cursor: 'pointer', outline: accentColor === color ? `3px solid ${color}` : '2px solid transparent', outlineOffset: 2, transform: accentColor === color ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: accentColor === color ? `0 4px 12px ${color}66` : 'none' }} />
+                    style={{ width: 32, height: 32, borderRadius: '50%', background: color, border: 'none', cursor: 'pointer', outline: accentColor === color ? `3px solid ${color}` : '2px solid transparent', outlineOffset: 2, transform: accentColor === color ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.2,0.8,0.2,1)', boxShadow: accentColor === color ? `0 4px 12px ${color}66` : 'none' }} />
                 ))}
                 <input type="color" value={accentColor}
                   onChange={e => { updateSettings({ accentColor: e.target.value }); }}
@@ -1454,7 +1472,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                   const isSelected = fontFamily === opt.id;
                   return (
                     <button key={opt.id} className="font-card" onClick={() => handleFontChange(opt.id as FontId)}
-                      style={{ padding: '12px', borderRadius: 12, textAlign: 'left' as const, border: `1px solid ${isSelected ? accentColor + '55' : 'var(--border-main)'}`, background: isSelected ? `${accentColor}12` : 'var(--sidebar-card-bg)', cursor: 'pointer', transition: 'all 0.18s ease', transform: isSelected ? 'scale(1.01)' : 'scale(1)' }}>
+                      style={{ padding: '12px', borderRadius: 12, textAlign: 'left' as const, border: `1px solid ${isSelected ? accentColor + '55' : 'var(--border-main)'}`, background: isSelected ? `${accentColor}12` : 'var(--sidebar-card-bg)', cursor: 'pointer', transition: 'all 0.18s ease' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <span style={{ fontSize: 12, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: `'${opt.preview}', sans-serif`, fontWeight: 400 }}>
                           {opt.label}
@@ -1480,7 +1498,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
                 {FONT_SIZES.map(size => (
                   <button key={size} onClick={() => { updateSettings({ fontSize: size }); showMsg('success', 'Tamaño actualizado'); }}
-                    style={{ padding: '9px 4px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${fontSize === size ? accentColor + '55' : bd}`, background: fontSize === size ? `${accentColor}14` : 'var(--sidebar-card-bg)', fontSize: size === 'xs' ? 10 : size === 'sm' ? 11 : size === 'md' ? 13 : size === 'lg' ? 15 : 17, color: fontSize === size ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)', transform: fontSize === size ? 'scale(1.05)' : 'scale(1)' }}>Aa</button>
+                    style={{ padding: '9px 4px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${fontSize === size ? accentColor + '55' : bd}`, background: fontSize === size ? `${accentColor}14` : 'var(--sidebar-card-bg)', fontSize: size === 'xs' ? 10 : size === 'sm' ? 11 : size === 'md' ? 13 : size === 'lg' ? 15 : 17, color: fontSize === size ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.18s cubic-bezier(0.2,0.8,0.2,1)' }}>Aa</button>
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
@@ -1534,7 +1552,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                   const isSelected = currentSound === opt.value;
                   return (
                     <button key={opt.value} onClick={() => updateSettings({ notificationSound: opt.value })}
-                      style={{ padding: 12, borderRadius: 12, border: `1px solid ${isSelected ? accentColor + '44' : bd}`, background: isSelected ? `${accentColor}12` : 'var(--sidebar-card-bg)', cursor: 'pointer', textAlign: 'left' as const, transition: 'all 0.18s ease', transform: isSelected ? 'scale(1.02)' : 'scale(1)' }}>
+                      style={{ padding: 12, borderRadius: 12, border: `1px solid ${isSelected ? accentColor + '44' : bd}`, background: isSelected ? `${accentColor}12` : 'var(--sidebar-card-bg)', cursor: 'pointer', textAlign: 'left' as const, transition: 'all 0.18s ease' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 12, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)' }}>{opt.label}</span>
                         {isSelected && <CheckCircle2 size={12} style={{ color: accentColor }} />}

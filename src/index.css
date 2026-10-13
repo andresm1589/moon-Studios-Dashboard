@@ -956,7 +956,8 @@ html.ajustes-sin-desenfoque *, html.ajustes-sin-desenfoque *::before, html.ajust
    aplicar.ts; acá las de shadcn). Sin filter en <body>: rompía los modales. */
 html.dark.ajustes-contraste { --muted-foreground: 0 0% 72%; --border: 0 0% 28%; --foreground: 0 0% 100%; }
 html.light.ajustes-contraste { --muted-foreground: 0 0% 22%; --border: 0 0% 62%; --foreground: 0 0% 0%; }
-html.ajustes-contraste a { text-decoration: underline; text-underline-offset: 2px; }
+/* Subrayado solo en enlaces dentro de un texto (nunca en el menú ni en botones). */
+html.ajustes-contraste :is(p, li, td, blockquote) > a:not([role]):not([class*="nav"]) { text-decoration: underline; text-underline-offset: 2px; }
 
 /* Indicador de foco: con el acento del usuario; se puede apagar */
 :focus-visible { outline-color: var(--accent-user, rgba(255,255,255,0.25)); }
@@ -964,4 +965,4 @@ html.ajustes-sin-foco *:focus-visible { outline: none !important; box-shadow: no
 
 /* Modo lector: foco siempre visible y grueso, enlaces subrayados */
 html.ajustes-lector *:focus-visible { outline: 3px solid var(--accent-user, #6366f1) !important; outline-offset: 3px !important; }
-html.ajustes-lector a { text-decoration: underline; }
+html.ajustes-lector :is(p, li, td, blockquote) > a:not([role]):not([class*="nav"]) { text-decoration: underline; text-underline-offset: 2px; }
