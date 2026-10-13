@@ -624,68 +624,35 @@ interface NotifPanelProps {
   readIds: Set<string>;
   markOneRead: (id: string) => void;
   markAllRead: () => void;
+  dismissOne: (id: string) => void;
+  dismissAllRead: () => void;
+  dismissAll: () => void;
   onClose: () => void;
   onNavigate: (path: string) => void;
   uid?: string;
 }
 
-// Clave de localStorage por usuario
-const getDismissKey = (uid?: string) => `notif_dismissed_${uid ?? 'anon'}`;
+// Grupos por fecha, como en cualquier centro de notificaciones.
+function grupoDeFecha(d: Date): string {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const t = d.getTime();
+  if (t >= hoy.getTime()) return 'Hoy';
+  if (t >= hoy.getTime() - 86_400_000) return 'Ayer';
+  if (t >= hoy.getTime() - 6 * 86_400_000) return 'Esta semana';
+  return 'Anteriores';
+}
 
 const NotifPanel: React.FC<NotifPanelProps> = memo(({
-  notifications,readIds,
-  markOneRead, markAllRead, onClose, onNavigate, uid,
+  notifications, readIds,
+  markOneRead, markAllRead, dismissOne: eliminarUna, dismissAllRead, dismissAll, onClose, onNavigate,
 }) => {
   const [activeCategory, setActiveCategory] = useState<NotifCategory | 'all'>('all');
   const [closing, setClosing] = useState(false);
 
-  // ── IDs descartados (persistentes por usuario en localStorage) ──
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem(getDismissKey(uid));
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch { return new Set(); }
-  });
-
-  const persistDismiss = useCallback((newSet: Set<string>) => {
-    setDismissedIds(newSet);
-    try {
-      // Mantener solo los IDs que existen actualmente (limpieza automática)
-      const existing = notifications.map((n: any) => n.id);
-      const pruned = [...newSet].filter(id => existing.includes(id));
-      localStorage.setItem(getDismissKey(uid), JSON.stringify(pruned));
-    } catch { /* quota exceeded — silent fail */ }
-  }, [uid, notifications]);
-
   const dismissOne = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const next = new Set(dismissedIds);
-    next.add(id);
-    persistDismiss(next);
-    markOneRead(id);
-  }, [dismissedIds, persistDismiss, markOneRead]);
-
-  const dismissAllRead = useCallback(() => {
-    const readNotifs = notifications.filter((n: any) => readIds.has(n.id));
-    const next = new Set(dismissedIds);
-    readNotifs.forEach((n: any) => next.add(n.id));
-    persistDismiss(next);
-  }, [notifications, readIds, dismissedIds, persistDismiss]);
-
-  const dismissAll = useCallback(() => {
-    const next = new Set(dismissedIds);
-    notifications.forEach((n: any) => next.add(n.id));
-    persistDismiss(next);
-    markAllRead();
-  }, [notifications, dismissedIds, persistDismiss, markAllRead]);
-
-  // Sincronizar si cambia el uid (cambio de usuario)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(getDismissKey(uid));
-      setDismissedIds(raw ? new Set(JSON.parse(raw)) : new Set());
-    } catch { setDismissedIds(new Set()); }
-  }, [uid]);
+    eliminarUna(id);
+  }, [eliminarUna]);
 
   const handleClose = useCallback(() => {
     setClosing(true);
@@ -699,8 +666,8 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
     return () => document.removeEventListener('keydown', handler);
   }, [handleClose]);
 
-  // Notificaciones visibles (no descartadas)
-  const visible = notifications.filter((n: any) => !dismissedIds.has(n.id));
+  // Lo eliminado ya viene filtrado desde useNotifications (estado de la cuenta).
+  const visible = notifications;
   const visibleUnread = visible.filter((n: any) => !readIds.has(n.id)).length;
   const hasRead = visible.some((n: any) => readIds.has(n.id));
 
@@ -739,13 +706,13 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: 'var(--content-primary)', fontSize: '13px', fontWeight: 400, letterSpacing: '-0.01em' }}>Notificaciones</span>
                   {visibleUnread > 0 && (
-                    <span style={{ fontSize: '9px', fontWeight: 600, background: 'var(--accent-user, #6366f1)', color: '#fff', padding: '2px 7px', borderRadius: '20px', animation: 'badgePop 0.3s cubic-bezier(0.22,1,0.36,1)', letterSpacing: '0.03em' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 600, background: 'var(--accent-user, #6366f1)', color: '#fff', padding: '2px 7px', borderRadius: '20px', animation: 'badgePop 0.3s cubic-bezier(0.22,1,0.36,1)', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                       {visibleUnread} nuevas
                     </span>
                   )}
                 </div>
                 <p style={{ fontSize: '10px', fontWeight: 300, color: 'var(--content-quaternary)', marginTop: '1px' }}>
-                  {visible.length} notificaciones
+                  {visible.length === 0 ? 'Todo al día' : `${visible.length} en total`}
                 </p>
               </div>
             </div>
@@ -760,7 +727,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--content-tertiary)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--notif-readall-border)'; }}
                 >
                   <CheckCheck style={{ width: '11px', height: '11px' }} strokeWidth={1.5} />
-                  Leído
+                  Marcar todo leído
                 </button>
               )}
               {hasRead && (
@@ -771,12 +738,12 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--content-tertiary)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--notif-readall-border)'; }}
                 >
                   <Trash2 style={{ width: '10px', height: '10px' }} strokeWidth={1.5} />
-                  Limpiar
+                  Quitar leídas
                 </button>
               )}
               {visible.length > 0 && (
-                <button onClick={dismissAll}
-                  title="Eliminar todas"
+                <button onClick={() => { if (window.confirm('¿Quitar todas las notificaciones? Las nuevas seguirán llegando.')) dismissAll(); }}
+                  title="Quitar todas"
                   style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--notif-close-bg)', border: '1px solid var(--notif-close-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--content-quaternary)', cursor: 'pointer', transition: 'all 0.15s ease' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#ef444428'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--content-quaternary)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--notif-close-bg)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--notif-close-border)'; }}
@@ -826,12 +793,18 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
             </div>
           ) : filtered.map((n: any, idx: number) => {
             const isUnread = !readIds.has(n.id);
+            const grupo = grupoDeFecha(n.createdAt);
+            const nuevoGrupo = idx === 0 || grupoDeFecha(filtered[idx - 1].createdAt) !== grupo;
             const Icon = CATEGORY_ICON[n.category as NotifCategory];
             const color = CATEGORY_COLOR[n.category as NotifCategory];
             return (
-              <div key={n.id} className="notif-item-anim"
+              <React.Fragment key={n.id}>
+              {nuevoGrupo && (
+                <div style={{ padding: '14px 20px 6px', fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--content-quaternary)', position: 'sticky', top: 0, zIndex: 1, background: 'var(--notif-bg)' }}>{grupo}</div>
+              )}
+              <div className="notif-item-anim"
                 onClick={() => { markOneRead(n.id); if (n.linkTo) { onNavigate(n.linkTo); handleClose(); } }}
-                style={{ animationDelay: `${idx * 0.03}s`, padding: '13px 16px 13px 20px', cursor: 'pointer', borderBottom: '1px solid var(--notif-item-border)', background: isUnread ? 'var(--notif-item-unread-bg)' : 'transparent', transition: 'background 0.15s ease', display: 'flex', gap: '12px', alignItems: 'flex-start', position: 'relative' }}
+                style={{ animationDelay: `${Math.min(idx, 6) * 0.025}s`, padding: '13px 16px 13px 20px', cursor: 'pointer', borderBottom: '1px solid var(--notif-item-border)', background: isUnread ? 'var(--notif-item-unread-bg)' : 'transparent', transition: 'background 0.15s ease', display: 'flex', gap: '12px', alignItems: 'flex-start', position: 'relative' }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLDivElement).style.background = isUnread ? 'var(--notif-item-hover-unread)' : 'var(--notif-item-hover)';
                   const btn = (e.currentTarget as HTMLDivElement).querySelector('.notif-dismiss-btn') as HTMLElement | null;
@@ -870,6 +843,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
                   <X style={{ width: '10px', height: '10px' }} strokeWidth={2} />
                 </button>
               </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -885,7 +859,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
             Configurar notificaciones
           </button>
           <span style={{ fontSize: '9px', color: 'var(--content-quaternary)', fontWeight: 300, letterSpacing: '0.04em' }}>
-            {visible.length} de {notifications.length}
+            {visibleUnread > 0 ? `${visibleUnread} sin leer` : 'Todo leído'}
           </span>
         </div>
       </div>
@@ -1034,7 +1008,7 @@ const DashboardLayout: React.FC = () => {
   const { showModal: showTabModal, handleStayHere, handleGoToOther } = useTabSync(!!currentUser);
   const { showWarning, countdown, handleStayActive } = useAutoLogout(!!currentUser, doLogout);
 
-  const { notifications, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen } =
+  const { notifications, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen, dismissOne, dismissAllRead, dismissAll } =
     useNotifications({
       uid: currentUser?.uid,
       puedeVerMensajeria: puede('admin'),
@@ -1489,6 +1463,9 @@ const DashboardLayout: React.FC = () => {
                   readIds={readIds}
                   markOneRead={markOneRead}
                   markAllRead={markAllRead}
+                  dismissOne={dismissOne}
+                  dismissAllRead={dismissAllRead}
+                  dismissAll={dismissAll}
                   onClose={() => setNotifOpen(false)}
                   onNavigate={navigate}
                   uid={currentUser?.uid}

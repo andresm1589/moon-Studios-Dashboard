@@ -1,7 +1,7 @@
 // src/hooks/useNotifications.ts
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { collection, query, where, onSnapshot, orderBy, limit, doc as docRef, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { notificarSistema, enHorasDeSilencio } from '@/lib/escritorio';
@@ -38,41 +38,36 @@ interface UseNotificationsOptions {
   enabledCategories: Record<NotifCategory, boolean>;
 }
 
-// ── Storage helpers — CLAVE POR USUARIO para evitar que estados de sesiones
-//    anteriores contaminen nuevas sesiones o usuarios distintos ───────────────
+// ── Qué está leído y qué se eliminó: en la CUENTA, no en el dispositivo ──────
+// Antes se guardaba en localStorage: en otro equipo, en la web o con los datos
+// limpios todo volvía como nuevo. Y «marcar todo» reemplazaba la lista por
+// solo lo que estaba cargado en ese momento, así que lo demás «revivía».
+//
+// Ahora vive en users/{uid}.notifEstado (sincronizado en tiempo real) con una
+// marca «hasta»: todo lo creado antes de leidasHasta cuenta como leído y todo
+// lo anterior a ocultasHasta como eliminado. Las listas sueltas solo guardan
+// lo marcado de a uno, y se recortan (no crecen para siempre).
 
-function storageKey(uid: string) {
-  return `notif_readIds_v3_${uid}`;
-}
+export interface EstadoNotif { leidasHasta: number; leidas: string[]; ocultasHasta: number; ocultas: string[] }
+const MAX_SUELTAS = 300;
+const TRES_DIAS = 3 * 86_400_000;
 
-function loadReadIds(uid: string | undefined): Set<string> {
-  if (!uid) return new Set();
-  try {
-    const raw = localStorage.getItem(storageKey(uid));
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
+const claveCache = (uid: string) => `notif-estado-${uid}`;
+function leerCache(uid: string): EstadoNotif | null {
+  try { const e = JSON.parse(localStorage.getItem(claveCache(uid)) || 'null'); return e && typeof e.leidasHasta === 'number' ? e : null; } catch { return null; }
 }
-
-function saveReadIds(uid: string | undefined, ids: Set<string>) {
-  if (!uid) return;
-  try {
-    localStorage.setItem(storageKey(uid), JSON.stringify([...ids]));
-  } catch {}
+/** La primera vez: lo leído/eliminado en este dispositivo (versión vieja) y lo de más de 3 días, leído. */
+function estadoInicial(uid: string): EstadoNotif {
+  const viejo = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+  return {
+    leidasHasta: Date.now() - TRES_DIAS, leidas: viejo(`notif_readIds_v3_${uid}`).slice(-MAX_SUELTAS),
+    ocultasHasta: 0, ocultas: viejo(`notif_dismissed_${uid}`).slice(-MAX_SUELTAS),
+  };
 }
-
-// Limpia claves de versiones antiguas para no acumular basura
-function cleanLegacyKeys() {
-  try {
-    const legacyPrefixes = ['notif_readIds_v1', 'notif_readIds_v2'];
-    Object.keys(localStorage).forEach(k => {
-      if (legacyPrefixes.some(p => k.startsWith(p))) {
-        localStorage.removeItem(k);
-      }
-    });
-  } catch {}
-}
+const recortar = (e: EstadoNotif): EstadoNotif => ({ ...e, leidas: e.leidas.slice(-MAX_SUELTAS), ocultas: e.ocultas.slice(-MAX_SUELTAS) });
+const tiempo = (n: UnifiedNotification) => n.createdAt.getTime();
+export const estaLeida  = (e: EstadoNotif, n: UnifiedNotification) => tiempo(n) <= e.leidasHasta || e.leidas.includes(n.id);
+export const estaOculta = (e: EstadoNotif, n: UnifiedNotification) => tiempo(n) <= e.ocultasHasta || e.ocultas.includes(n.id);
 
 // ── Hook principal ─────────────────────────────────────────────────────────────
 
@@ -94,41 +89,57 @@ export function useNotifications({
 
   const [notifications, setNotifications] = useState<UnifiedNotification[]>([]);
 
-  // FIX: readIds empieza vacío — se carga cuando uid está disponible
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [estado, setEstado] = useState<EstadoNotif | null>(null);
+  const estadoRef = useRef<EstadoNotif | null>(null);
 
   const knownIdsRef    = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
   const prevUidRef     = useRef<string | undefined>(undefined);
 
-  // ── FIX PRINCIPAL: Cargar readIds del usuario correcto cuando uid cambia ──
-  // Esto soluciona el bug de "siempre aparece como no leído al iniciar sesión"
+  // ── Estado de la cuenta: al instante desde la copia local, y en vivo desde Firestore ──
   useEffect(() => {
     if (!uid) {
-      // Sin sesión: limpiar todo
-      setReadIds(new Set());
+      setEstado(null); estadoRef.current = null;
       setNotifications([]);
       knownIdsRef.current    = new Set();
       isFirstLoadRef.current = true;
       prevUidRef.current     = undefined;
       return;
     }
-
-    // Si cambió el usuario (logout + login con otro), resetear estado
     if (prevUidRef.current && prevUidRef.current !== uid) {
       knownIdsRef.current    = new Set();
       isFirstLoadRef.current = true;
       setNotifications([]);
     }
-
     prevUidRef.current = uid;
 
-    // Cargar IDs leídos del localStorage para este usuario
-    const stored = loadReadIds(uid);
-    setReadIds(stored);
+    const local = leerCache(uid);
+    if (local) { estadoRef.current = local; setEstado(local); }
+    return onSnapshot(docRef(db, 'users', uid), snap => {
+      const remoto = snap.data()?.notifEstado as EstadoNotif | undefined;
+      if (remoto && typeof remoto.leidasHasta === 'number') {
+        const e = recortar({ leidasHasta: remoto.leidasHasta, leidas: remoto.leidas ?? [], ocultasHasta: remoto.ocultasHasta ?? 0, ocultas: remoto.ocultas ?? [] });
+        estadoRef.current = e; setEstado(e);
+        try { localStorage.setItem(claveCache(uid), JSON.stringify(e)); } catch { /* sin espacio */ }
+      } else if (snap.exists()) {
+        // Primera vez con este sistema: se crea con lo que había en este dispositivo.
+        const e = estadoRef.current ?? estadoInicial(uid);
+        estadoRef.current = e; setEstado(e);
+        updateDoc(docRef(db, 'users', uid), { notifEstado: e }).catch(err => console.error('[notif] estado:', err));
+      }
+    }, err => {
+      console.error('[notif] estado:', err);
+      if (!estadoRef.current) { const e = estadoInicial(uid); estadoRef.current = e; setEstado(e); }
+    });
+  }, [uid]);
 
-    // Limpiar claves obsoletas una sola vez
-    cleanLegacyKeys();
+  /** Cambia el estado y lo guarda en la cuenta (y en la copia local). */
+  const cambiar = useCallback((f: (e: EstadoNotif) => EstadoNotif) => {
+    if (!uid) return;
+    const nuevo = recortar(f(estadoRef.current ?? estadoInicial(uid)));
+    estadoRef.current = nuevo; setEstado(nuevo);
+    try { localStorage.setItem(claveCache(uid), JSON.stringify(nuevo)); } catch { /* sin espacio */ }
+    updateDoc(docRef(db, 'users', uid), { notifEstado: nuevo }).catch(err => console.error('[notif] guardar estado:', err));
   }, [uid]);
 
   // ── Merge helper ──────────────────────────────────────────────────────────
@@ -152,7 +163,9 @@ export function useNotifications({
       return;
     }
 
-    const newOnes = notifications.filter(n => !knownIdsRef.current.has(n.id));
+    const e = estadoRef.current;
+    const newOnes = notifications.filter(n => !knownIdsRef.current.has(n.id) && !(e && (estaLeida(e, n) || estaOculta(e, n))));
+    notifications.forEach(n => knownIdsRef.current.add(n.id));
     if (newOnes.length > 0) {
       newOnes.forEach(n => knownIdsRef.current.add(n.id));
       // Antes las horas de silencio y "Notificaciones de escritorio" se
@@ -386,26 +399,38 @@ export function useNotifications({
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
-  const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
+  // Lo eliminado no se muestra; lo leído se calcula contra el estado de la cuenta.
+  const visibles = useMemo(() => (estado ? notifications.filter(n => !estaOculta(estado, n)) : notifications), [estado, notifications]);
+  const readIds = useMemo(() => new Set(estado ? visibles.filter(n => estaLeida(estado, n)).map(n => n.id) : []), [estado, visibles]);
+  // Mientras carga el estado no se cuenta nada como nuevo (antes «revivían» al abrir).
+  const unreadCount = estado ? visibles.length - readIds.size : 0;
 
   const markOneRead = useCallback((id: string) => {
-    setReadIds(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      saveReadIds(uid, next);
-      return next;
-    });
-  }, [uid]);
+    cambiar(e => (e.leidas.includes(id) ? e : { ...e, leidas: [...e.leidas, id] }));
+  }, [cambiar]);
 
+  /** Todo lo que existe hasta ahora queda leído, aunque todavía no haya cargado. */
   const markAllRead = useCallback(() => {
-    const all = new Set(notifications.map(n => n.id));
-    setReadIds(all);
-    saveReadIds(uid, all);
-  }, [notifications, uid]);
+    cambiar(e => ({ ...e, leidasHasta: Date.now(), leidas: [] }));
+  }, [cambiar]);
+
+  const dismissOne = useCallback((id: string) => {
+    cambiar(e => ({ ...e, ocultas: e.ocultas.includes(id) ? e.ocultas : [...e.ocultas, id], leidas: e.leidas.includes(id) ? e.leidas : [...e.leidas, id] }));
+  }, [cambiar]);
+
+  const dismissAllRead = useCallback(() => {
+    const ids = visibles.filter(n => readIds.has(n.id)).map(n => n.id);
+    cambiar(e => ({ ...e, ocultas: [...new Set([...e.ocultas, ...ids])] }));
+  }, [cambiar, visibles, readIds]);
+
+  const dismissAll = useCallback(() => {
+    const ahora = Date.now();
+    cambiar(e => ({ ...e, ocultasHasta: ahora, ocultas: [], leidasHasta: Math.max(e.leidasHasta, ahora), leidas: [] }));
+  }, [cambiar]);
 
   // markPanelSeen se mantiene como no-op — el DashboardLayout
   // llama markAllRead con delay al abrir el panel
   const markPanelSeen = useCallback(() => {}, []);
 
-  return { notifications, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen };
+  return { notifications: visibles, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen, dismissOne, dismissAllRead, dismissAll, cargado: !!estado };
 }
