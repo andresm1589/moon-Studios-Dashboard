@@ -155,3 +155,49 @@ export const deleteAuthUser = async (uid: string) => {
   });
   return handleResponse(res);
 };
+
+// ─── Emojis del bot (Bot de Discord → Emojis) ────────────────────────────────
+// Los emojis de todo el bot por grupo; los cambios se guardan en Firestore y se
+// aplican al momento. Los emojis propios se suben a la aplicación del bot.
+
+export interface EmojiBot {
+  clave: string; valor: string; base: string; antes: string;
+  origen: 'fabrica' | 'archivo' | 'panel'; discord: boolean; disponible: boolean; url: string | null;
+}
+export interface GrupoEmojis { id: string; nombre: string; items: EmojiBot[] }
+export interface EmojiPropio { id: string; nombre: string; animado: boolean; codigo: string; url: string; origen: string; borrable: boolean }
+export interface DatosEmojis {
+  grupos: GrupoEmojis[]; propios: EmojiPropio[]; limiteAplicacion: number; enAplicacion: number;
+  actualizado: { en: string; por: string } | null;
+}
+
+export const getEmojis = async (): Promise<DatosEmojis> => {
+  const res = await fetch(`${API_URL}/api/bot/emojis`, { headers: await getAuthHeaders() });
+  // Un bot sin esta versión todavía responde 404.
+  if (res.status === 404) throw new Error('El bot todavía no tiene el panel de emojis: falta subir y reiniciar el bot.');
+  return handleResponse(res);
+};
+
+/** `valor` null: vuelve al emoji de antes (el del archivo o el de fábrica). */
+export const setEmoji = async (grupo: string, clave: string, valor: string | null): Promise<EmojiBot> => {
+  const res = await fetch(`${API_URL}/api/bot/emojis/${encodeURIComponent(grupo)}/${encodeURIComponent(clave)}`, {
+    method: 'PUT', headers: await getAuthHeaders(), body: JSON.stringify({ valor }),
+  });
+  return handleResponse(res);
+};
+
+export const subirEmojiPropio = async (imagen: File, nombre: string): Promise<EmojiPropio> => {
+  const { Authorization } = await getAuthHeaders();
+  const datos = new FormData();
+  datos.append('nombre', nombre);
+  datos.append('imagen', imagen);
+  const res = await fetch(`${API_URL}/api/bot/emojis/propios`, {
+    method: 'POST', body: datos, headers: Authorization ? { Authorization } : {},
+  });
+  return handleResponse(res);
+};
+
+export const borrarEmojiPropio = async (id: string) => {
+  const res = await fetch(`${API_URL}/api/bot/emojis/propios/${id}`, { method: 'DELETE', headers: await getAuthHeaders() });
+  return handleResponse(res);
+};

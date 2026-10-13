@@ -7,6 +7,8 @@ import {
   getBotInvite, getAuditLog, getUptimeHistory, getPublicIncidents,
   createIncident, updateIncident, deleteIncident,
 } from '@/services/discordApi';
+import { EmojisPanel } from '@/components/discord/EmojisPanel';
+import { ProteccionErrores } from '@/components/ProteccionErrores';
 import { getDiscordConfig, updateDiscordConfig, logActivity, db, Timestamp } from '@/lib/firebase';
 import {
   collection, doc, getDoc, setDoc, addDoc,
@@ -18,7 +20,7 @@ import {
   AlertCircle, Settings, BarChart3, Terminal, Eye, EyeOff,
   Command, ChevronDown, ChevronRight, Key, Link, Wrench,
   AlertTriangle, CheckCircle2, TrendingUp,
-  Trash2, Plus, Edit3, ExternalLink,
+  Trash2, Plus, Edit3, ExternalLink, Smile,
 } from 'lucide-react';
 
 /* ── Tipos ─────────────────────────────────────────────────────────────────── */
@@ -689,6 +691,7 @@ const DiscordBot: React.FC = () => {
     { value: 'commands',  label: 'Comandos',    icon: Command, badge: commandsData?.total },
     ...(isCEO ? [
       { value: 'messages',    label: 'Mensajes',      icon: MessageSquare },
+      { value: 'emojis',      label: 'Emojis',        icon: Smile },
       { value: 'maintenance', label: 'Mantenimiento', icon: Wrench },
       { value: 'audit',       label: 'Audit Log',     icon: Shield },
       { value: 'logs',        label: 'Actividad',     icon: Terminal },
@@ -2107,6 +2110,11 @@ const DiscordBot: React.FC = () => {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* ── EMOJIS (CEO): los emojis del bot y sus emojis propios ── */}
+          {isCEO && activeTab === 'emojis' && (
+            <ProteccionErrores nombre="emojis"><EmojisPanel /></ProteccionErrores>
           )}
 
           {/* ── CONFIG (CEO) ── */}
