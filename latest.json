@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.55",
-    "notes":  "Configuración rehecha: todas las opciones funcionan, se guardan estable y se sincronizan entre la app y la web. Alertas de inicio de sesión, atajos de teclado reales y zona horaria/formato de fecha en todo el portal.",
-    "pub_date":  "2026-10-12T20:20:19Z",
+    "version":  "2.1.56",
+    "notes":  "Configuración: menú lateral sin subrayados, pantalla más ancha con menú por grupos y animaciones más sobrias.",
+    "pub_date":  "2026-10-12T20:29:41Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNC9IY2U3V0pKWndVbG80MUwwYzF4TmdjOURJZXJkc1VDTGhsQWFwSC9lLytENWNxcGNtMkU4SDl2azBqelhlVDdkS2NXbGJUREErZU41VGdubDBtZ0EwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU0NDE4CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41NV94NjQtc2V0dXAuZXhlCjV4Z2J1Y3N0L080akYzajJLMFEvTUNiRFY4TERYalZSckQ1QWJxNEJsN2dEUFNwcEc5KzQyejJveUpuWmV0VWFDNm1LRmhyalhlUFFrQVhGQkVOakRRPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.55/moon.Studios_2.1.55_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDM1OGxEMHl4a0N3OHRlQitrQm10WDlDQ1ZRcjhPZnc3ZExBZzJkYXpiSWpyL2RYdWttazNSNExuS2dHT3FrekQ0VmlvemIvVnNJbk9hT0EveE1HMXdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU0OTgxCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41Nl94NjQtc2V0dXAuZXhlCmVsQVZtaEJFZy9iTkh2aTNDTStGQ1ZTVGZsUEZaSDlDL2ZRdUw2bjd5T290dHVtVUhncHNkSWQ3NWFaYWpQRy9nYVZ0dG5oZDdIVWlsR1ZxL2dML0NRPT0K",
+                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.56/moon.Studios_2.1.56_x64-setup.exe"
                                          }
                   }
 }
