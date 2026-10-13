@@ -26,19 +26,21 @@ import {
   Calculator, Globe, Menu, Code2, Palette, FileText, UserCog, Users, ShieldCheck,
   CheckCheck, Inbox, Trash2, BellOff, FolderKanban, ListTodo
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { NotifCategory } from '@/hooks/useNotifications';
+import { atajoDe } from '@/lib/ajustes/atajos';
+import { fechaLarga, hora } from '@/lib/ajustes/fecha';
 
 // ── Categorías ────────────────────────────────────────────────────────────────
 const CATEGORY_ICON: Record<NotifCategory, React.FC<any>> = {
-  announcement: Megaphone, email: Mail, thread: GitBranch, message: MessageSquare, task: ListTodo,
+  announcement: Megaphone, email: Mail, thread: GitBranch, message: MessageSquare, task: ListTodo, security: ShieldCheck,
 };
 const CATEGORY_LABEL: Record<NotifCategory, string> = {
-  announcement: 'Anuncio', email: 'Correo', thread: 'Hilo', message: 'Mensaje', task: 'Tarea',
+  announcement: 'Anuncio', email: 'Correo', thread: 'Hilo', message: 'Mensaje', task: 'Tarea', security: 'Seguridad',
 };
 const CATEGORY_COLOR: Record<NotifCategory, string> = {
-  announcement: '#a78bfa', email: '#60a5fa', thread: '#34d399', message: '#fb923c', task: '#fbbf24',
+  announcement: '#a78bfa', email: '#60a5fa', thread: '#34d399', message: '#fb923c', task: '#fbbf24', security: '#f87171',
 };
 
 // ── Estilos globales ──────────────────────────────────────────────────────────
@@ -502,13 +504,6 @@ const GLOBAL_STYLES = `
     animation: navItemSlide 0.28s cubic-bezier(0.22,1,0.36,1) both;
   }
 
-  /* ─── ACCESIBILIDAD ─── */
-  body.compact-mode { font-size: 13px; }
-  body.compact-mode .nav-item-active-bar { height: 55% !important; }
-  body.no-animations * { animation: none !important; transition: none !important; }
-  body.no-blur * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  body.high-contrast { filter: contrast(1.2); }
-  body.reduce-motion * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 `;
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -534,10 +529,11 @@ useEffect(() => {
   return (
     <div className="header-anim">
       <h1 className="font-light text-xs tracking-widest uppercase truncate" style={{ color: 'var(--text-primary)' }}>
-        {format(time, isMobile ? 'EEE, d MMM' : 'EEEE, d MMMM yyyy', { locale: es })}
+        {/* En la zona horaria y el idioma de Configuración → Accesibilidad. */}
+        {fechaLarga(time, isMobile ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       </h1>
       <p className="text-[10px] font-light tracking-widest" style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-        {format(time, 'HH:mm:ss')}
+        {hora(time, true)}
       </p>
     </div>
   );
@@ -998,7 +994,7 @@ SidebarNavLink.displayName = 'SidebarNavLink';
 // ═══════════════════════════════════════════════════════════════════════════════
 const DashboardLayout: React.FC = () => {
   const { currentUser, userProfile, loading, puede } = useAuth();
-  const { settings, toggleSidebar } = useSettings();
+  const { settings, toggleSidebar, toggleTheme } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -1010,108 +1006,23 @@ const DashboardLayout: React.FC = () => {
   const [pageAnimClass, setPageAnimClass] = useState('');
 
   const sidebarCollapsed = settings.sidebarCollapsed;
-  const [temaSistema, setTemaSistema] = useState(0);
-
-  // ─── APLICAR ESTILOS GLOBALES DESDE SETTINGS (PATCHED) ─────────────────────
- useEffect(() => {
-    const root = document.documentElement;
-    const html = document.documentElement;
-    const body = document.body;
-
-    // ── 1. COLOR DE ACENTO ──────────────────────────────────────────
-    // Ver SettingsContext: el acento del usuario no pisa el --accent de shadcn.
-    root.style.setProperty('--accent-user', settings.accentColor || '#6366f1');
-
-    // ── 2. TAMAÑO DE FUENTE ─────────────────────────────────────────
-    const fsMap: Record<string, string> = {
-      xs: '12px', sm: '13px', md: '14px', lg: '16px', xl: '18px',
+  // Atajos de teclado (lib/ajustes/atajos.ts: la misma lista que muestra Configuración).
+  useEffect(() => {
+    const alPulsar = (e: KeyboardEvent) => {
+      const a = atajoDe(e);
+      if (!a?.accion) return;
+      e.preventDefault();
+      if (a.accion.tipo === 'ir') navigate(a.accion.ruta);
+      else if (a.accion.tipo === 'barra') toggleSidebar();
+      else toggleTheme();
     };
-    body.style.fontSize = fsMap[settings.fontSize as string] || '14px';
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, [navigate, toggleSidebar, toggleTheme]);
 
-    // ── 3. TEMA ─────────────────────────────────────────────────────
-    const savedTheme = (settings.theme || 'dark') as 'dark' | 'light' | 'system';
-
-    const applyTheme = (theme: 'dark' | 'light' | 'system') => {
-      html.classList.remove('dark', 'light');
-      if (theme === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        html.classList.add(prefersDark ? 'dark' : 'light');
-      } else {
-        html.classList.add(theme);
-      }
-    };
-
-    applyTheme(savedTheme);
-
-    // ── 4. VARIABLES CSS SEGÚN TEMA ─────────────────────────────────
-    const isLight = html.classList.contains('light');
-    root.style.setProperty('--bg-main',            isLight ? '#f1f1f3'                : '#0a0a0a');
-    root.style.setProperty('--bg-sidebar',         isLight ? '#ffffff'                : '#080808');
-    root.style.setProperty('--bg-header',          isLight ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.45)');
-    root.style.setProperty('--border-main',        isLight ? 'rgba(0,0,0,0.08)'       : 'rgba(255,255,255,0.06)');
-    root.style.setProperty('--border-header',      isLight ? 'rgba(0,0,0,0.07)'       : 'rgba(255,255,255,0.05)');
-    root.style.setProperty('--text-primary',       isLight ? 'rgba(0,0,0,0.85)'       : 'rgba(255,255,255,0.85)');
-    // 0.3/0.4 daban ~2.4:1 de contraste: el menú y las etiquetas casi no se leían.
-    root.style.setProperty('--text-muted',         isLight ? 'rgba(0,0,0,0.56)'       : 'rgba(255,255,255,0.46)');
-    root.style.setProperty('--nav-active-bg',      isLight ? 'rgba(0,0,0,0.06)'       : 'rgba(255,255,255,0.07)');
-    root.style.setProperty('--nav-hover-bg',       isLight ? 'rgba(0,0,0,0.03)'       : 'rgba(255,255,255,0.04)');
-    root.style.setProperty('--sidebar-card-bg',    isLight ? 'rgba(0,0,0,0.03)'       : 'rgba(255,255,255,0.03)');
-    root.style.setProperty('--sidebar-card-border',isLight ? 'rgba(0,0,0,0.07)'       : 'rgba(255,255,255,0.06)');
-    root.style.setProperty('--btn-bg',             isLight ? 'rgba(0,0,0,0.04)'       : 'rgba(255,255,255,0.03)');
-    root.style.setProperty('--btn-border',         isLight ? 'rgba(0,0,0,0.08)'       : 'rgba(255,255,255,0.06)');
-    root.style.setProperty('--btn-color',          isLight ? 'rgba(0,0,0,0.56)'       : 'rgba(255,255,255,0.46)');
-    root.style.setProperty('--btn-hover-bg',       isLight ? 'rgba(0,0,0,0.07)'       : 'rgba(255,255,255,0.07)');
-    root.style.setProperty('--btn-hover-border',   isLight ? 'rgba(0,0,0,0.14)'       : 'rgba(255,255,255,0.12)');
-    root.style.setProperty('--btn-hover-color',    isLight ? 'rgba(0,0,0,0.75)'       : 'rgba(255,255,255,0.75)');
-
-    // ── 5. LISTENER SISTEMA ─────────────────────────────────────────
-    // Con el tema "Sistema", un cambio del sistema operativo vuelve a correr
-    // todo este efecto (temaSistema). Antes había un `return` acá: con ese
-    // tema nunca se aplicaban la fuente ni las opciones de accesibilidad, y el
-    // cambio de claro/oscuro solo actualizaba 3 de las variables.
-    let mediaQuery: MediaQueryList | null = null;
-    const onSystemChange = () => setTemaSistema(n => n + 1);
-    if (savedTheme === 'system') {
-      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQuery.addEventListener('change', onSystemChange);
-    }
-
-    // ── 6. FUENTE PERSONALIZADA ─────────────────────────────────────
-    const fontId = (settings.fontFamily as string) || 'DM Sans';
-    const FONT_URLS: Record<string, string> = {
-      'DM Sans':           'https://fonts.googleapis.com/css2?family=DM+Sans:wght@200;300;400&display=swap',
-      'Inter':             'https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap',
-      'Geist':             'https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400&display=swap',
-      'Sora':              'https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400&display=swap',
-      'Space Grotesk':     'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400&display=swap',
-      'Outfit':            'https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400&display=swap',
-      'Satoshi':           'https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400&display=swap',
-      'IBM Plex Sans':     'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@200;300;400&display=swap',
-      'Plus Jakarta Sans': 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400&display=swap',
-      'Figtree':           'https://fonts.googleapis.com/css2?family=Figtree:wght@300;400&display=swap',
-    };
-    if (FONT_URLS[fontId]) {
-      const linkId = `gf-${fontId.replace(/\s/g, '-').toLowerCase()}`;
-      if (!document.getElementById(linkId)) {
-        const link = document.createElement('link');
-        link.id = linkId; link.rel = 'stylesheet'; link.href = FONT_URLS[fontId];
-        document.head.appendChild(link);
-      }
-    }
-    body.style.fontFamily = `'${fontId}', -apple-system, BlinkMacSystemFont, sans-serif`;
-
-    // ── 7. CLASES ACCESIBILIDAD ─────────────────────────────────────
-    body.classList.toggle('compact-mode',  !!settings.compactMode);
-    body.classList.toggle('no-animations', settings.animations === false);
-    body.classList.toggle('no-blur',       settings.blurEffects === false);
-    body.classList.toggle('high-contrast', !!settings.highContrast);
-    body.classList.toggle('reduce-motion', !!settings.reduceMotion);
-
-    return () => {
-      mediaQuery?.removeEventListener('change', onSystemChange);
-      body.classList.remove('compact-mode', 'no-animations', 'no-blur', 'high-contrast', 'reduce-motion');
-    };
-  }, [settings, temaSistema]);
+  // La configuración (tema, acento, fuente, tamaño, accesibilidad) la aplica
+  // lib/ajustes/aplicar.ts desde SettingsContext. Antes este layout la aplicaba
+  // OTRA vez sobre <body>, con otros valores, y las dos se pisaban.
 
   const doLogout = useCallback(async () => {
     setPageAnimClass('__lo_page');
@@ -1138,6 +1049,7 @@ const DashboardLayout: React.FC = () => {
         thread: settings.notifyThreads ?? true,
         message: settings.notifyMessages ?? true,
         task: settings.notifyTasks ?? true,
+        security: true,
       },
     });
 

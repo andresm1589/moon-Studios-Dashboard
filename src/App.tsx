@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import type { Permission } from '@/types';
-import { SettingsProvider } from '@/contexts/SettingsContext';
+import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
 import Login from '@/components/Login';
 import DashboardLayout from '@/components/DashboardLayout';
 import DashboardHome from '@/components/DashboardHome';
@@ -64,6 +64,12 @@ const PermisoRoute: React.FC<{ children: React.ReactNode; permiso: Permission }>
   return <>{children}</>;
 };
 
+/** Los avisos (toasts) en el tema elegido: antes eran siempre oscuros. */
+function AvisosConTema({ top }: { top: number }) {
+  const { isDark } = useSettings();
+  return <Toaster theme={isDark ? 'dark' : 'light'} richColors closeButton position="bottom-right" offset={{ top, bottom: 16 }} />;
+}
+
 function App() {
   const isTauri = useIsTauri();
   // En la app de escritorio, los enlaces externos se abrían dentro de la ventana.
@@ -89,7 +95,7 @@ function App() {
         <TitleBar />
         {/* Avisos flotantes (toast). Muchos paneles llaman a toast() de sonner,
             pero el Toaster no estaba montado: ningún aviso se veía. */}
-        <Toaster theme="dark" richColors closeButton position="bottom-right" offset={{ top: titleBarHeight + 12, bottom: 16 }} />
+        <AvisosConTema top={titleBarHeight + 12} />
 
 
         {/* Contenido: top dinámico según si hay TitleBar o no */}

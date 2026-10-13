@@ -227,6 +227,10 @@ export const registerSession = async (uid: string): Promise<string> => {
     sessionKey,
   });
 
+  // Alerta de inicio de sesión (Configuración → Seguridad): si este dispositivo
+  // es nuevo para la cuenta, aviso en la campana. Sin bloquear el inicio.
+  void revisarDispositivo(uid, `${os} · ${browser.replace(/\s[\d.]+$/, '')}`).catch(console.error);
+
   // Intenta obtener IP pública (sin bloquear)
   fetch('https://api.ipify.org?format=json')
     .then(r => r.json())
@@ -239,6 +243,27 @@ export const registerSession = async (uid: string): Promise<string> => {
 
   return sessionKey;
 };
+
+/**
+ * Cada navegador o app guarda un id propio (localStorage). La cuenta recuerda
+ * sus dispositivos en users/{uid}.dispositivos; uno que no está ahí es nuevo.
+ * El primero de todos no avisa (no hay contra qué comparar).
+ */
+async function revisarDispositivo(uid: string, nombre: string) {
+  let id = localStorage.getItem('dispositivo-id');
+  if (!id) { id = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem('dispositivo-id', id); }
+  const ref = doc(db, 'users', uid);
+  const datos = (await getDoc(ref)).data() ?? {};
+  const conocidos: { id: string; nombre: string; visto: Timestamp }[] = Array.isArray(datos.dispositivos) ? datos.dispositivos : [];
+  if (conocidos.some(d => d.id === id)) return;
+  if (conocidos.length && datos.settings?.loginAlerts !== false) {
+    await addDoc(collection(db, 'notifications'), {
+      type: 'login-alert', toUids: [uid], authorUid: 'sistema', dispositivo: nombre,
+      createdAt: Timestamp.now(), read: false,
+    });
+  }
+  await updateDoc(ref, { dispositivos: [...conocidos, { id, nombre, visto: Timestamp.now() }].slice(-15) });
+}
 
 /** Obtiene todas las sesiones activas del usuario */
 export const getUserSessions = async (uid: string): Promise<SessionRecord[]> => {

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { format, subDays, subHours, startOfHour, isAfter } from 'date-fns';
+import { fechaHora, diaMes } from '@/lib/ajustes/fecha';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const LOG_META: Record<LogLevel, { label: string; color: string; bg: string; icon: React.FC<any> }> = {
@@ -263,7 +264,7 @@ export default function PanelAdmin() {
       mensaje: l.message,
       usuario: l.userName ?? '—',
       uid:     l.userId ?? '—',
-      fecha:   format(l.createdAt, 'dd/MM/yyyy HH:mm:ss'),
+      fecha:   fechaHora(l.createdAt, true),
     }));
     const fname = `logs_${format(new Date(), 'yyyyMMdd_HHmm')}`;
     format_ === 'json' ? exportJSON(data, `${fname}.json`) : exportCSV(data, `${fname}.csv`);
@@ -514,7 +515,7 @@ export default function PanelAdmin() {
                           </div>
                           <div className="col-span-1">
                             <p className="text-zinc-600 text-xs font-light tabular-nums">{format(log.createdAt, 'HH:mm')}</p>
-                            <p className="text-zinc-800 text-[10px] font-light tabular-nums">{format(log.createdAt, 'dd/MM')}</p>
+                            <p className="text-zinc-800 text-[10px] font-light tabular-nums">{diaMes(log.createdAt)}</p>
                           </div>
                         </div>
 
@@ -527,7 +528,7 @@ export default function PanelAdmin() {
                                 { label: 'ID', value: log.id },
                                 { label: 'Nivel', value: log.level },
                                 { label: 'Módulo', value: log.module },
-                                { label: 'Fecha completa', value: format(log.createdAt, 'dd/MM/yyyy HH:mm:ss') },
+                                { label: 'Fecha completa', value: fechaHora(log.createdAt, true) },
                                 { label: 'Usuario', value: log.userName ?? '—' },
                                 { label: 'UID', value: log.userId ?? '—' },
                               ].map(({ label, value }) => (
@@ -751,7 +752,7 @@ export default function PanelAdmin() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-zinc-600 text-[10px] font-light">{format(log.createdAt, 'HH:mm')}</p>
-                          <p className="text-zinc-800 text-[10px] font-light">{format(log.createdAt, 'dd/MM')}</p>
+                          <p className="text-zinc-800 text-[10px] font-light">{diaMes(log.createdAt)}</p>
                         </div>
                       </div>
                     );
@@ -782,7 +783,7 @@ export default function PanelAdmin() {
                 { label: 'Rol',               value: userProfile?.role ?? '—',                       color: ROLE_COLORS[userProfile?.role ?? ''] ?? null },
                 { label: 'UID',               value: currentUser?.uid ?? '—',                        color: null },
                 // lastSignInTime es el último inicio de sesión; creationTime era la fecha de alta de la cuenta.
-                { label: 'Sesión iniciada',   value: currentUser?.metadata?.lastSignInTime ? format(new Date(currentUser.metadata.lastSignInTime), 'dd/MM/yyyy HH:mm') : '—', color: null },
+                { label: 'Sesión iniciada',   value: currentUser?.metadata?.lastSignInTime ? fechaHora(new Date(currentUser.metadata.lastSignInTime)) : '—', color: null },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between px-5 py-3.5 hover:bg-white/[0.01] transition-colors">
                   <span className="text-zinc-500 text-sm font-light">{item.label}</span>

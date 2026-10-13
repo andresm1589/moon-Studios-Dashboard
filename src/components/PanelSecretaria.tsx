@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { fechaNumerica } from '@/lib/ajustes/fecha';
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS_META: Record<DocStatus, { label: string; color: string; icon: LucideIcon }> = {
@@ -484,7 +485,7 @@ export default function PanelSecretaria() {
                               <span>·</span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" strokeWidth={1.5} />
-                                Actualizado {format(d.updatedAt, 'dd/MM/yy', { locale: es })}
+                                Actualizado {fechaNumerica(d.updatedAt, true)}
                               </span>
                             </>
                           )}

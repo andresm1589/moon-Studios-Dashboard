@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { fechaNumerica } from '@/lib/ajustes/fecha';
 
 // ─── Config visual ───────────────────────────────────────────────────────────
 const STATUS_META: Record<ProjectStatus, { label: string; color: string; bg: string; icon: React.FC<any> }> = {
@@ -1243,7 +1244,7 @@ export default function PanelProgramacion() {
                             { label: 'Stack',    value: p.stack?.join(', ') || '—' },
                             { label: 'Lead',     value: p.leadName ?? '—' },
                             { label: 'Deadline', value: fmtFecha(p.deadline, 'dd/MM/yyyy') || '—' },
-                            { label: 'Creado',   value: format(p.createdAt instanceof Date ? p.createdAt : new Date(), 'dd/MM/yyyy') },
+                            { label: 'Creado',   value: fechaNumerica(p.createdAt instanceof Date ? p.createdAt : new Date()) },
                           ].map(({ label, value }) => (
                             <div key={label}>
                               <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>

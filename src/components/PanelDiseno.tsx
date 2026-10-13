@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { fechaNumerica } from '@/lib/ajustes/fecha';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getMimeType(mimeType: string): MediaType {
@@ -561,7 +562,7 @@ export default function PanelDiseno() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-light" style={{ color }}>{formatBytes(file.size)}</span>
                     <span className="text-zinc-700 text-[10px] font-light">
-                      {format(file.createdAt, 'dd/MM/yy', { locale: es })}
+                      {fechaNumerica(file.createdAt, true)}
                     </span>
                   </div>
                   {/* En pantallas táctiles (sin hover) las acciones quedan siempre a la vista */}

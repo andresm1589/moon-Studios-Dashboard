@@ -28,6 +28,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { useSettings } from '@/contexts/SettingsContext';
 
 /* ═══════════════════════════════
    TIPOS
@@ -389,6 +390,9 @@ const HilosComponent: React.FC = () => {
   const hiloAbiertoId = selectedHilo?.id;
   const miNombre = userProfile?.displayName || '';
   const miAvatar = userProfile?.avatar || '';
+  // Configuración → Privacidad → «Mostrar cuando estoy en línea»: apagado, no se publica la presencia.
+  const { settings } = useSettings();
+  const mostrarEnLinea = settings.showOnline !== false;
 
   useEffect(() => {
     if (!hiloAbiertoId) return;
@@ -401,6 +405,7 @@ const HilosComponent: React.FC = () => {
   useEffect(() => {
     if (!hiloAbiertoId || !uid) return;
     const miRef = doc(db, 'hilos', hiloAbiertoId, 'presence', uid);
+    if (!mostrarEnLinea) { deleteDoc(miRef).catch(() => {}); return; }
     const latido = () => setDoc(miRef, {
       uid, displayName: miNombre, avatar: miAvatar,
       lastSeen: Timestamp.now(), isOnline: true,
@@ -418,7 +423,7 @@ const HilosComponent: React.FC = () => {
       window.removeEventListener('pagehide', salir);
       salir();
     };
-  }, [hiloAbiertoId, uid, miNombre, miAvatar]);
+  }, [hiloAbiertoId, uid, miNombre, miAvatar, mostrarEnLinea]);
 
   // Reloj para que quien deja de latir salga de la lista sin recargar.
   useEffect(() => {

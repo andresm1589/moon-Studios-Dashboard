@@ -9,7 +9,7 @@ import type { SoundType } from '@/lib/notificationSound';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-export type NotifCategory = 'announcement' | 'email' | 'thread' | 'message' | 'task';
+export type NotifCategory = 'announcement' | 'email' | 'thread' | 'message' | 'task' | 'security';
 
 export interface UnifiedNotification {
   id:        string;
@@ -292,7 +292,8 @@ export function useNotifications({
   const conMenciones = !!enabledCategories.thread;
   const conTareas    = !!enabledCategories.task;
   useEffect(() => {
-    if (!uid || (!conMenciones && !conTareas)) return;
+    // Siempre se escucha: los avisos de seguridad (inicio de sesión) no se pueden apagar por categoría.
+    if (!uid) return;
     const q = query(collection(db, 'notifications'), where('toUids', 'array-contains', uid));
     const ESTADO: Record<string, string> = {
       pending: 'pendiente', 'in-progress': 'en progreso', completed: 'completada', 'not-completed': 'no completada',
@@ -300,10 +301,20 @@ export function useNotifications({
     const unsub = onSnapshot(q, snap => {
       const menciones: UnifiedNotification[] = [];
       const tareas: UnifiedNotification[] = [];
+      const seguridad: UnifiedNotification[] = [];
       for (const doc of snap.docs) {
         const d = doc.data();
         const createdAt = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(0);
         const tipo = String(d.type ?? 'mention');
+        if (tipo === 'login-alert') {
+          seguridad.push({
+            id: `seguridad_${doc.id}`, rawId: doc.id, category: 'security', createdAt,
+            title: 'Nuevo inicio de sesión',
+            preview: `Desde ${d.dispositivo || 'un dispositivo nuevo'}. ¿No fuiste tú? Cierra esa sesión en Configuración → Seguridad.`,
+            linkTo: '/dashboard/settings', important: true,
+          });
+          continue;
+        }
         if (tipo.startsWith('task')) {
           if (!conTareas || d.authorUid === uid) continue;
           const titulo = d.taskTitle ? `"${d.taskTitle}"` : 'una tarea';
@@ -331,9 +342,10 @@ export function useNotifications({
       const recientes = (l: UnifiedNotification[]) => l.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 20);
       merge(recientes(menciones), 'mention');
       merge(recientes(tareas), 'aviso-tarea');
+      merge(recientes(seguridad), 'security');
     }, err => console.error('[notif] notifications:', err));
     // Al desactivar la categoría o cerrar sesión se quitan de la campana.
-    return () => { unsub(); merge([], 'mention'); merge([], 'aviso-tarea'); };
+    return () => { unsub(); merge([], 'mention'); merge([], 'aviso-tarea'); merge([], 'security'); };
   }, [uid, conMenciones, conTareas, merge]);
 
   // ── Listener: Mensajería ──────────────────────────────────────────────────

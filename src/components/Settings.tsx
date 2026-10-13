@@ -14,7 +14,8 @@
 import React, { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { pedirPermisoNotificaciones } from '@/lib/escritorio';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useSettings, defaultSettings } from '@/contexts/SettingsContext';
+import { ATAJOS, esMac } from '@/lib/ajustes/atajos';
 import {
   updateUserProfile, updateUserPassword, getUserProfile,
   logUserActivity, getUserActivityLogs, getUserSessions,
@@ -30,7 +31,7 @@ import {
   KeyRound, AlertCircle, Monitor, Smartphone, MapPin, LogOut,
   Globe, Keyboard, Database, Zap, Download, Upload,
   Contrast, Wifi, Link2, Twitter, Github, Linkedin, Trash, Lock,
-  BarChart2, Clock3, MousePointer2, Activity, ToggleLeft, Sliders,
+  Clock3, MousePointer2, Activity, ToggleLeft, Sliders,
   HardDrive, AlarmClock, BellOff,
   UserCheck, ShieldCheck, Cpu, Layout, Maximize2, ChevronDown,
   Type, RotateCcw, ZoomIn, ZoomOut, Crop, History, Star,
@@ -122,17 +123,22 @@ export function loadGoogleFont(url: string, id: string) {
   document.head.appendChild(link);
 }
 
-const KEYBOARD_SHORTCUTS = [
-  { action: 'Buscar',             keys: ['⌘', 'K'],       category: 'General' },
-  { action: 'Nueva conversación', keys: ['⌘', 'N'],       category: 'General' },
-  { action: 'Cerrar panel',       keys: ['Esc'],          category: 'General' },
-  { action: 'Guardar cambios',    keys: ['⌘', 'S'],       category: 'Edición' },
-  { action: 'Deshacer',          keys: ['⌘', 'Z'],       category: 'Edición' },
-  { action: 'Rehacer',           keys: ['⌘', '⇧', 'Z'],  category: 'Edición' },
-  { action: 'Ir a inicio',       keys: ['⌘', '1'],       category: 'Navegación' },
-  { action: 'Ir a mensajes',     keys: ['⌘', '2'],       category: 'Navegación' },
-  { action: 'Ir a config.',      keys: ['⌘', ','],       category: 'Navegación' },
-];
+const ZONA_DISPOSITIVO = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const ZONAS = [
+  { id: ZONA_DISPOSITIVO, nombre: `La de este dispositivo (${ZONA_DISPOSITIVO.replace(/_/g, ' ')})` },
+  { id: 'America/Lima', nombre: 'Lima (UTC-5)' },
+  { id: 'America/Bogota', nombre: 'Bogotá (UTC-5)' },
+  { id: 'America/Guayaquil', nombre: 'Guayaquil (UTC-5)' },
+  { id: 'America/Mexico_City', nombre: 'Ciudad de México (UTC-6)' },
+  { id: 'America/New_York', nombre: 'Nueva York (UTC-5/-4)' },
+  { id: 'America/Caracas', nombre: 'Caracas (UTC-4)' },
+  { id: 'America/La_Paz', nombre: 'La Paz (UTC-4)' },
+  { id: 'America/Santiago', nombre: 'Santiago (UTC-4/-3)' },
+  { id: 'America/Argentina/Buenos_Aires', nombre: 'Buenos Aires (UTC-3)' },
+  { id: 'America/Sao_Paulo', nombre: 'São Paulo (UTC-3)' },
+  { id: 'Europe/Madrid', nombre: 'Madrid (UTC+1/+2)' },
+].filter((z, i, l) => l.findIndex(x => x.id === z.id) === i);
+
 
 const INTEGRATIONS = [
   { id: 'google',   label: 'Google Workspace', icon: Globe,         color: '#4285F4', desc: 'Drive, Calendar, Meet' },
@@ -559,7 +565,7 @@ interface ProfileField {
 // ══════════════════════════════════════════════════════════════════════════════
 const Settings: React.FC = () => {
   const { userProfile, refreshProfile } = useAuth();
-  const { settings, updateSettings, isDark } = useSettings();
+  const { settings, updateSettings, isDark, estado, restablecer } = useSettings();
 
   // ── Core State ──
   const [activeTab, setActiveTab] = useState<TabKey>('profile');
@@ -585,43 +591,33 @@ const Settings: React.FC = () => {
   const [showPw2, setShowPw2] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
 
-  // ── Appearance ──
-  const [accentColor, setAccentColor] = useState(settings.accentColor || '#6366f1');
-  const [fontSize, setFontSize] = useState<FontSize>((settings.fontSize as FontSize) || 'md');
-  const [compactMode, setCompactMode] = useState(settings.compactMode || false);
-  const [animations, setAnimations] = useState(settings.animations !== false);
-  const [blurEffects, setBlurEffects] = useState(settings.blurEffects !== false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(settings.sidebarCollapsed || false);
-  const [fontFamily, setFontFamily] = useState<FontId>((settings.fontFamily as FontId) || 'DM Sans');
-
-  // ── Notifications ──
-  const [quietHoursEnabled, setQuietHoursEnabled] = useState(settings.quietHoursEnabled || false);
-  const [quietFrom, setQuietFrom] = useState(settings.quietFrom || '22:00');
-  const [quietTo, setQuietTo] = useState(settings.quietTo || '08:00');
-  const [desktopNotifs, setDesktopNotifs] = useState(settings.desktopNotifs !== false);
-  const [emailDigest, setEmailDigest] = useState<'never' | 'daily' | 'weekly'>(settings.emailDigest || 'daily');
-  const [badgeCount, setBadgeCount] = useState(settings.badgeCount !== false);
-
-  // ── Privacy ──
-  const [profilePublic, setProfilePublic] = useState(settings.profilePublic !== false);
-  const [showOnline, setShowOnline] = useState(settings.showOnline !== false);
-  const [dataCollection, setDataCollection] = useState(settings.dataCollection !== false);
-  const [cookieAnalytics, setCookieAnalytics] = useState(settings.cookieAnalytics !== false);
-  const [twoFAEnabled, setTwoFAEnabled] = useState(settings.twoFAEnabled || false);
-  const [loginAlerts, setLoginAlerts] = useState(settings.loginAlerts !== false);
-  const [searchVisible, setSearchVisible] = useState(settings.searchVisible !== false);
-
-  // ── Accessibility ──
-  const [highContrast, setHighContrast] = useState(settings.highContrast || false);
-  const [reduceMotion, setReduceMotion] = useState(settings.reduceMotion || false);
-  const [screenReader, setScreenReader] = useState(settings.screenReader || false);
-  const [focusIndicator, setFocusIndicator] = useState(settings.focusIndicator !== false);
-  const [language, setLanguage] = useState(settings.language || 'es');
-  const [timezone, setTimezone] = useState(settings.timezone || 'America/Lima');
-  const [dateFormat, setDateFormat] = useState<'dmy' | 'mdy' | 'ymd'>(settings.dateFormat || 'dmy');
+  // ── Lo que viene de la configuración ──
+  // Se lee SIEMPRE de settings (no hay copias locales): antes cada opción tenía
+  // su propio useState, y si cambiaba desde otro lado (el botón de la barra,
+  // otro dispositivo) esta pantalla mostraba un valor viejo.
+  const accentColor = settings.accentColor || '#6366f1';
+  const fontSize = ((settings.fontSize as FontSize) || 'md');
+  const compactMode = !!settings.compactMode;
+  const animations = settings.animations !== false;
+  const blurEffects = settings.blurEffects !== false;
+  const sidebarCollapsed = !!settings.sidebarCollapsed;
+  const fontFamily = ((settings.fontFamily as FontId) || 'DM Sans');
+  const quietHoursEnabled = !!settings.quietHoursEnabled;
+  const quietFrom = settings.quietFrom || '22:00';
+  const quietTo = settings.quietTo || '08:00';
+  const desktopNotifs = settings.desktopNotifs !== false;
+  const badgeCount = settings.badgeCount !== false;
+  const showOnline = settings.showOnline !== false;
+  const loginAlerts = settings.loginAlerts !== false;
+  const highContrast = !!settings.highContrast;
+  const reduceMotion = !!settings.reduceMotion;
+  const screenReader = !!settings.screenReader;
+  const focusIndicator = settings.focusIndicator !== false;
+  const language = settings.language || 'es';
+  const timezone = settings.timezone || 'America/Lima';
+  const dateFormat = (settings.dateFormat || 'dmy') as 'dmy' | 'mdy' | 'ymd';
 
   // ── Storage ──
-  const [autoBackup, setAutoBackup] = useState(settings.autoBackup || false);
   // Lo que la app ocupa en este dispositivo, medido por el navegador. Antes
   // eran números fijos ("124 MB", "24 %", "1.2 GB de archivos").
   const [almacenamiento, setAlmacenamiento] = useState<{ uso: number; cuota: number } | null>(null);
@@ -657,11 +653,6 @@ const Settings: React.FC = () => {
 
   const esPantallaAncha = useEsPantallaAncha();
 
-  // ─── Sync settings ───────────────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setAccentColor(settings.accentColor || '#6366f1'); }, [settings.accentColor]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (settings.fontFamily) setFontFamily(settings.fontFamily as FontId); }, [settings.fontFamily]);
 
   // ─── Password strength ────────────────────────────────────────────────────
   useEffect(() => {
@@ -855,13 +846,6 @@ avatar = url;
     } finally { setPwLoading(false); }
   };
 
-  // Todavía no hay verificación en 2 pasos real: antes el interruptor solo
-  // guardaba un ajuste y decía "2FA activado" sin proteger nada.
-  const handleToggle2FA = async (v: boolean) => {
-    if (!v) { setTwoFAEnabled(false); await updateSettings({ twoFAEnabled: false }); return; }
-    showMsg('error', 'La verificación en 2 pasos todavía no está disponible');
-  };
-
   const handleRevokeSession = async (id: string) => {
     try { await revokeSession(id); }
     catch (e) { console.error(e); showMsg('error', 'No se pudo cerrar esa sesión'); return; }
@@ -899,11 +883,30 @@ avatar = url;
     finally { setExportingData(false); }
   };
 
+  // Importar: el JSON de «Exportar» (o uno con solo la configuración). Lo que no
+  // es una opción válida se ignora (lo limpia SettingsContext).
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const handleImportSettings = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const datos = JSON.parse(await file.text());
+      const ajustes = datos?.settings ?? datos;
+      if (!ajustes || typeof ajustes !== 'object' || Array.isArray(ajustes)) throw new Error('formato');
+      const validas = Object.fromEntries(Object.entries(ajustes).filter(([k]) => k in defaultSettings));
+      if (!Object.keys(validas).length) throw new Error('vacío');
+      await updateSettings(validas as Partial<typeof settings>);
+      showMsg('success', `Configuración importada (${Object.keys(validas).length} opciones)`);
+    } catch {
+      showMsg('error', 'Ese archivo no es una configuración exportada del portal');
+    }
+  };
+
   const handleFontChange = (fontId: FontId) => {
     const opt = FONT_OPTIONS.find(f => f.id === fontId);
     if (!opt) return;
     loadGoogleFont(opt.url, fontId);
-    setFontFamily(fontId);
     updateSettings({ fontFamily: fontId });
     showMsg('success', `Fuente cambiada a ${opt.label}`);
   };
@@ -1035,12 +1038,18 @@ avatar = url;
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+      <input ref={importInputRef} type="file" accept="application/json,.json" onChange={handleImportSettings} className="hidden" />
 
       <div className="w-full mx-auto" style={{ maxWidth: 900, color: 'var(--text-primary)' }}>
         {/* ── Header ── */}
         <div className="mb-6 text-center px-4">
           <h1 className="text-xl font-light tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>Configuración</h1>
           <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>Gestiona tu cuenta, privacidad y preferencias</p>
+          {/* Se guarda solo, al momento, y se sincroniza con tus otros dispositivos. */}
+          <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: estado === 'error' ? '#f87171' : 'var(--text-muted)' }}>
+            {estado === 'guardando' ? <Loader2 size={11} className="animate-spin" /> : estado === 'error' ? <AlertCircle size={11} /> : <CheckCircle2 size={11} style={{ color: '#34d399' }} />}
+            {estado === 'guardando' ? 'Guardando…' : estado === 'error' ? 'No se pudo guardar: se reintentará' : 'Todo guardado · sincronizado en tus dispositivos'}
+          </div>
           {pendingUpdate && (
             <div
               onClick={() => setActiveTab('activity')}
@@ -1145,24 +1154,21 @@ avatar = url;
       cropSrc, setCropSrc,
       currentPw, setCurrentPw, newPassword, setNewPassword, confirmPw, setConfirmPw,
       showPw0, setShowPw0, showPw1, setShowPw1, showPw2, setShowPw2, pwLoading,
-      accentColor, setAccentColor, fontSize, setFontSize, compactMode, setCompactMode,
-      animations, setAnimations, blurEffects, setBlurEffects, sidebarCollapsed, setSidebarCollapsed,
+      accentColor, fontSize, compactMode,
+      animations, blurEffects, sidebarCollapsed,
       fontFamily, handleFontChange,
-      quietHoursEnabled, setQuietHoursEnabled, quietFrom, setQuietFrom, quietTo, setQuietTo,
-      desktopNotifs, setDesktopNotifs, emailDigest, setEmailDigest, badgeCount, setBadgeCount,
-      profilePublic, setProfilePublic, showOnline, setShowOnline, dataCollection, setDataCollection,
-      cookieAnalytics, setCookieAnalytics, twoFAEnabled, loginAlerts, setLoginAlerts, searchVisible, setSearchVisible,
-      highContrast, setHighContrast, reduceMotion, setReduceMotion, screenReader, setScreenReader,
-      focusIndicator, setFocusIndicator, language, setLanguage, timezone, setTimezone, dateFormat, setDateFormat,
-      autoBackup, setAutoBackup, cacheSize, almacenamiento, mb, clearingCache, clearCacheConfirm, exportingData,
+      quietHoursEnabled, quietFrom, quietTo,
+      desktopNotifs, badgeCount, showOnline, loginAlerts,
+      highContrast, reduceMotion, screenReader,
+      focusIndicator, language, timezone, dateFormat, cacheSize, almacenamiento, mb, clearingCache, clearCacheConfirm, exportingData,
       sessions, loadingSessions, activityLogs, loadingActivity,
       saving, avatarHistory, setAvatarHistory, previewUrl, setPreviewUrl,
       focusedField, setFocusedField, passwordStrength,
       strengthColor, strengthLabel, cardStyle, sectionTitle, accentColors,
       inputStyle, currentAvatarUrl, isMuted, currentSound, bd,
-      handlePhotoSelect, handleUpdateProfile, handleChangePassword, handleToggle2FA,
+      handlePhotoSelect, handleUpdateProfile, handleChangePassword,
       handleRevokeSession, handleRevokeAllSessions, handleClearCache, handleExportData,
-      daysUntilExpiry, showMsg,
+      daysUntilExpiry, showMsg, importInputRef, restablecer,
       fileInputRef, showHistory, setShowHistory, IS_TAURI, appVersion,
     };
   }
@@ -1199,24 +1205,22 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
     photoPreview, uploadingPhoto, pendingFile,
     currentPw, setCurrentPw, newPassword, setNewPassword, confirmPw, setConfirmPw,
     showPw0, setShowPw0, showPw1, setShowPw1, showPw2, setShowPw2, pwLoading,
-    accentColor, setAccentColor, fontSize, setFontSize, compactMode, setCompactMode,
-    animations, setAnimations, blurEffects, setBlurEffects, sidebarCollapsed, setSidebarCollapsed,
+    accentColor, fontSize, compactMode,
+    animations, blurEffects, sidebarCollapsed,
     fontFamily, handleFontChange,
-    quietHoursEnabled, setQuietHoursEnabled, quietFrom, setQuietFrom, quietTo, setQuietTo,
-    desktopNotifs, setDesktopNotifs, emailDigest, setEmailDigest, badgeCount, setBadgeCount,
-    profilePublic, setProfilePublic, showOnline, setShowOnline, dataCollection, setDataCollection,
-    cookieAnalytics, setCookieAnalytics, twoFAEnabled, loginAlerts, setLoginAlerts, searchVisible, setSearchVisible,
-    highContrast, setHighContrast, reduceMotion, setReduceMotion, screenReader, setScreenReader,
-    focusIndicator, setFocusIndicator, language, setLanguage, timezone, setTimezone, dateFormat, setDateFormat,
+    quietHoursEnabled, quietFrom, quietTo,
+    desktopNotifs, badgeCount, showOnline, loginAlerts,
+    highContrast, reduceMotion, screenReader,
+    focusIndicator, language, timezone, dateFormat,
     cacheSize, almacenamiento, mb, clearingCache, clearCacheConfirm, exportingData,
     sessions, loadingSessions, activityLogs, loadingActivity,
     saving, avatarHistory, setPreviewUrl,
     setFocusedField, passwordStrength,
     strengthColor, strengthLabel, cardStyle, sectionTitle, accentColors,
     inputStyle, currentAvatarUrl, isMuted, currentSound, bd,
-    handleUpdateProfile, handleChangePassword, handleToggle2FA,
+    handleUpdateProfile, handleChangePassword,
     handleRevokeSession, handleRevokeAllSessions, handleClearCache, handleExportData,
-    daysUntilExpiry, showMsg,
+    daysUntilExpiry, showMsg, importInputRef, restablecer,
     fileInputRef, setShowHistory, IS_TAURI,
   } = p;
 
@@ -1429,11 +1433,11 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
               <div style={sectionTitle}>Color de acento</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {accentColors.map((color: string) => (
-                  <button key={color} onClick={() => { setAccentColor(color); updateSettings({ accentColor: color }); showMsg('success', 'Color actualizado'); }}
+                  <button key={color} onClick={() => { updateSettings({ accentColor: color }); showMsg('success', 'Color actualizado'); }}
                     style={{ width: 32, height: 32, borderRadius: '50%', background: color, border: 'none', cursor: 'pointer', outline: accentColor === color ? `3px solid ${color}` : '2px solid transparent', outlineOffset: 2, transform: accentColor === color ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: accentColor === color ? `0 4px 12px ${color}66` : 'none' }} />
                 ))}
                 <input type="color" value={accentColor}
-                  onChange={e => { setAccentColor(e.target.value); updateSettings({ accentColor: e.target.value }); }}
+                  onChange={e => { updateSettings({ accentColor: e.target.value }); }}
                   style={{ width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', border: '1px dashed var(--border-main)', background: 'transparent', padding: 0 }}
                   title="Color personalizado" />
               </div>
@@ -1475,8 +1479,8 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
               <div style={sectionTitle}>Tamaño de fuente</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
                 {FONT_SIZES.map(size => (
-                  <button key={size} onClick={() => { setFontSize(size); updateSettings({ fontSize: size }); showMsg('success', 'Tamaño actualizado'); }}
-                    style={{ padding: '9px 4px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${fontSize === size ? accentColor + '55' : bd}`, background: fontSize === size ? `${accentColor}14` : 'var(--sidebar-card-bg)', fontSize: size === 'xs' ? 10 : size === 'sm' ? 11 : size === 'md' ? 13 : size === 'lg' ? 15 : 17, color: fontSize === size ? 'white' : 'var(--text-muted)', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)', transform: fontSize === size ? 'scale(1.05)' : 'scale(1)' }}>Aa</button>
+                  <button key={size} onClick={() => { updateSettings({ fontSize: size }); showMsg('success', 'Tamaño actualizado'); }}
+                    style={{ padding: '9px 4px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${fontSize === size ? accentColor + '55' : bd}`, background: fontSize === size ? `${accentColor}14` : 'var(--sidebar-card-bg)', fontSize: size === 'xs' ? 10 : size === 'sm' ? 11 : size === 'md' ? 13 : size === 'lg' ? 15 : 17, color: fontSize === size ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)', transform: fontSize === size ? 'scale(1.05)' : 'scale(1)' }}>Aa</button>
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
@@ -1488,13 +1492,19 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
             <div style={cardStyle}>
               <div style={sectionTitle}>Opciones visuales</div>
               <Row label="Modo compacto" desc="Reduce el espaciado en la interfaz" icon={Layout} color="#60a5fa"
-                checked={compactMode} onChange={v => { setCompactMode(v); updateSettings({ compactMode: v }); showMsg('success', `Modo compacto ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
+                checked={compactMode} onChange={v => { updateSettings({ compactMode: v }); showMsg('success', `Modo compacto ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
               <Row label="Animaciones" desc="Transiciones y efectos de movimiento" icon={Zap} color="#a78bfa"
-                checked={animations} onChange={v => { setAnimations(v); updateSettings({ animations: v }); showMsg('success', `Animaciones ${v ? 'activadas' : 'desactivadas'}`); }} bd={bd} />
+                checked={animations} onChange={v => { updateSettings({ animations: v }); showMsg('success', `Animaciones ${v ? 'activadas' : 'desactivadas'}`); }} bd={bd} />
               <Row label="Efectos de desenfoque" desc="Blur en fondos (usa más GPU)" icon={Maximize2} color="#34d399"
-                checked={blurEffects} onChange={v => { setBlurEffects(v); updateSettings({ blurEffects: v }); showMsg('success', `Blur ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
+                checked={blurEffects} onChange={v => { updateSettings({ blurEffects: v }); showMsg('success', `Blur ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
               <Row label="Sidebar colapsada" desc="Solo iconos en el menú lateral" icon={Layout} color="#fb923c"
-                checked={sidebarCollapsed} onChange={v => { setSidebarCollapsed(v); updateSettings({ sidebarCollapsed: v }); showMsg('success', `Sidebar ${v ? 'colapsada' : 'expandida'}`); }} last bd={bd} />
+                checked={sidebarCollapsed} onChange={v => { updateSettings({ sidebarCollapsed: v }); showMsg('success', `Sidebar ${v ? 'colapsada' : 'expandida'}`); }} last bd={bd} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={async () => { await restablecer(["theme","accentColor","fontFamily","fontSize","compactMode","animations","blurEffects","sidebarCollapsed"]); showMsg('success', 'Apariencia restablecida'); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border-main)', background: 'transparent', color: 'var(--text-muted)' }}>
+                <RotateCcw size={12} /> Restablecer esta sección
+              </button>
             </div>
           </>
         )}
@@ -1549,18 +1559,18 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                   <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Horas de silencio</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sin notificaciones en este rango</div>
                 </div>
-                <Switch checked={quietHoursEnabled} onCheckedChange={v => { setQuietHoursEnabled(v); updateSettings({ quietHoursEnabled: v }); }} />
+                <Switch checked={quietHoursEnabled} onCheckedChange={v => { updateSettings({ quietHoursEnabled: v }); }} />
               </div>
               {quietHoursEnabled && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', animation: 'fadeInUp 0.2s ease' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Desde</div>
-                    <input className="s-input" type="time" value={quietFrom} onChange={e => { setQuietFrom(e.target.value); updateSettings({ quietFrom: e.target.value }); }} style={inputStyle('quietFrom')} />
+                    <input className="s-input" type="time" value={quietFrom} onChange={e => { updateSettings({ quietFrom: e.target.value }); }} style={inputStyle('quietFrom')} />
                   </div>
                   <span style={{ color: 'var(--text-muted)', paddingTop: 18 }}>→</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Hasta</div>
-                    <input className="s-input" type="time" value={quietTo} onChange={e => { setQuietTo(e.target.value); updateSettings({ quietTo: e.target.value }); }} style={inputStyle('quietTo')} />
+                    <input className="s-input" type="time" value={quietTo} onChange={e => { updateSettings({ quietTo: e.target.value }); }} style={inputStyle('quietTo')} />
                   </div>
                 </div>
               )}
@@ -1591,20 +1601,15 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
             <div style={cardStyle}>
               <div style={sectionTitle}>Preferencias adicionales</div>
               <Row label="Notificaciones de escritorio" desc="Alertas del sistema operativo" icon={Monitor} color="#60a5fa"
-                checked={desktopNotifs} onChange={v => { setDesktopNotifs(v); updateSettings({ desktopNotifs: v }); if (v) void pedirPermisoNotificaciones().then(ok => showMsg(ok ? 'success' : 'error', ok ? 'Activadas: te avisaremos aunque el portal esté en segundo plano' : 'El sistema no dio permiso para mostrar notificaciones')); else showMsg('success', 'Desactivadas'); }} bd={bd} />
-              <Row label="Contador en ícono" desc="Número de notificaciones pendientes" icon={Bell} color="#a78bfa"
-                checked={badgeCount} onChange={v => { setBadgeCount(v); updateSettings({ badgeCount: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
-              <div style={{ paddingTop: 12 }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Resumen por correo</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                  {(['never', 'daily', 'weekly'] as const).map(opt => (
-                    <button key={opt} onClick={() => { setEmailDigest(opt); updateSettings({ emailDigest: opt }); showMsg('success', 'Guardado'); }}
-                      style={{ padding: '8px 4px', borderRadius: 8, fontSize: 12, cursor: 'pointer', border: `1px solid ${emailDigest === opt ? accentColor + '44' : bd}`, background: emailDigest === opt ? `${accentColor}14` : 'transparent', color: emailDigest === opt ? 'white' : 'var(--text-muted)', transition: 'all 0.18s ease' }}>
-                      {opt === 'never' ? 'Nunca' : opt === 'daily' ? 'Diario' : 'Semanal'}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                checked={desktopNotifs} onChange={v => { updateSettings({ desktopNotifs: v }); if (v) void pedirPermisoNotificaciones().then(ok => showMsg(ok ? 'success' : 'error', ok ? 'Activadas: te avisaremos aunque el portal esté en segundo plano' : 'El sistema no dio permiso para mostrar notificaciones')); else showMsg('success', 'Desactivadas'); }} bd={bd} />
+              <Row label="Contador en el título" desc="«(3) moon Studios»: las notificaciones sin leer en la pestaña o la ventana" icon={Bell} color="#a78bfa"
+                checked={badgeCount} onChange={v => { updateSettings({ badgeCount: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={async () => { await restablecer(["notificationSound","notificationVolume","notificationsMuted","notifyAnnouncements","notifyEmails","notifyThreads","notifyMessages","notifyTasks","quietHoursEnabled","quietFrom","quietTo","desktopNotifs","badgeCount"]); showMsg('success', 'Notificaciones restablecidas'); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border-main)', background: 'transparent', color: 'var(--text-muted)' }}>
+                <RotateCcw size={12} /> Restablecer esta sección
+              </button>
             </div>
           </>
         )}
@@ -1668,8 +1673,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
             </div>
 
             <div style={cardStyle}>
-              <Row label="Verificación en 2 pasos (2FA)" desc="Próximamente" icon={ShieldCheck} color="#34d399" checked={twoFAEnabled} onChange={handleToggle2FA}  bd={bd} />
-              <Row label="Alertas de inicio de sesión" desc="Notificar desde nuevo dispositivo" icon={BellOff} color="#60a5fa" checked={loginAlerts} onChange={v => { setLoginAlerts(v); updateSettings({ loginAlerts: v }); showMsg('success', v ? 'Alertas activadas' : 'Desactivadas'); }} last bd={bd} />
+              <Row label="Alertas de inicio de sesión" desc="Te avisamos cuando tu cuenta entra desde un dispositivo nuevo" icon={BellOff} color="#60a5fa" checked={loginAlerts} onChange={v => { updateSettings({ loginAlerts: v }); showMsg('success', v ? 'Alertas activadas' : 'Desactivadas'); }} last bd={bd} />
             </div>
 
             <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
@@ -1721,15 +1725,8 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
         {activeTab === 'privacy' && (
           <>
             <div style={cardStyle}>
-              <div style={sectionTitle}>Visibilidad del perfil</div>
-              <Row label="Perfil público" desc="Cualquier usuario puede ver tu perfil" icon={Globe} color="#60a5fa" checked={profilePublic} onChange={v => { setProfilePublic(v); updateSettings({ profilePublic: v }); showMsg('success', 'Actualizado'); }} bd={bd} />
-              <Row label="Mostrar estado en línea" desc="Visible cuando estás activo" icon={Wifi} color="#34d399" checked={showOnline} onChange={v => { setShowOnline(v); updateSettings({ showOnline: v }); showMsg('success', 'Actualizado'); }} bd={bd} />
-              <Row label="Aparecer en búsquedas" desc="Tu perfil en resultados de búsqueda" icon={UserCheck} color="#a78bfa" checked={searchVisible} onChange={v => { setSearchVisible(v); updateSettings({ searchVisible: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
-            </div>
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Datos y seguimiento</div>
-              <Row label="Recopilación de datos de uso" desc="Ayuda a mejorar el producto" icon={BarChart2} color="#fb923c" checked={dataCollection} onChange={v => { setDataCollection(v); updateSettings({ dataCollection: v }); showMsg('success', 'Actualizado'); }} bd={bd} />
-              <Row label="Cookies analíticas" desc="Estadísticas de navegación" icon={Activity} color="#f43f5e" checked={cookieAnalytics} onChange={v => { setCookieAnalytics(v); updateSettings({ cookieAnalytics: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
+              <div style={sectionTitle}>Presencia</div>
+              <Row label="Mostrar cuando estoy en línea" desc="En los Hilos, los demás ven que estás conectado. Apagado: apareces sin conexión." icon={Wifi} color="#34d399" checked={showOnline} onChange={v => { updateSettings({ showOnline: v }); showMsg('success', v ? 'Ahora te ven en línea' : 'Ahora apareces sin conexión'); }} last bd={bd} />
             </div>
             <div style={{ ...cardStyle, border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.03)' }}>
               <div style={{ fontSize: 11, color: '#f87171', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1765,17 +1762,17 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
             </div>
             <div style={cardStyle}>
               <div style={sectionTitle}>Visual</div>
-              <Row label="Alto contraste" desc="Mejora legibilidad en texto pequeño" icon={Contrast} color="#f59e0b" checked={highContrast} onChange={v => { setHighContrast(v); updateSettings({ highContrast: v }); showMsg('success', `Alto contraste ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
-              <Row label="Reducir movimiento" desc="Minimiza animaciones de la interfaz" icon={MousePointer2} color="#a78bfa" checked={reduceMotion} onChange={v => { setReduceMotion(v); updateSettings({ reduceMotion: v }); showMsg('success', `Reducir movimiento ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
-              <Row label="Lector de pantalla" desc="Optimizar para tecnologías asistivas" icon={Cpu} color="#34d399" checked={screenReader} onChange={v => { setScreenReader(v); updateSettings({ screenReader: v }); showMsg('success', `Lector ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
-              <Row label="Indicador de foco" desc="Resaltar elemento activo con teclado" icon={ToggleLeft} color="#60a5fa" checked={focusIndicator} onChange={v => { setFocusIndicator(v); updateSettings({ focusIndicator: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
+              <Row label="Alto contraste" desc="Textos y bordes más marcados en todo el portal" icon={Contrast} color="#f59e0b" checked={highContrast} onChange={v => { updateSettings({ highContrast: v }); showMsg('success', `Alto contraste ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
+              <Row label="Reducir movimiento" desc="Quita animaciones y transiciones en todo el portal" icon={MousePointer2} color="#a78bfa" checked={reduceMotion} onChange={v => { updateSettings({ reduceMotion: v }); showMsg('success', `Reducir movimiento ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
+              <Row label="Modo lector de pantalla" desc="Foco siempre visible y grueso, sin animaciones, enlaces subrayados" icon={Cpu} color="#34d399" checked={screenReader} onChange={v => { updateSettings({ screenReader: v }); showMsg('success', `Lector ${v ? 'activado' : 'desactivado'}`); }} bd={bd} />
+              <Row label="Indicador de foco" desc="Resaltar elemento activo con teclado" icon={ToggleLeft} color="#60a5fa" checked={focusIndicator} onChange={v => { updateSettings({ focusIndicator: v }); showMsg('success', 'Actualizado'); }} last bd={bd} />
             </div>
             <div style={cardStyle}>
               <div style={sectionTitle}>Idioma y región</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>Idioma</label>
-                  <select className="s-select" value={language} onChange={e => { setLanguage(e.target.value); updateSettings({ language: e.target.value }); showMsg('success', 'Idioma actualizado'); }} style={{ ...inputStyle('lang'), cursor: 'pointer' }}>
+                  <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>Idioma de fechas y formatos</label>
+                  <select className="s-select" value={language} onChange={e => { updateSettings({ language: e.target.value }); showMsg('success', 'Idioma actualizado'); }} style={{ ...inputStyle('lang'), cursor: 'pointer' }}>
                     <option value="es">Español</option>
                     <option value="en">English</option>
                     <option value="pt">Português</option>
@@ -1784,22 +1781,20 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                 </div>
                 <div>
                   <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>Zona horaria</label>
-                  <select className="s-select" value={timezone} onChange={e => { setTimezone(e.target.value); updateSettings({ timezone: e.target.value }); showMsg('success', 'Zona horaria actualizada'); }} style={{ ...inputStyle('tz'), cursor: 'pointer' }}>
-                    <option value="America/Lima">Lima (UTC-5)</option>
-                    <option value="America/New_York">New York (UTC-5)</option>
-                    <option value="America/Bogota">Bogotá (UTC-5)</option>
-                    <option value="America/Santiago">Santiago (UTC-4)</option>
-                    <option value="America/Sao_Paulo">São Paulo (UTC-3)</option>
-                    <option value="Europe/Madrid">Madrid (UTC+1)</option>
-                    <option value="America/Mexico_City">Ciudad de México (UTC-6)</option>
+                  <select className="s-select" value={timezone} onChange={e => { updateSettings({ timezone: e.target.value }); showMsg('success', 'Zona horaria actualizada'); }} style={{ ...inputStyle('tz'), cursor: 'pointer' }}>
+                    {ZONAS.map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+                    {!ZONAS.some(z => z.id === timezone) && <option value={timezone}>{timezone.replace(/_/g, ' ')}</option>}
                   </select>
+                </div>
+                <div style={{ gridColumn: '1 / -1', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  La zona horaria y el formato se usan en el reloj, el calendario, las tareas, los mensajes y las exportaciones.
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>Formato de fecha</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                     {[{ value: 'dmy', label: 'DD/MM/AAAA' }, { value: 'mdy', label: 'MM/DD/AAAA' }, { value: 'ymd', label: 'AAAA/MM/DD' }].map(opt => (
-                      <button key={opt.value} onClick={() => { setDateFormat(opt.value as 'dmy' | 'mdy' | 'ymd'); updateSettings({ dateFormat: opt.value as 'dmy' | 'mdy' | 'ymd' }); showMsg('success', 'Formato actualizado'); }}
-                        style={{ padding: '7px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer', border: `1px solid ${dateFormat === opt.value ? accentColor + '44' : bd}`, background: dateFormat === opt.value ? `${accentColor}14` : 'transparent', color: dateFormat === opt.value ? 'white' : 'var(--text-muted)', transition: 'all 0.18s ease' }}>
+                      <button key={opt.value} onClick={() => { updateSettings({ dateFormat: opt.value as 'dmy' | 'mdy' | 'ymd' }); showMsg('success', 'Formato actualizado'); }}
+                        style={{ padding: '7px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer', border: `1px solid ${dateFormat === opt.value ? accentColor + '44' : bd}`, background: dateFormat === opt.value ? `${accentColor}14` : 'transparent', color: dateFormat === opt.value ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.18s ease' }}>
                         {opt.label}
                       </button>
                     ))}
@@ -1810,17 +1805,26 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
           </>
         )}
 
+        {activeTab === 'accessibility' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={async () => { await restablecer(["highContrast","reduceMotion","screenReader","focusIndicator","language","timezone","dateFormat"]); showMsg('success', 'Accesibilidad restablecida'); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border-main)', background: 'transparent', color: 'var(--text-muted)' }}>
+              <RotateCcw size={12} /> Restablecer esta sección
+            </button>
+          </div>
+        )}
+
         {/* ══ ATAJOS ══ */}
         {activeTab === 'shortcuts' && (
           <>
-            {['General', 'Edición', 'Navegación'].map(cat => (
+            {(['Navegación', 'Interfaz', 'General'] as const).map(cat => (
               <div key={cat} style={cardStyle}>
                 <div style={sectionTitle}>{cat}</div>
-                {KEYBOARD_SHORTCUTS.filter(s => s.category === cat).map((shortcut, i) => (
+                {ATAJOS.filter(a => a.categoria === cat).map((shortcut, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${bd}` }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{shortcut.action}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{shortcut.descripcion}</span>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      {shortcut.keys.map((key, k) => (
+                      {shortcut.teclas.map(t => (esMac && t === 'Ctrl' ? '⌘' : t)).map((key, k) => (
                         <kbd key={k} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 7px', fontSize: 11, borderRadius: 5, background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--text-muted)', fontFamily: 'monospace', minWidth: 22 }}>{key}</kbd>
                       ))}
                     </div>
@@ -1830,7 +1834,7 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
             ))}
             <div style={{ ...cardStyle, textAlign: 'center', padding: 24 }}>
               <Keyboard size={22} style={{ margin: '0 auto 8px', color: 'var(--border-main)' }} />
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Atajos personalizados próximamente</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Funcionan en todo el portal. Los de navegación también desde un campo de texto.</div>
             </div>
           </>
         )}
@@ -1920,9 +1924,9 @@ const TabContent: React.FC<{ activeTab: TabKey; props: any }> = ({ activeTab, pr
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
-                <div><div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Importar datos</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Restaurar desde un respaldo</div></div>
-                <button disabled title="Todavía no disponible" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--border-main)', background: 'var(--sidebar-card-bg)', color: 'var(--text-muted)', cursor: 'not-allowed', opacity: 0.5 }}>
-                  <Upload size={12} /> Próximamente
+                <div><div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Importar configuración</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Desde un archivo exportado (aquí o en otro dispositivo)</div></div>
+                <button onClick={() => importInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--border-main)', background: 'var(--sidebar-card-bg)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <Upload size={12} /> Importar
                 </button>
               </div>
             </div>
