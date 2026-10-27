@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { panelInk } from '@/lib/panelColors';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement } from '@/lib/firebase';
@@ -8,6 +11,8 @@ import { Megaphone, Plus, Trash2, AlertCircle, Calendar, X, Pin, ChevronDown, Sp
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Announcement } from '@/types';
+import '@/styles/enterprise-sections.css';
+import { Search } from 'lucide-react';
 
 // ── CSS: keyframes + ALL theme-sensitive classes (no hardcoded white/black) ───
 const STYLES = `
@@ -36,11 +41,11 @@ const STYLES = `
   }
 
   /* ── Card ── */
-  .ann-card { animation: ann-slide-up 0.38s cubic-bezier(0.22,1,0.36,1) both; }
+  .ann-card { animation: none; }
   .ann-card-wrap {
     position: relative;
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border-main);
+    background: var(--moon-surface);
+    border: 1px solid var(--moon-line);
     border-radius: 24px;
     overflow: hidden;
     transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
@@ -62,8 +67,8 @@ const STYLES = `
   }
   .ann-modal-box {
     width: 100%; max-width: 512px;
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border-main);
+    background: var(--moon-surface);
+    border: 1px solid var(--moon-line);
     border-radius: 28px; overflow: hidden;
     animation: ann-modal-in 0.32s cubic-bezier(0.22,1,0.36,1);
   }
@@ -71,17 +76,17 @@ const STYLES = `
   html:not(.light) .ann-modal-box { box-shadow: 0 48px 120px rgba(0,0,0,0.45); }
   .ann-modal-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 20px 28px; border-bottom: 1px solid var(--border-main);
+    padding: 20px 28px; border-bottom: 1px solid var(--moon-line);
   }
   .ann-modal-body  { padding: 24px 28px; display: flex; flex-direction: column; gap: 18px; }
   .ann-modal-footer{ padding: 0 28px 24px; display: flex; gap: 10px; }
 
   /* ── Inputs ── */
   .ann-input {
-    background: var(--surface-hover);
-    border: 1px solid var(--border-main);
-    color: var(--text-primary);
-    caret-color: var(--text-primary);
+    background: var(--moon-surface-raised);
+    border: 1px solid var(--moon-line);
+    color: var(--moon-ink);
+    caret-color: var(--moon-ink);
     outline: none; width: 100%; border-radius: 14px;
     padding: 11px 15px; font-size: 14px; font-weight: 300;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -91,30 +96,29 @@ const STYLES = `
     border-color: color-mix(in srgb, var(--accent-user, #a78bfa) 55%, transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-user, #a78bfa) 10%, transparent);
   }
-  .ann-input::placeholder { color: var(--text-muted); }
+  .ann-input::placeholder { color: var(--moon-muted); }
 
   /* ── Buttons ── */
   .ann-close-btn {
     width: 32px; height: 32px; border-radius: 10px;
-    background: var(--surface-hover); border: 1px solid var(--border-main);
-    color: var(--text-muted); cursor: pointer;
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
+    color: var(--moon-muted); cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, color 0.15s; font-family: inherit;
   }
-  .ann-close-btn:hover { background: var(--nav-hover-bg); color: var(--text-primary); }
+  .ann-close-btn:hover { background: var(--moon-surface-raised); color: var(--moon-ink); }
 
   .ann-btn-cancel {
-    background: var(--surface-hover); border: 1px solid var(--border-main);
-    color: var(--content-secondary); border-radius: 14px;
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
+    color: var(--moon-muted); border-radius: 14px;
     padding: 11px 0; font-size: 13px; font-weight: 300;
     cursor: pointer; transition: background 0.15s; font-family: inherit; flex: 1;
   }
-  .ann-btn-cancel:hover { background: var(--nav-hover-bg); }
+  .ann-btn-cancel:hover { background: var(--moon-surface-raised); }
 
   /* Primary uses text-primary as bg so it inverts automatically in both themes */
   .ann-btn-primary {
-    background: var(--text-primary);
-    color: var(--bg-sidebar);
+    background: var(--moon-accent); color: var(--moon-accent-ink);
     border: none; border-radius: 14px;
     padding: 11px 0; font-size: 13px; font-weight: 500;
     cursor: pointer; transition: opacity 0.15s, transform 0.15s;
@@ -131,7 +135,7 @@ const STYLES = `
   .ann-btn-new {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 9px 18px; border-radius: 14px; font-size: 13px; font-weight: 500;
-    background: var(--text-primary); color: var(--bg-sidebar);
+    background: var(--moon-accent); color: var(--moon-accent-ink);
     border: none; cursor: pointer;
     transition: opacity 0.15s, transform 0.15s; font-family: inherit; white-space: nowrap;
   }
@@ -141,7 +145,7 @@ const STYLES = `
   .ann-toggle-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 16px; border-radius: 18px; cursor: pointer; width: 100%;
-    background: var(--surface-hover); border: 1px solid var(--border-main);
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
     transition: all 0.25s cubic-bezier(0.22,1,0.36,1); font-family: inherit;
   }
   .ann-toggle-row.on { background: rgba(248,113,113,0.07); border-color: rgba(248,113,113,0.22); }
@@ -149,7 +153,7 @@ const STYLES = `
   .ann-toggle-icon {
     width: 36px; height: 36px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
-    background: var(--nav-active-bg); border: 1px solid var(--border-main);
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
     transition: all 0.25s;
   }
   .ann-toggle-row.on .ann-toggle-icon {
@@ -159,35 +163,35 @@ const STYLES = `
   /* ── Filter ── */
   .ann-filter-pill {
     display: flex; align-items: center;
-    background: var(--surface-hover); border: 1px solid var(--border-main);
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
     border-radius: 14px; padding: 4px; gap: 3px;
   }
   .ann-filter-btn {
     padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: 300;
     background: transparent; border: 1px solid transparent;
-    color: var(--content-tertiary); cursor: pointer; transition: all 0.2s; font-family: inherit;
+    color: var(--moon-muted); cursor: pointer; transition: all 0.2s; font-family: inherit;
   }
-  .ann-filter-btn.active      { background: var(--nav-active-bg); border-color: var(--border-main); color: var(--text-primary); }
-  .ann-filter-btn.active-imp  { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.22); color: #f87171; }
+  .ann-filter-btn.active      { background: var(--moon-surface-raised); border-color: var(--moon-line); color: var(--moon-ink); }
+  .ann-filter-btn.active-imp  { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.22); color:var(--moon-tone-red); }
 
   /* ── Card delete ── */
   .ann-del-btn {
     width: 30px; height: 30px; border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
-    background: var(--surface-hover); border: 1px solid var(--border-main);
-    color: var(--text-muted); cursor: pointer;
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
+    color: var(--moon-muted); cursor: pointer;
     opacity: 0; transition: opacity 0.2s, background 0.15s, color 0.15s; font-family: inherit;
   }
   .ann-card-wrap:hover .ann-del-btn { opacity: 1; }
-  .ann-del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.22); }
+  .ann-del-btn:hover { color:var(--moon-tone-red); background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.22); }
   .ann-edit-btn:hover { color: var(--accent-user, #a78bfa); background: color-mix(in srgb, var(--accent-user, #a78bfa) 10%, transparent); border-color: color-mix(in srgb, var(--accent-user, #a78bfa) 22%, transparent); }
   .ann-del-yes {
     font-size: 10px; font-weight: 400; padding: 4px 10px; border-radius: 8px; cursor: pointer;
-    background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.25); font-family: inherit;
+    background: rgba(248,113,113,0.1); color:var(--moon-tone-red); border: 1px solid rgba(248,113,113,0.25); font-family: inherit;
   }
   .ann-del-no {
     font-size: 10px; font-weight: 300; padding: 4px 10px; border-radius: 8px; cursor: pointer;
-    background: var(--surface-hover); color: var(--text-muted); border: 1px solid var(--border-main); font-family: inherit;
+    background: var(--moon-surface-raised); color: var(--moon-muted); border: 1px solid var(--moon-line); font-family: inherit;
   }
 
   /* ── Icon boxes ── */
@@ -201,20 +205,20 @@ const STYLES = `
   .ann-card-wrap:hover .ann-icon-wrap { transform: scale(1.05); }
 
   /* ── Typography ── */
-  .ann-heading  { color: var(--text-primary); font-weight: 300; font-size: 20px; letter-spacing: -0.02em; line-height: 1; }
-  .ann-subtext  { color: var(--text-muted); font-size: 12px; font-weight: 300; margin-top: 3px; }
-  .ann-title    { color: var(--text-primary); font-weight: 300; font-size: 14px; line-height: 1.4; letter-spacing: -0.01em; }
-  .ann-body     { font-size: 13px; font-weight: 300; line-height: 1.7; color: var(--content-secondary); white-space: pre-wrap; word-break: break-word; }
-  .ann-meta     { font-size: 11px; font-weight: 300; color: var(--text-muted); }
-  .ann-sep      { color: var(--border-main); }
-  .ann-label    { display: block; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); font-weight: 300; margin-bottom: 8px; }
+  .ann-heading  { color: var(--moon-ink); font-weight: 300; font-size: 20px; letter-spacing: -0.02em; line-height: 1; }
+  .ann-subtext  { color: var(--moon-muted); font-size: 12px; font-weight: 300; margin-top: 3px; }
+  .ann-title    { color: var(--moon-ink); font-weight: 300; font-size: 14px; line-height: 1.4; letter-spacing: -0.01em; }
+  .ann-body     { font-size: 13px; font-weight: 300; line-height: 1.7; color: var(--moon-muted); white-space: pre-wrap; word-break: break-word; }
+  .ann-meta     { font-size: 11px; font-weight: 300; color: var(--moon-muted); }
+  .ann-sep      { color: var(--moon-line); }
+  .ann-label    { display: block; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--moon-muted); font-weight: 300; margin-bottom: 8px; }
   .ann-read-more{ display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 300; color: var(--accent-user, #a78bfa); background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
   .ann-read-more:hover { opacity: 0.7; }
 
   /* ── Meta row ── */
   .ann-meta-row {
     display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-main);
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--moon-line);
   }
   .ann-author-av {
     width: 20px; height: 20px; border-radius: 7px; flex-shrink: 0;
@@ -222,7 +226,7 @@ const STYLES = `
     font-size: 9px; font-weight: 600;
     background: color-mix(in srgb, var(--accent-user, #a78bfa) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent-user, #a78bfa) 22%, transparent); color: var(--accent-user, #a78bfa);
   }
-  .ann-author-av.imp { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.20); color: #f87171; }
+  .ann-author-av.imp { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.20); color:var(--moon-tone-red); }
 
   /* ── Error ── */
   .ann-error {
@@ -244,12 +248,12 @@ const STYLES = `
   .ann-empty {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; padding: 64px 24px;
-    border-radius: 24px; border: 2px dashed var(--border-main);
+    border-radius: 24px; border: 2px dashed var(--moon-line);
     animation: ann-fade-in 0.4s ease;
   }
   .ann-empty-icon {
     width: 52px; height: 52px; border-radius: 18px;
-    background: var(--surface-hover); border: 1px solid var(--border-main);
+    background: var(--moon-surface-raised); border: 1px solid var(--moon-line);
     display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
   }
 
@@ -301,6 +305,8 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
     : { title: '', content: '', important: false });
   const [submitting, setSub] = useState(false);
   const [error, setError]    = useState('');
+  const titleEmojiRef = useRef<HTMLInputElement>(null);
+  const contentEmojiRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = useCallback(async () => {
     if (!canEdit) return;
@@ -347,10 +353,10 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
             <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               className="ann-icon-accent">
               <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'color-mix(in srgb, var(--accent-user, #a78bfa) 12%, transparent)', animation: 'ann-pulse-ring 2.5s ease-in-out infinite' }} />
-              <Megaphone style={{ width: 18, height: 18, color: ACCENT, position: 'relative', zIndex: 1 }} strokeWidth={1.5} />
+              <Megaphone style={{ width: 18, height: 18, color: panelInk(ACCENT), position: 'relative', zIndex: 1 }} strokeWidth={1.5} />
             </div>
             <div>
-              <p style={{ color: 'var(--text-primary)', fontWeight: 300, fontSize: 15 }}>{editing ? 'Editar anuncio' : 'Nuevo Anuncio'}</p>
+              <p style={{ color: 'var(--moon-ink)', fontWeight: 300, fontSize: 15 }}>{editing ? 'Editar anuncio' : 'Nuevo Anuncio'}</p>
               <p className="ann-subtext">{editing ? 'Los cambios se verán para todos los usuarios' : 'Se publicará para todos los usuarios'}</p>
             </div>
           </div>
@@ -363,16 +369,18 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
         <div className="ann-modal-body">
           <div>
             <label className="ann-label">Título</label>
-            <input className="ann-input" type="text" value={form.title}
+            <input ref={titleEmojiRef} className="ann-input" type="text" value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               placeholder="Título del anuncio..." />
+            <EmojiButton value={form.title} onChange={title => setForm(f => ({ ...f, title }))} inputRef={titleEmojiRef} disabled={submitting} label="Añadir emoji al título del anuncio" />
           </div>
           <div>
             <label className="ann-label">Contenido</label>
-            <textarea className="ann-input" value={form.content}
+            <textarea ref={contentEmojiRef} className="ann-input" value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
               placeholder="Escribe el contenido del anuncio..."
               rows={4} style={{ resize: 'none' }} />
+            <EmojiButton value={form.content} onChange={content => setForm(f => ({ ...f, content }))} inputRef={contentEmojiRef} disabled={submitting} label="Añadir emoji al anuncio" />
           </div>
 
           {/* Important toggle */}
@@ -380,13 +388,13 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
             onClick={() => setForm(f => ({ ...f, important: !f.important }))}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div className="ann-toggle-icon">
-                <Pin style={{ width: 14, height: 14, color: form.important ? DANGER : 'var(--text-muted)', transition: 'color 0.25s' }} strokeWidth={1.5} />
+                <Pin style={{ width: 14, height: 14, color: panelInk(form.important ? DANGER : 'var(--moon-muted)'), transition: 'color 0.25s' }} strokeWidth={1.5} />
               </div>
               <div style={{ textAlign: 'left' }}>
-                <p style={{ color: form.important ? DANGER : 'var(--content-secondary)', fontSize: 13, fontWeight: 300, transition: 'color 0.25s' }}>
+                <p style={{ color: panelInk(form.important ? DANGER : 'var(--moon-muted)'), fontSize: 13, fontWeight: 300, transition: 'color 0.25s' }}>
                   Marcar como importante
                 </p>
-                <p style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 300, marginTop: 2 }}>
+                <p style={{ color: 'var(--moon-muted)', fontSize: 11, fontWeight: 300, marginTop: 2 }}>
                   Se destacará con prioridad alta
                 </p>
               </div>
@@ -394,13 +402,13 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
             {/* Pill */}
             <div style={{
               width: 44, height: 24, borderRadius: 999, flexShrink: 0, position: 'relative',
-              background: form.important ? DANGER : 'var(--nav-active-bg)',
-              border: `1px solid ${form.important ? 'rgba(248,113,113,0.45)' : 'var(--border-main)'}`,
+              background: form.important ? DANGER : 'var(--moon-surface-raised)',
+              border: `1px solid ${form.important ? 'rgba(248,113,113,0.45)' : 'var(--moon-line)'}`,
               transition: 'background 0.25s, border-color 0.25s',
             }}>
               <div style={{
                 position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%',
-                background: 'var(--bg-sidebar)',
+                background: 'var(--moon-surface)',
                 left: form.important ? 23 : 3,
                 transition: 'left 0.25s cubic-bezier(0.22,1,0.36,1)',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
@@ -410,8 +418,8 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onSuccess, canEdit, 
 
           {error && (
             <div className="ann-error">
-              <AlertCircle style={{ width: 14, height: 14, flexShrink: 0, color: DANGER }} strokeWidth={1.5} />
-              <p style={{ color: DANGER, fontSize: 12, fontWeight: 300 }}>{error}</p>
+              <AlertCircle style={{ width: 14, height: 14, flexShrink: 0, color: panelInk(DANGER) }} strokeWidth={1.5} />
+              <p style={{ color: panelInk(DANGER), fontSize: 12, fontWeight: 300 }}>{error}</p>
             </div>
           )}
         </div>
@@ -443,7 +451,7 @@ const AnnouncementCard: React.FC<CardProps> = React.memo(({ a, canEdit, onDelete
   const preview = isLong && !expanded ? a.content.slice(0, 220) + '…' : a.content;
 
   return (
-    <div className={`ann-card ann-card-wrap ${a.important ? 'important' : ''}`}
+    <div data-moon-reveal="card" className={`ann-card ann-card-wrap ${a.important ? 'important' : ''}`}
       style={{ animationDelay: `${index * 0.06}s` }}>
 
       {/* Left accent bar */}
@@ -459,8 +467,8 @@ const AnnouncementCard: React.FC<CardProps> = React.memo(({ a, canEdit, onDelete
           {/* Icon */}
           <div className={`ann-icon-wrap ${a.important ? 'ann-icon-danger' : 'ann-icon-accent'}`}>
             {a.important
-              ? <AlertCircle style={{ width: 18, height: 18, color: DANGER }} strokeWidth={1.5} />
-              : <Megaphone   style={{ width: 18, height: 18, color: ACCENT }} strokeWidth={1.5} />
+              ? <AlertCircle style={{ width: 18, height: 18, color: panelInk(DANGER) }} strokeWidth={1.5} />
+              : <Megaphone   style={{ width: 18, height: 18, color: panelInk(ACCENT) }} strokeWidth={1.5} />
             }
           </div>
 
@@ -468,12 +476,12 @@ const AnnouncementCard: React.FC<CardProps> = React.memo(({ a, canEdit, onDelete
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
-                <h3 className="ann-title">{a.title}</h3>
+                <h3 className="ann-title"><EmojiText text={a.title} /></h3>
                 {a.important && (
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 400,
                     letterSpacing: '0.04em', padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase',
-                    background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.22)', color: DANGER,
+                    background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.22)', color: panelInk(DANGER),
                   }}>
                     <span style={{ width: 4, height: 4, borderRadius: '50%', background: DANGER, display: 'inline-block' }} />
                     Importante
@@ -501,7 +509,7 @@ const AnnouncementCard: React.FC<CardProps> = React.memo(({ a, canEdit, onDelete
               )}
             </div>
 
-            <p className="ann-body">{preview}</p>
+            <p className="ann-body"><EmojiText text={preview} /></p>
             {isLong && (
               <button type="button" className="ann-read-more" onClick={() => setExpanded(e => !e)}>
                 {expanded ? 'Ver menos' : 'Leer más'}
@@ -522,7 +530,7 @@ const AnnouncementCard: React.FC<CardProps> = React.memo(({ a, canEdit, onDelete
                 {format(new Date(a.createdAt), "d MMM yyyy, HH:mm", { locale: es })}
               </span>
               <span className="ann-sep">·</span>
-              <span style={{ fontSize: 11, fontWeight: 300, color: 'var(--content-quaternary)' }}>
+              <span style={{ fontSize: 11, fontWeight: 300, color: 'var(--moon-muted)' }}>
                 {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true, locale: es })}
               </span>
               {a.updatedAt && (
@@ -545,6 +553,8 @@ const Announcements: React.FC = () => {
   const [modalOpen,     setModalOpen]     = useState(false);
   const [editing,       setEditing]       = useState<AnnouncementDoc | null>(null);
   const [filter,        setFilter]        = useState<'all' | 'important'>('all');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'priority' | 'oldest'>('recent');
 
   // En vivo: antes la lista se leía una vez, así que la campana avisaba de un
   // anuncio nuevo que esta página no mostraba hasta recargar. `load` queda
@@ -585,7 +595,15 @@ const Announcements: React.FC = () => {
   const cerrarModal = useCallback(() => { setModalOpen(false); setEditing(null); }, []);
 
   const important = announcements.filter(a => a.important);
-  const visible   = filter === 'important' ? important : announcements;
+  const term = search.trim().toLocaleLowerCase('es');
+  const visible = announcements.filter(a => (filter !== 'important' || a.important)
+    && (!term || `${a.title} ${a.content} ${autorDe(a)}`.toLocaleLowerCase('es').includes(term)))
+    .sort((a, b) => {
+      const time = (a.createdAt as Date)?.getTime?.() || 0;
+      const otherTime = (b.createdAt as Date)?.getTime?.() || 0;
+      if (sortBy === 'priority') return Number(!!b.important) - Number(!!a.important) || otherTime - time;
+      return sortBy === 'oldest' ? time - otherTime : otherTime - time;
+    });
 
   // Los estilos van también en la carga: sin ellos los puntos no se animaban.
   if (loading) return (
@@ -593,7 +611,7 @@ const Announcements: React.FC = () => {
       <style>{STYLES}</style>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 280, gap: 16 }}>
         <div className="ann-loading-icon ann-icon-accent">
-          <Megaphone style={{ width: 20, height: 20, color: ACCENT }} strokeWidth={1.5} />
+          <Megaphone style={{ width: 20, height: 20, color: panelInk(ACCENT) }} strokeWidth={1.5} />
         </div>
         <LoadingDots />
       </div>
@@ -601,7 +619,7 @@ const Announcements: React.FC = () => {
   );
 
   return (
-    <>
+    <section className="moon-module moon-module--announcements">
       <style>{STYLES}</style>
 
       {modalOpen && canEdit && (
@@ -611,18 +629,18 @@ const Announcements: React.FC = () => {
           createdByName={userProfile?.displayName || 'Administrador'} />
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'ann-fade-in 0.4s ease' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div data-moon-reveal="heading" className="moon-module-heading" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
               <div style={{ width: 40, height: 40, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 className="ann-icon-accent">
-                <Megaphone style={{ width: 18, height: 18, color: ACCENT }} strokeWidth={1.5} />
+                <Megaphone style={{ width: 18, height: 18, color: panelInk(ACCENT) }} strokeWidth={1.5} />
               </div>
               <div>
-                <h1 className="ann-heading">Anuncios</h1>
+                <h1 className="moon-page-title ann-heading">Anuncios</h1>
                 <p className="ann-subtext">
                   {announcements.length} {announcements.length !== 1 ? 'publicaciones' : 'publicación'}
                   {important.length > 0 && (
@@ -650,15 +668,24 @@ const Announcements: React.FC = () => {
           </div>
         </div>
 
+        <div className="enterprise-toolbar" aria-label="Buscar y organizar anuncios">
+          <div className="enterprise-toolbar__search"><Search aria-hidden="true" /><input aria-label="Buscar anuncios" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar un anuncio, tema o autor" /></div>
+          <select aria-label="Orden de anuncios" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
+            <option value="recent">Más recientes primero</option><option value="priority">Prioridad primero</option><option value="oldest">Más antiguos primero</option>
+          </select>
+          <span className="enterprise-toolbar__results" role="status">{visible.length} de {announcements.length} publicaciones</span>
+          {(term || filter !== 'all' || sortBy !== 'recent') && <button type="button" className="enterprise-action" onClick={() => { setSearch(''); setFilter('all'); setSortBy('recent'); }}>Restablecer vista</button>}
+        </div>
+
         {/* Banner */}
         {filter === 'all' && important.length > 0 && (
           <div className="ann-banner">
             <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 12, background: 'rgba(248,113,113,0.1)', animation: 'ann-pulse-ring 2s ease-in-out infinite' }} />
-              <Bell style={{ width: 16, height: 16, color: DANGER, position: 'relative', zIndex: 1 }} strokeWidth={1.5} />
+              <Bell style={{ width: 16, height: 16, color: panelInk(DANGER), position: 'relative', zIndex: 1 }} strokeWidth={1.5} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 300, color: DANGER }}>
+              <p style={{ fontSize: 13, fontWeight: 300, color: panelInk(DANGER) }}>
                 {important.length} anuncio{important.length !== 1 ? 's' : ''} importante{important.length !== 1 ? 's' : ''} activo{important.length !== 1 ? 's' : ''}
               </p>
               <p style={{ fontSize: 11, fontWeight: 300, color: 'rgba(248,113,113,0.55)', marginTop: 2 }}>
@@ -667,7 +694,7 @@ const Announcements: React.FC = () => {
             </div>
             <button type="button" onClick={() => setFilter('important')}
               style={{ fontSize: 12, fontWeight: 300, padding: '6px 14px', borderRadius: 10, whiteSpace: 'nowrap',
-                color: DANGER, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.22)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                color: panelInk(DANGER), background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.22)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Ver todos →
             </button>
           </div>
@@ -677,14 +704,14 @@ const Announcements: React.FC = () => {
         {visible.length === 0 ? (
           <div className="ann-empty">
             <div className="ann-empty-icon">
-              <Megaphone style={{ width: 20, height: 20, color: 'var(--text-muted)' }} strokeWidth={1} />
+              <Megaphone style={{ width: 20, height: 20, color: 'var(--moon-muted)' }} strokeWidth={1} />
             </div>
-            <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--text-muted)' }}>
-              {filter === 'important' ? 'No hay anuncios importantes' : 'No hay anuncios publicados'}
+            <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--moon-muted)' }}>
+              {term ? 'Ningún anuncio coincide con tu búsqueda' : filter === 'important' ? 'No hay anuncios importantes' : 'No hay anuncios publicados'}
             </p>
             {filter === 'important' && (
               <button type="button" onClick={() => setFilter('all')}
-                style={{ marginTop: 10, fontSize: 12, fontWeight: 300, color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                style={{ marginTop: 10, fontSize: 12, fontWeight: 300, color: panelInk(ACCENT), background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
                 Ver todos
               </button>
             )}
@@ -697,7 +724,7 @@ const Announcements: React.FC = () => {
           </div>
         )}
       </div>
-    </>
+    </section>
   );
 };
 

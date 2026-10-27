@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -12,12 +13,14 @@ import { useTareas } from './useTareas';
 import TareaFormDialog from './TareaFormDialog';
 import { TareaFila, TareaDetalleDialog, type Archivo } from './TareaPiezas';
 import './tareas.css';
+import WorkViewToolbar from '../work/WorkViewToolbar';
+import { exportWorkspaceCsv } from '@/lib/workspaceExport';
 
 // ─── Gestor de tareas (CEO y Administración) ──────────────────────────────────
 // Lista o tablero con filtros, vencimientos y los reportes de cada tarea. Lo
 // usan el Panel CEO (pestaña Tareas) y Mis tareas → Gestionar.
 
-type Filtro = 'activas' | 'todas' | 'vencidas' | 'pronto' | 'revisar' | EstadoTarea;
+type Filtro = 'activas' | 'todas' | 'vencidas' | 'pronto' | 'revisar' | 'sinfecha' | EstadoTarea;
 type Orden  = 'plazo' | 'prioridad' | 'recientes';
 type Vista  = 'lista' | 'tablero';
 
@@ -79,6 +82,7 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
       if (filtro === 'vencidas' && p !== 'vencida') return false;
       if (filtro === 'pronto'   && p !== 'hoy' && p !== 'pronto') return false;
       if (filtro === 'revisar'  && !porRevisar(t, reportesDe.get(t.id) ?? [])) return false;
+      if (filtro === 'sinfecha' && (t.fecha || t.status === 'completed')) return false;
       if ((filtro === 'pending' || filtro === 'in-progress' || filtro === 'completed') && t.status !== filtro) return false;
       if (prioridad !== 'all' && t.priority !== prioridad) return false;
       if (asignado === 'equipo' && (t.assignedTo || t.assignedToRole)) return false;
@@ -162,7 +166,7 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
       {/* Resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {stats.map(s => (
-          <button key={s.id} type="button" className="tr-stat" data-activo={filtro === s.id} style={{ ['--tr-c' as string]: s.color }}
+          <button data-moon-reveal="metric" key={s.id} type="button" className="tr-stat" data-activo={filtro === s.id} style={{ ['--tr-c' as string]: panelInk(s.color) }}
             onClick={() => setFiltro(filtro === s.id ? 'todas' : s.id)}>
             <span className="tr-stat-lbl">{s.icono} {s.label}</span>
             <span className="tr-stat-num">{s.valor}</span>
@@ -172,14 +176,20 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
       {cuenta.todas > 0 && (
         <div className="flex items-center gap-3">
           <div className="tr-barra flex-1"><div style={{ width: `${pct}%` }} /></div>
-          <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>{pct}% completado · {cuenta.completadas}/{cuenta.todas}</span>
+          <span className="text-[11px] tabular-nums" style={{ color: 'var(--moon-muted)' }}>{pct}% completado · {cuenta.completadas}/{cuenta.todas}</span>
         </div>
       )}
 
       {/* Herramientas */}
+      <WorkViewToolbar label="Mesa de seguimiento" description="Revisa entregas pendientes de confirmación y tareas que todavía necesitan una fecha."
+        count={visibles.length} total={tareas.length} loading={cargando} onReset={hayFiltros ? limpiar : undefined}
+        onExport={() => exportWorkspaceCsv('moon-tareas-equipo', ['Tarea', 'Estado', 'Prioridad', 'Asignación', 'Fecha límite'], visibles.map(t => [t.title, ESTADOS[t.status].label, PRIORIDADES[t.priority].label, t.assignedTo ? usuarios.find(u => u.uid === t.assignedTo)?.displayName || t.assignedTo : t.assignedToRole || 'Todo el equipo', t.fecha?.toLocaleDateString('sv-SE')]))}>
+        <button type="button" aria-pressed={filtro === 'revisar'} onClick={() => setFiltro(filtro === 'revisar' ? 'activas' : 'revisar')}><CheckCheck size={15} />Por confirmar · {cuenta.revisar}</button>
+        <button type="button" aria-pressed={filtro === 'sinfecha'} onClick={() => setFiltro(filtro === 'sinfecha' ? 'activas' : 'sinfecha')}><Clock size={15} />Sin fecha · {tareas.filter(t => !t.fecha && t.status !== 'completed').length}</button>
+      </WorkViewToolbar>
       <div className="flex flex-col lg:flex-row lg:items-center gap-2">
         <div className="relative flex-1 min-w-0">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--moon-muted)' }} />
           <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar por título, descripción o persona…" aria-label="Buscar tareas"
             className="w-full h-9 pl-9 pr-3 text-sm" />
         </div>
@@ -193,6 +203,7 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
             <option value="vencidas">Vencidas</option>
             <option value="pronto">Vencen pronto</option>
             <option value="revisar">Por confirmar</option>
+            <option value="sinfecha">Activas sin fecha</option>
           </select>
           <select value={prioridad} onChange={e => setPrioridad(e.target.value as typeof prioridad)} className="h-9 px-2.5 text-xs" aria-label="Prioridad">
             <option value="all">Toda prioridad</option>
@@ -223,7 +234,7 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
       </div>
 
       {hayFiltros && (
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--moon-muted)' }}>
           <span>{visibles.length} de {tareas.length} tarea{tareas.length === 1 ? '' : 's'}</span>
           <button type="button" className="tr-filtro" style={{ padding: '3px 9px' }} onClick={limpiar}><X size={11} /> Quitar filtros</button>
         </div>
@@ -231,19 +242,19 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
 
       {/* Contenido */}
       {cargando ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Cargando tareas…</div>
+        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: 'var(--moon-muted)' }}><Loader2 size={16} className="animate-spin" /> Cargando tareas…</div>
       ) : error ? (
-        <div className="tr-vacio" style={{ borderColor: 'rgba(248,113,113,0.35)', color: '#f87171' }}><AlertTriangle size={22} /> {error}</div>
+        <div data-moon-reveal="card" className="tr-vacio" style={{ borderColor: 'rgba(248,113,113,0.35)', color: panelInk('#f87171') }}><AlertTriangle size={22} /> {error}</div>
       ) : tareas.length === 0 ? (
-        <div className="tr-vacio">
+        <div data-moon-reveal="card" className="tr-vacio">
           <ListTodo size={26} strokeWidth={1.5} />
-          <p style={{ color: 'var(--text-primary)' }}>Todavía no hay tareas</p>
+          <p style={{ color: 'var(--moon-ink)' }}>Todavía no hay tareas</p>
           <p className="text-xs">Crea la primera y asígnala a una persona, a un rol o a todo el equipo.</p>
           <button type="button" className="tr-btn tr-btn-primario mt-2" onClick={nueva}><Plus size={15} /> Nueva tarea</button>
         </div>
       ) : vista === 'lista' ? (
         visibles.length === 0 ? (
-          <div className="tr-vacio"><Search size={22} strokeWidth={1.5} /> Ninguna tarea coincide con los filtros.</div>
+          <div data-moon-reveal="card" className="tr-vacio"><Search size={22} strokeWidth={1.5} /> Ninguna tarea coincide con los filtros.</div>
         ) : (
           <div className="flex flex-col gap-2">{visibles.map(t => fila(t))}</div>
         )
@@ -267,9 +278,9 @@ export default function GestorTareas({ perfil, fechaNueva, onVerArchivo }: Props
                 </div>
                 <div className="tr-col-cuerpo">
                   {mostradas.length === 0
-                    ? <p className="text-[11px] text-center py-6" style={{ color: 'var(--text-muted)' }}>Arrastra tareas aquí</p>
+                    ? <p className="text-[11px] text-center py-6" style={{ color: 'var(--moon-muted)' }}>Arrastra tareas aquí</p>
                     : mostradas.map(t => fila(t, true))}
-                  {col.length > mostradas.length && <p className="text-[11px] text-center py-1" style={{ color: 'var(--text-muted)' }}>y {col.length - mostradas.length} más</p>}
+                  {col.length > mostradas.length && <p className="text-[11px] text-center py-1" style={{ color: 'var(--moon-muted)' }}>y {col.length - mostradas.length} más</p>}
                 </div>
               </div>
             );

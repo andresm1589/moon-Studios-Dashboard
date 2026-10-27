@@ -1,0 +1,67 @@
+/* Movement language for every workspace tool: quick feedback, then settle. */
+.moon-workspace-motion, .moon-motion-view, .moon-motion-surface { min-width:0; min-height:100%; width:100%; }
+.moon-workspace-motion[data-moon-motion='full'] :where(button:not(:disabled), a, [role='tab']) { transition-property:background-color,border-color,color,box-shadow,opacity,translate,scale; transition-duration:.18s; transition-timing-function:cubic-bezier(.22,1,.36,1); }
+.moon-workspace-motion[data-moon-motion='full'] :where(button:not(:disabled), a[role='button']):active { scale:.975; transition-duration:.09s; }
+.moon-workspace-motion[data-moon-motion='full'] :where(input,textarea,select) { transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease; }
+.moon-workspace-motion[data-moon-motion='full'] :where(.dh-stat,.moon-stat,.moon-project-card,.tr-stat,.wb-tarjeta,.wb-kpi,.ceo-card-lift) { transition:translate .24s cubic-bezier(.22,1,.36,1),border-color .2s ease,background-color .2s ease,box-shadow .2s ease; }
+.moon-workspace-motion[data-moon-motion='full'] :where(.dh-progress-track > span,[role='progressbar'] > div) { transform-origin:left center; transition:width .65s cubic-bezier(.22,1,.36,1),transform .65s cubic-bezier(.22,1,.36,1); }
+.moon-workspace-motion[data-moon-motion='full'] :where(.dh-list-skeleton span,[data-slot='skeleton'],.moon-page-loader img,.moon-shell-loading img) { animation:moonWorkspaceBreathe 1.6s ease-in-out infinite; }
+.moon-workspace-motion[data-moon-motion='full'] .dh-hero-art:not([data-moon-motion-visible='true']) .dh-orbit { animation-play-state:paused; }
+.moon-workspace-motion[data-moon-motion-paused='true'] *, .moon-workspace-motion[data-moon-motion-paused='true'] *::before, .moon-workspace-motion[data-moon-motion-paused='true'] *::after { animation-play-state:paused!important; }
+
+/* Navigation stays still under the pointer; its icon carries the feedback. */
+.moon-shell-sidebar { animation:moonSidebarEnter .5s cubic-bezier(.22,1,.36,1) both; }
+.moon-shell-header { animation:moonHeaderEnter .45s cubic-bezier(.22,1,.36,1) both; }
+.moon-shell-nav-group { animation:moonWorkspaceNav .45s cubic-bezier(.22,1,.36,1) both; }
+.moon-shell-nav-group:nth-child(2) { animation-delay:.06s; }
+.moon-shell-nav-group:nth-child(3) { animation-delay:.12s; }
+.moon-shell-nav-group:nth-child(4) { animation-delay:.18s; }
+@keyframes moonSidebarEnter { from { opacity:0; translate:-12px 0; } to { opacity:1; translate:0 0; } }
+@keyframes moonHeaderEnter { from { opacity:0; translate:0 -8px; } to { opacity:1; translate:0 0; } }
+body[data-moon-workspace-motion='on'] :where(.moon-shell-link,.moon-shell-icon-button,.moon-shell-search-button,.moon-shell-footer-button) > svg { transition:translate .2s cubic-bezier(.22,1,.36,1),rotate .2s ease; }
+body[data-moon-workspace-motion='on'] .moon-shell-link.is-active > svg { animation:moonWorkspaceNav .35s cubic-bezier(.22,1,.36,1); }
+body[data-moon-workspace-motion='on'] :where(.moon-shell-icon-button,.moon-shell-search-button,.moon-shell-footer-button):active { scale:.94; }
+body[data-moon-workspace-motion='on'] .moon-shell-notification-count { animation:moonWorkspaceBadge .42s cubic-bezier(.22,1,.36,1); }
+
+/* Portals are outside the route wrapper. Existing Radix focus/trap/close
+   lifecycle is untouched; data-state keeps both entrance and exit animated. */
+body[data-moon-workspace-motion='on'] [data-slot='dialog-content'][data-state='open'] { animation:moonWorkspaceDialogIn .32s cubic-bezier(.22,1,.36,1); }
+body[data-moon-workspace-motion='on'] [data-slot='dialog-content'][data-state='closed'] { animation:moonWorkspaceDialogOut .16s ease-in forwards; }
+body[data-moon-workspace-motion='on'] :where([data-slot='dialog-overlay'],[data-slot='sheet-overlay'])[data-state='open'] { animation:moonWorkspaceOverlay .2s ease both; }
+body[data-moon-workspace-motion='on'] :where([data-slot='dialog-overlay'],[data-slot='sheet-overlay'])[data-state='closed'] { animation:moonWorkspaceOverlay .16s ease reverse both; }
+body[data-moon-workspace-motion='on'] :where(.ann-modal-box,.__sm_card) { animation:moonWorkspaceDialogIn .32s cubic-bezier(.22,1,.36,1); }
+body[data-moon-workspace-motion='on'] :where(.moon-dialog,.ann-modal-box,.notif-drawer,.__lo_overlay,.__sm_overlay) button:not(:disabled):active { scale:.97; }
+body[data-moon-workspace-motion='paused'] :where(.moon-shell-sidebar,.moon-shell-header,.moon-shell-nav-group,.notif-drawer,.notif-item-anim,.__lo_dot,[data-sonner-toast],[data-slot='dialog-content'],[data-slot='sheet-content']) { animation-play-state:paused!important; }
+
+@media (hover:hover) and (pointer:fine) {
+  .moon-workspace-motion[data-moon-motion='full'] :where(.dh-stat,.moon-stat,.moon-project-card,.tr-stat,.wb-tarjeta,.wb-kpi,.ceo-card-lift):hover { translate:0 -3px; border-color:var(--moon-muted); }
+  .moon-workspace-motion[data-moon-motion='full'] :where(.dh-task-item,.dh-announcement,.moon-project-row,.wb-fila,.tr-fila,.correo-mail-item):hover { translate:3px 0; }
+  .moon-workspace-motion[data-moon-motion='full'] :where(.dh-button,.wb-btn,.tr-btn):hover > svg:last-child { translate:2px 0; }
+  .moon-workspace-motion[data-moon-motion='full'] :where(.dh-button,.wb-btn,.tr-btn) > svg { transition:translate .2s cubic-bezier(.22,1,.36,1); }
+  body[data-moon-workspace-motion='on'] .moon-shell-link:hover > svg { translate:2px 0; }
+  body[data-moon-workspace-motion='on'] .moon-shell-theme-toggle:hover > svg { rotate:18deg; }
+  body[data-moon-workspace-motion='on'] .moon-shell-search-button:hover > svg { rotate:-8deg; }
+}
+
+@keyframes moonWorkspaceBreathe { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+@keyframes moonWorkspaceNav { from { opacity:.4; translate:-4px 0; } to { opacity:1; translate:0 0; } }
+@keyframes moonWorkspaceBadge { from { scale:.5; } 65% { scale:1.15; } to { scale:1; } }
+@keyframes moonWorkspaceDialogIn { from { opacity:0; translate:0 14px; scale:.98; } to { opacity:1; translate:0 0; scale:1; } }
+@keyframes moonWorkspaceDialogOut { to { opacity:0; translate:0 7px; scale:.99; } }
+@keyframes moonWorkspaceOverlay { from { opacity:0; } to { opacity:1; } }
+
+/* The app setting and OS preference are both authoritative. Content remains
+   fully visible, and press/hover transforms are disabled along with animation. */
+.moon-workspace-motion[data-moon-motion='off'] *, .moon-workspace-motion[data-moon-motion='off'] *::before, .moon-workspace-motion[data-moon-motion='off'] *::after,
+html.ajustes-sin-movimiento :where(.moon-shell,.moon-workspace-motion,.notif-drawer,.__lo_overlay,.__sm_overlay,.ann-modal-overlay,.moon-dialog) *,
+body[data-moon-workspace-motion='off'] :where(.moon-shell-sidebar,.moon-shell-header,.moon-shell-nav-group,[data-slot='dialog-content'],[data-slot='dialog-overlay'],[data-slot='sheet-content'],[data-slot='sheet-overlay'],.ann-modal-box,.__sm_card,.moon-shell-notification-count) { animation-duration:.001ms!important; animation-delay:0s!important; animation-iteration-count:1!important; transition:none!important; }
+.moon-workspace-motion[data-moon-motion='off'] :where(button,a,.dh-stat,.moon-stat,.moon-project-card,.tr-stat,.wb-tarjeta,.wb-kpi,.ceo-card-lift),
+html.ajustes-sin-movimiento :where(.moon-shell-link,.moon-shell-icon-button,.moon-shell-search-button,.moon-shell-footer-button) { translate:none!important; scale:none!important; }
+@media (prefers-reduced-motion:reduce) {
+  .moon-workspace-motion *, .moon-workspace-motion *::before, .moon-workspace-motion *::after,
+  .moon-shell-sidebar,.moon-shell-header,.moon-shell-nav-group,
+  :where(.moon-shell-link,.moon-shell-icon-button,.moon-shell-search-button,.moon-shell-footer-button) > svg,
+  :where([data-slot='dialog-content'],[data-slot='dialog-overlay'],[data-slot='sheet-content'],[data-slot='sheet-overlay'],.ann-modal-box,.__sm_card,.moon-shell-notification-count) { animation-duration:.001ms!important; animation-delay:0s!important; animation-iteration-count:1!important; transition:none!important; }
+  .moon-workspace-motion :where(button,a,.dh-stat,.moon-stat,.moon-project-card,.tr-stat,.wb-tarjeta,.wb-kpi,.ceo-card-lift) { translate:none!important; scale:none!important; }
+}
+

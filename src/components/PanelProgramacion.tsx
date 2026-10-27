@@ -1,3 +1,6 @@
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { panelInk } from '@/lib/panelColors';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { db, subscribeToUsers } from '@/lib/firebase';
 import { supabase } from '@/lib/supabaseclient';
@@ -19,6 +22,8 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fechaNumerica } from '@/lib/ajustes/fecha';
+import WorkViewToolbar from './work/WorkViewToolbar';
+import { exportWorkspaceCsv } from '@/lib/workspaceExport';
 
 // ─── Config visual ───────────────────────────────────────────────────────────
 const STATUS_META: Record<ProjectStatus, { label: string; color: string; bg: string; icon: React.FC<any> }> = {
@@ -114,9 +119,9 @@ const fmtFecha = (s: string | undefined, patron: string) => {
 type ProyectoDev = Project & { coverPath?: string };
 type UsuarioLite = { uid: string; displayName?: string; email?: string };
 
-const BD  = 'var(--border-main)';
-const SF  = 'var(--sidebar-card-bg)';
-const INP = 'var(--sidebar-card-bg)';
+const BD  = 'var(--moon-line)';
+const SF  = 'var(--moon-surface)';
+const INP = 'var(--moon-surface)';
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 16,
@@ -132,7 +137,7 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 14px',
   fontSize: 14,
   fontWeight: 300,
-  color: 'var(--text-primary)',
+  color: 'var(--moon-ink)',
   outline: 'none',
 };
 
@@ -141,7 +146,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: 10,
   textTransform: 'uppercase' as const,
   letterSpacing: '0.08em',
-  color: 'var(--text-muted)',
+  color: 'var(--moon-muted)',
   marginBottom: 6,
 };
 
@@ -164,18 +169,18 @@ const SelectField = React.memo<{
             appearance: 'none',
             paddingRight: 36,
             cursor: 'pointer',
-            color: cur?.color ?? 'var(--text-primary)',
+            color: panelInk(cur?.color ?? 'var(--moon-ink)'),
           }}
         >
           {options.map(o => (
-            <option key={o.value} value={o.value} style={{ background: 'var(--sidebar-card-bg)', color: 'var(--text-primary)' }}>
+            <option key={o.value} value={o.value} style={{ background: 'var(--moon-surface)', color: 'var(--moon-ink)' }}>
               {o.label}
             </option>
           ))}
         </select>
         <ChevronDown
           className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: 'var(--moon-muted)' }}
           strokeWidth={1.5}
         />
       </div>
@@ -206,7 +211,7 @@ const ModalWrapper = React.memo<{
     <div
       className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden"
       style={{
-        background: 'var(--sidebar-bg, var(--sidebar-card-bg))',
+        background: 'var(--sidebar-bg, var(--moon-surface))',
         border: `1px solid ${BD}`,
         maxHeight: '95dvh',
         display: 'flex',
@@ -214,11 +219,11 @@ const ModalWrapper = React.memo<{
       }}
     >
       <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${BD}` }}>
-        <h2 className="text-base font-light" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+        <h2 className="text-base font-light" style={{ color: 'var(--moon-ink)' }}>{title}</h2>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-xl flex items-center justify-center transition-opacity hover:opacity-70"
-          style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}`, color: 'var(--text-muted)' }}
+          style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}`, color: 'var(--moon-muted)' }}
         >
           <X className="w-4 h-4" strokeWidth={1.5} />
         </button>
@@ -234,7 +239,7 @@ const BtnCancel = React.memo<{ onClick: () => void; saving?: boolean }>(({ onCli
     onClick={onClick}
     disabled={saving}
     className="flex-1 py-2.5 rounded-xl text-sm font-light transition-opacity hover:opacity-70"
-    style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}`, color: 'var(--text-muted)' }}
+    style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}`, color: 'var(--moon-muted)' }}
   >
     Cancelar
   </button>
@@ -245,10 +250,10 @@ const BtnSave = React.memo<{ onClick: () => void; label: string; loadingLabel?: 
     <button
       onClick={onClick}
       disabled={saving}
-      className="flex-1 py-2.5 rounded-xl text-sm font-light transition-all"
+      className="moon-panel-primary flex-1 py-2.5 rounded-xl text-sm font-light transition-all"
       style={{
-        background: saving ? 'var(--sidebar-card-bg)' : 'var(--text-primary)',
-        color: saving ? 'var(--text-muted)' : 'var(--sidebar-card-bg)',
+        background: saving ? 'var(--moon-surface-raised)' : 'var(--moon-accent)',
+        color: saving ? 'var(--moon-muted)' : 'var(--moon-accent-ink)',
         border: `1px solid ${BD}`,
       }}
     >
@@ -284,7 +289,7 @@ const ProgressSlider: React.FC<{
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex items-center justify-between text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
         <span>PROGRESO</span><span>{shown}%</span>
       </div>
       <input
@@ -303,6 +308,9 @@ const ProgressSlider: React.FC<{
 
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function PanelProgramacion() {
+  const projectDescEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const changeDescEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const taskDescEmojiRef = useRef<HTMLTextAreaElement>(null);
   const { currentUser, userProfile, isAdmin } = useAuth();
   // Reglas de Firestore: CEO/Administración/Programación escriben proyectos y
   // tareas; solo CEO/Administración pueden borrarlos (isAdmin ya incluye al CEO).
@@ -317,6 +325,9 @@ export default function PanelProgramacion() {
   const [search,          setSearch]          = useState('');
   const [filterStatus,    setFilterStatus]    = useState<ProjectStatus | 'all'>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [projectOrder, setProjectOrder] = useState<'recent' | 'name' | 'deadline' | 'progress'>('recent');
+  const [sprintFocus, setSprintFocus] = useState<'all' | 'mine' | 'unassigned' | 'priority' | 'overdue'>('all');
+  const [sprintSearch, setSprintSearch] = useState('');
 
   // ← UN solo estado para todos los modales (evita 3 setState = 3 re-renders)
   const [activeModal,    setActiveModal]    = useState<ActiveModal>(null);
@@ -604,7 +615,12 @@ export default function PanelProgramacion() {
     const mq = !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.stack?.some((s: string) => s.toLowerCase().includes(search.toLowerCase()));
     return ms && mq;
-  }), [projects, filterStatus, search]);
+  }).sort((a, b) => {
+    if (projectOrder === 'name') return a.name.localeCompare(b.name, 'es');
+    if (projectOrder === 'deadline') return (a.deadline || '9999').localeCompare(b.deadline || '9999');
+    if (projectOrder === 'progress') return (b.progress || 0) - (a.progress || 0);
+    return 0;
+  }), [projects, filterStatus, search, projectOrder]);
 
   const filteredChanges = useMemo(() => changes.filter(c =>
     (selectedProject === 'all' || c.projectId === selectedProject) &&
@@ -622,11 +638,19 @@ export default function PanelProgramacion() {
 
   const projectTasks = useCallback((projId: string) => projectTasksMap[projId] ?? [], [projectTasksMap]);
 
-  const tasksByStatus = useCallback((status: string) =>
-    tasks.filter(t =>
-      (selectedProject === 'all' || t.projectId === selectedProject) &&
-      (status === 'all' || t.status === status)
-    ), [tasks, selectedProject]);
+  const visibleSprintTasks = useMemo(() => tasks.filter(t => {
+    const query = sprintSearch.trim().toLocaleLowerCase('es');
+    const matchesSearch = !query || [t.title, t.description || '', ...(t.labels || [])].some(value => value.toLocaleLowerCase('es').includes(query));
+    const open = t.status !== 'done';
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const focus = sprintFocus === 'all' || (sprintFocus === 'mine' && t.assignee === userProfile?.uid)
+      || (sprintFocus === 'unassigned' && !t.assignee && open)
+      || (sprintFocus === 'priority' && open && ['high', 'critical'].includes(t.priority))
+      || (sprintFocus === 'overdue' && open && !!t.dueDate && new Date(`${t.dueDate}T23:59:59`).getTime() < dayStart.getTime());
+    return (selectedProject === 'all' || t.projectId === selectedProject) && matchesSearch && focus;
+  }).sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999')), [tasks, selectedProject, sprintSearch, sprintFocus, userProfile?.uid]);
+
+  const tasksByStatus = useCallback((status: string) => visibleSprintTasks.filter(t => status === 'all' || t.status === status), [visibleSprintTasks]);
 
   const stats = useMemo(() => ({
     totalActive:    projects.filter(p => p.status === 'active').length,
@@ -665,32 +689,32 @@ export default function PanelProgramacion() {
   }, [users, taskForm.assignee]);
 
   const TABS: { id: Tab; label: string; icon: React.FC<any>; badge?: number }[] = useMemo(() => [
-    { id: 'overview',  label: 'Overview',  icon: BarChart3 },
+    { id: 'overview',  label: 'Resumen',   icon: BarChart3 },
     { id: 'proyectos', label: 'Proyectos', icon: Package,   badge: projects.filter(p => p.status === 'active').length },
     { id: 'sprints',   label: 'Sprints',   icon: Target,    badge: tasks.filter(t => t.status !== 'done').length },
-    { id: 'changelog', label: 'Changelog', icon: GitCommit, badge: changes.length },
+    { id: 'changelog', label: 'Versiones', icon: GitCommit, badge: changes.length },
     { id: 'metricas',  label: 'Métricas',  icon: TrendingUp },
   ], [projects, tasks, changes]);
 
   if (loading) return (
     <div className="flex items-center justify-center py-20 gap-3">
       <div className="w-5 h-5 border border-t-transparent rounded-full animate-spin"
-        style={{ borderColor: 'var(--border-main)', borderTopColor: 'transparent' }} />
-      <span className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Cargando...</span>
+        style={{ borderColor: 'var(--moon-line)', borderTopColor: 'transparent' }} />
+      <span className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Cargando...</span>
     </div>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="moon-module moon-module--panel-programacion space-y-4">
 
       {/* ══ Toast ══════════════════════════════════════════════════════════ */}
       {toast && (
         <div
-          className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-light shadow-2xl"
+          className="moon-panel fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-light shadow-2xl"
           style={{
             background: toast.type === 'success' ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
             border: `1px solid ${toast.type === 'success' ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
-            color: toast.type === 'success' ? '#34d399' : '#f87171',
+            color: panelInk(toast.type === 'success' ? '#34d399' : '#f87171'),
             maxWidth: 'calc(100vw - 32px)',
           }}
         >
@@ -727,13 +751,14 @@ export default function PanelProgramacion() {
             placeholder="Nombre del proyecto" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>Descripción</label>
-            <textarea
+            <textarea ref={projectDescEmojiRef}
               value={projectForm.description}
               onChange={e => setProjectForm(p => ({ ...p, description: e.target.value }))}
               rows={3}
               placeholder="Descripción breve"
               style={{ ...inputStyle, resize: 'none' } as React.CSSProperties}
             />
+            <EmojiButton value={projectForm.description} onChange={description => setProjectForm(p => ({ ...p, description }))} inputRef={projectDescEmojiRef} disabled={saving} label="Añadir emoji a la descripción del proyecto" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Estado" value={projectForm.status}
@@ -777,9 +802,9 @@ export default function PanelProgramacion() {
                     }))}
                     className="px-2.5 py-1 rounded-lg text-xs font-light transition-all"
                     style={{
-                      background: sel ? 'rgba(167,139,250,0.15)' : 'var(--sidebar-card-bg)',
+                      background: sel ? 'rgba(167,139,250,0.15)' : 'var(--moon-surface)',
                       border: `1px solid ${sel ? 'rgba(167,139,250,0.4)' : BD}`,
-                      color: sel ? '#a78bfa' : 'var(--text-muted)',
+                      color: panelInk(sel ? '#a78bfa' : 'var(--moon-muted)'),
                     }}
                   >
                     {tech}
@@ -819,26 +844,27 @@ export default function PanelProgramacion() {
             placeholder="Descripción corta del cambio" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>Notas de release</label>
-            <textarea
+            <textarea ref={changeDescEmojiRef}
               value={changeForm.description}
               onChange={e => setChangeForm(p => ({ ...p, description: e.target.value }))}
               rows={4}
               placeholder="Detalla los cambios..."
               style={{ ...inputStyle, resize: 'none' } as React.CSSProperties}
             />
+            <EmojiButton value={changeForm.description} onChange={description => setChangeForm(p => ({ ...p, description }))} inputRef={changeDescEmojiRef} disabled={saving} label="Añadir emoji a las notas de release" />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <div
               className="w-10 h-5 rounded-full relative transition-all"
-              style={{ background: changeForm.breaking ? '#f87171' : 'var(--border-main)' }}
+              style={{ background: changeForm.breaking ? '#f87171' : 'var(--moon-line)' }}
               onClick={() => setChangeForm(p => ({ ...p, breaking: !p.breaking }))}
             >
               <div
                 className="absolute top-0.5 h-4 w-4 rounded-full shadow transition-all"
-                style={{ background: 'var(--text-primary)', left: changeForm.breaking ? 'calc(100% - 18px)' : '2px' }}
+                style={{ background: 'var(--moon-ink)', left: changeForm.breaking ? 'calc(100% - 18px)' : '2px' }}
               />
             </div>
-            <span className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>Breaking change</span>
+            <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>Breaking change</span>
           </label>
         </ModalWrapper>
       )}
@@ -863,13 +889,14 @@ export default function PanelProgramacion() {
             placeholder="Título de la tarea" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>Descripción</label>
-            <textarea
+            <textarea ref={taskDescEmojiRef}
               value={taskForm.description}
               onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))}
               rows={2}
               placeholder="Descripción opcional"
               style={{ ...inputStyle, resize: 'none' } as React.CSSProperties}
             />
+            <EmojiButton value={taskForm.description} onChange={description => setTaskForm(p => ({ ...p, description }))} inputRef={taskDescEmojiRef} disabled={saving} label="Añadir emoji a la descripción de la tarea" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Prioridad" value={taskForm.priority}
@@ -888,18 +915,19 @@ export default function PanelProgramacion() {
       )}
 
       {/* ══ Header ══════════════════════════════════════════════════════════ */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div data-moon-reveal="heading" className="moon-module-heading moon-work-page-heading flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.2)' }}
           >
-            <Code2 className="w-5 h-5" style={{ color: '#f472b6' }} strokeWidth={1.5} />
+            <Code2 className="w-5 h-5" style={{ color: panelInk('#f472b6') }} strokeWidth={1.5} />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-light" style={{ color: 'var(--text-primary)' }}>Panel de Programación</h1>
-            <p className="text-xs sm:text-sm font-light" style={{ color: 'var(--text-muted)' }}>
-              {projects.length} proyectos · {stats.totalTasks} tareas
+            <span className="moon-work-kicker">PRODUCTO Y TECNOLOGÍA</span>
+            <h1 className="moon-page-title text-lg sm:text-xl font-light" style={{ color: 'var(--moon-ink)' }}>Panel de Programación</h1>
+            <p className="text-xs sm:text-sm font-light" style={{ color: 'var(--moon-muted)' }}>
+              De la planificación a cada versión · {projects.length} proyectos · {stats.totalTasks} tareas
             </p>
           </div>
         </div>
@@ -908,21 +936,21 @@ export default function PanelProgramacion() {
             <button
               onClick={() => openTaskModal()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-opacity hover:opacity-80"
-              style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}`, color: 'var(--text-primary)' }}
+              style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}`, color: 'var(--moon-ink)' }}
             >
               <CheckSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> Tarea
             </button>
             <button
               onClick={openChangeModal}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-opacity hover:opacity-80"
-              style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}`, color: 'var(--text-primary)' }}
+              style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}`, color: 'var(--moon-ink)' }}
             >
               <GitCommit className="w-3.5 h-3.5" strokeWidth={1.5} /> Release
             </button>
             <button
               onClick={() => openProjectModal()}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-light transition-opacity hover:opacity-90"
-              style={{ background: 'var(--text-primary)', color: 'var(--bg-sidebar)' }}
+              className="moon-panel-primary flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-light transition-opacity hover:opacity-90"
+              style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
             >
               <Plus className="w-4 h-4" strokeWidth={2} /> Proyecto
             </button>
@@ -931,9 +959,9 @@ export default function PanelProgramacion() {
       </div>
 
       {loadError && (
-        <div
-          className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-light"
-          style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}
+        <div data-moon-reveal="card"
+          className="moon-panel flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-light"
+          style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: panelInk('#f87171') }}
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
           <span>{loadError}</span>
@@ -941,9 +969,9 @@ export default function PanelProgramacion() {
       )}
 
       {/* ══ Tabs ════════════════════════════════════════════════════════════ */}
-      <div
-        className="flex gap-1 p-1 rounded-2xl overflow-x-auto"
-        style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}` }}
+      <div data-moon-reveal="card"
+        className="moon-panel flex gap-1 p-1 rounded-2xl overflow-x-auto"
+        style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}` }}
       >
         {TABS.map(tab => {
           const Icon   = tab.icon;
@@ -954,8 +982,8 @@ export default function PanelProgramacion() {
               onClick={() => setActiveTab(tab.id)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all whitespace-nowrap flex-shrink-0"
               style={{
-                background: active ? 'var(--border-main)' : 'transparent',
-                color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                background: active ? 'var(--moon-line)' : 'transparent',
+                color: panelInk(active ? 'var(--moon-ink)' : 'var(--moon-muted)'),
               }}
             >
               <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -964,8 +992,8 @@ export default function PanelProgramacion() {
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded-full tabular-nums"
                   style={{
-                    background: active ? 'rgba(255,255,255,0.15)' : 'var(--border-main)',
-                    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                    background: active ? 'rgba(255,255,255,0.15)' : 'var(--moon-line)',
+                    color: panelInk(active ? 'var(--moon-ink)' : 'var(--moon-muted)'),
                   }}
                 >
                   {tab.badge}
@@ -987,22 +1015,22 @@ export default function PanelProgramacion() {
               { label: 'Tareas abiertas',    value: stats.totalTasks - stats.doneTasks,          color: '#f59e0b', icon: Target },
               { label: 'Progreso promedio',  value: `${stats.avgProgress}%`,                    color: '#a78bfa', icon: TrendingUp },
             ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className="rounded-2xl p-4 space-y-3" style={cardStyle}>
+              <div data-moon-reveal="card" key={label} className="moon-panel rounded-2xl p-4 space-y-3" style={cardStyle}>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '20' }}>
-                  <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
+                  <Icon className="w-4 h-4" style={{ color: panelInk(color) }} strokeWidth={1.5} />
                 </div>
-                <p className="text-xl sm:text-2xl font-light tabular-nums" style={{ color }}>{value}</p>
-                <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-xl sm:text-2xl font-light tabular-nums" style={{ color: panelInk(color) }}>{value}</p>
+                <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--moon-muted)' }}>{label}</p>
               </div>
             ))}
           </div>
 
           {/* Proyectos activos + actividad reciente */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-              <div className="px-5 py-4 flex items-center gap-2" style={{ background: 'var(--sidebar-card-bg)', borderBottom: `1px solid ${BD}` }}>
-                <Activity className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-                <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Proyectos en curso</p>
+            <div data-moon-reveal="card" className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+              <div className="px-5 py-4 flex items-center gap-2" style={{ background: 'var(--moon-surface)', borderBottom: `1px solid ${BD}` }}>
+                <Activity className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+                <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Proyectos en curso</p>
               </div>
               <div className="divide-y" style={{ borderColor: BD }}>
                 {projects.filter(p => p.status === 'active').slice(0, 5).map(p => {
@@ -1013,15 +1041,15 @@ export default function PanelProgramacion() {
                     <div key={p.id} className="px-5 py-3.5" style={{ borderColor: BD }}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-sm font-light truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                          {p.version && <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>v{p.version}</span>}
+                          <p className="text-sm font-light truncate" style={{ color: 'var(--moon-ink)' }}>{p.name}</p>
+                          {p.version && <span className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>v{p.version}</span>}
                         </div>
-                        <span className="text-[10px] font-light" style={{ color: '#34d399' }}>{progress}%</span>
+                        <span className="text-[10px] font-light" style={{ color: panelInk('#34d399') }}>{progress}%</span>
                       </div>
-                      <div className="h-1 rounded-full overflow-hidden mb-2" style={{ background: 'var(--border-main)' }}>
+                      <div className="h-1 rounded-full overflow-hidden mb-2" style={{ background: 'var(--moon-line)' }}>
                         <div className="h-full rounded-full" style={{ width: `${progress}%`, background: '#34d399bb' }} />
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                      <div className="flex items-center gap-4 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                         <span>{p.stack?.slice(0, 3).join(' · ')}</span>
                         {ptasks.length > 0 && <span>{done}/{ptasks.length} tareas</span>}
                       </div>
@@ -1029,15 +1057,15 @@ export default function PanelProgramacion() {
                   );
                 })}
                 {projects.filter(p => p.status === 'active').length === 0 && (
-                  <div className="px-5 py-8 text-center text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin proyectos activos</div>
+                  <div className="px-5 py-8 text-center text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin proyectos activos</div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-              <div className="px-5 py-4 flex items-center gap-2" style={{ background: 'var(--sidebar-card-bg)', borderBottom: `1px solid ${BD}` }}>
-                <GitCommit className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-                <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Actividad reciente</p>
+            <div data-moon-reveal="card" className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+              <div className="px-5 py-4 flex items-center gap-2" style={{ background: 'var(--moon-surface)', borderBottom: `1px solid ${BD}` }}>
+                <GitCommit className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+                <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Actividad reciente</p>
               </div>
               <div className="divide-y" style={{ borderColor: BD }}>
                 {recentChanges.map(c => {
@@ -1046,11 +1074,11 @@ export default function PanelProgramacion() {
                   return (
                     <div key={c.id} className="px-5 py-3 flex items-start gap-3" style={{ borderColor: BD }}>
                       <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: meta.color + '20' }}>
-                        <meta.icon className="w-3 h-3" style={{ color: meta.color }} strokeWidth={1.5} />
+                        <meta.icon className="w-3 h-3" style={{ color: panelInk(meta.color) }} strokeWidth={1.5} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-light truncate" style={{ color: 'var(--text-primary)' }}>{c.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs font-light truncate" style={{ color: 'var(--moon-ink)' }}>{c.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                           <span>{project?.name ?? '—'}</span>
                           <span>·</span>
                           <span>v{c.version}</span>
@@ -1058,24 +1086,24 @@ export default function PanelProgramacion() {
                           <span>{c.authorName ?? '—'}</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-light flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-[10px] font-light flex-shrink-0" style={{ color: 'var(--moon-muted)' }}>
                         {formatDistanceToNow(c.createdAt instanceof Date ? c.createdAt : new Date(), { locale: es, addSuffix: true })}
                       </span>
                     </div>
                   );
                 })}
                 {recentChanges.length === 0 && (
-                  <div className="px-5 py-8 text-center text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin actividad reciente</div>
+                  <div className="px-5 py-8 text-center text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin actividad reciente</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* Distribución de estado */}
-          <div className="rounded-2xl p-5" style={cardStyle}>
+          <div data-moon-reveal="card" className="moon-panel rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-4">
-              <Cpu className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-              <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Distribución de proyectos</p>
+              <Cpu className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+              <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Distribución de proyectos</p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {(Object.entries(STATUS_META) as [ProjectStatus, any][]).map(([status, meta]) => {
@@ -1086,12 +1114,12 @@ export default function PanelProgramacion() {
                     className="rounded-xl p-3 text-center cursor-pointer transition-opacity hover:opacity-80"
                     onClick={() => { setActiveTab('proyectos'); setFilterStatus(status); }}
                     style={{
-                      background: count > 0 ? meta.color + '12' : 'var(--sidebar-card-bg)',
+                      background: count > 0 ? meta.color + '12' : 'var(--moon-surface)',
                       border: `1px solid ${count > 0 ? meta.color + '30' : BD}`,
                     }}
                   >
-                    <p className="text-xl sm:text-2xl font-light" style={{ color: meta.color }}>{count}</p>
-                    <p className="text-[10px] uppercase tracking-widest font-light mt-1" style={{ color: count > 0 ? meta.color : 'var(--text-muted)' }}>
+                    <p className="text-xl sm:text-2xl font-light" style={{ color: panelInk(meta.color) }}>{count}</p>
+                    <p className="text-[10px] uppercase tracking-widest font-light mt-1" style={{ color: panelInk(count > 0 ? meta.color : 'var(--moon-muted)') }}>
                       {meta.label}
                     </p>
                   </div>
@@ -1105,10 +1133,16 @@ export default function PanelProgramacion() {
       {/* ════ PROYECTOS ═════════════════════════════════════════════════════ */}
       {activeTab === 'proyectos' && (
         <div className="space-y-4">
+          <WorkViewToolbar label="Portafolio de desarrollo" description="Compara avances y ordena las próximas entregas del área técnica."
+            count={filteredProjects.length} total={projects.length}
+            onReset={search || filterStatus !== 'all' || projectOrder !== 'recent' ? () => { setSearch(''); setFilterStatus('all'); setProjectOrder('recent'); } : undefined}
+            onExport={() => exportWorkspaceCsv('moon-desarrollo-proyectos', ['Proyecto', 'Estado', 'Versión', 'Prioridad', 'Avance %', 'Fecha límite', 'Stack'], filteredProjects.map(p => [p.name, STATUS_META[p.status]?.label || p.status, p.version, p.priority, p.progress || 0, p.deadline, (p.stack || []).join(', ')]))}>
+            <label>Ordenar proyectos<select value={projectOrder} onChange={e => setProjectOrder(e.target.value as typeof projectOrder)}><option value="recent">Más recientes</option><option value="name">Nombre A–Z</option><option value="deadline">Próxima fecha límite</option><option value="progress">Mayor avance</option></select></label>
+          </WorkViewToolbar>
           {/* Filtros */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[160px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -1120,15 +1154,15 @@ export default function PanelProgramacion() {
             <div className="flex gap-1 flex-wrap">
               {(['all', ...Object.keys(STATUS_META)] as const).map(s => {
                 const active = filterStatus === s;
-                const color  = s !== 'all' ? STATUS_META[s as ProjectStatus]?.color : 'var(--text-primary)';
+                const color  = s !== 'all' ? STATUS_META[s as ProjectStatus]?.color : 'var(--moon-ink)';
                 return (
                   <button
                     key={s}
                     onClick={() => setFilterStatus(s as ProjectStatus | 'all')}
                     className="px-2.5 py-1.5 rounded-xl text-xs font-light transition-all"
                     style={{
-                      background: active ? (s !== 'all' ? STATUS_META[s as ProjectStatus]?.color + '18' : 'var(--border-main)') : 'var(--sidebar-card-bg)',
-                      color: active ? color : 'var(--text-muted)',
+                      background: active ? (s !== 'all' ? STATUS_META[s as ProjectStatus]?.color + '18' : 'var(--moon-line)') : 'var(--moon-surface)',
+                      color: panelInk(active ? color : 'var(--moon-muted)'),
                       border: `1px solid ${active ? (s !== 'all' ? STATUS_META[s as ProjectStatus]?.color + '35' : BD) : BD}`,
                     }}
                   >
@@ -1142,8 +1176,8 @@ export default function PanelProgramacion() {
           {/* Lista */}
           {filteredProjects.length === 0 ? (
             <div className="py-16 text-center rounded-2xl" style={{ border: `1px dashed ${BD}` }}>
-              <Package className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--border-main)' }} strokeWidth={1} />
-              <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin proyectos</p>
+              <Package className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-line)' }} strokeWidth={1} />
+              <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin proyectos</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1157,12 +1191,12 @@ export default function PanelProgramacion() {
                 const isExp    = expandedProject === p.id;
 
                 return (
-                  <div
+                  <div data-moon-reveal="card"
                     key={p.id}
                     className="rounded-2xl overflow-hidden transition-all"
                     style={{
                       border: `1px solid ${isExp ? sm.color + '40' : BD}`,
-                      background: isExp ? sm.color + '06' : 'var(--sidebar-card-bg)',
+                      background: isExp ? sm.color + '06' : 'var(--moon-surface)',
                     }}
                   >
                     <div
@@ -1170,20 +1204,20 @@ export default function PanelProgramacion() {
                       onClick={() => setExpandedProject(isExp ? null : p.id)}
                     >
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: sm.bg }}>
-                        <sm.icon className="w-4 h-4" style={{ color: sm.color }} strokeWidth={1.5} />
+                        <sm.icon className="w-4 h-4" style={{ color: panelInk(sm.color) }} strokeWidth={1.5} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <p className="text-sm font-light truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                          {p.version && <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>v{p.version}</span>}
+                          <p className="text-sm font-light truncate" style={{ color: 'var(--moon-ink)' }}>{p.name}</p>
+                          {p.version && <span className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>v{p.version}</span>}
                         </div>
-                        <div className="h-1 rounded-full overflow-hidden w-full max-w-[180px]" style={{ background: 'var(--border-main)' }}>
+                        <div className="h-1 rounded-full overflow-hidden w-full max-w-[180px]" style={{ background: 'var(--moon-line)' }}>
                           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: sm.color + 'bb' }} />
                         </div>
                       </div>
-                      <div className="hidden sm:flex items-center gap-3 text-xs font-light flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      <div className="hidden sm:flex items-center gap-3 text-xs font-light flex-shrink-0" style={{ color: 'var(--moon-muted)' }}>
                         <span className="flex items-center gap-1">
-                          <Flag className="w-3 h-3" style={{ color: pm?.color }} strokeWidth={1.5} />
+                          <Flag className="w-3 h-3" style={{ color: panelInk(pm?.color) }} strokeWidth={1.5} />
                           {pm?.label}
                         </span>
                         <span className="flex items-center gap-1">
@@ -1194,21 +1228,21 @@ export default function PanelProgramacion() {
                           <GitCommit className="w-3 h-3" strokeWidth={1.5} />
                           {pchange}
                         </span>
-                        <span style={{ color: sm.color }}>{progress}%</span>
+                        <span style={{ color: panelInk(sm.color) }}>{progress}%</span>
                       </div>
                       {canEdit && (
                         <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => openProjectModal(p)}
                             className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-                            style={{ color: 'var(--text-muted)' }}
+                            style={{ color: 'var(--moon-muted)' }}
                           >
                             <Edit3 className="w-3 h-3" strokeWidth={1.5} />
                           </button>
                           {p.repository && (
                             <a href={p.repository} target="_blank" rel="noreferrer"
                               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-                              style={{ color: 'var(--text-muted)' }}>
+                              style={{ color: 'var(--moon-muted)' }}>
                               <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
                             </a>
                           )}
@@ -1218,7 +1252,7 @@ export default function PanelProgramacion() {
                               onClick={() => handleDeleteProject(p)}
                               disabled={deleting === p.id}
                               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-                              style={{ color: 'var(--text-muted)' }}
+                              style={{ color: 'var(--moon-muted)' }}
                             >
                               {deleting === p.id
                                 ? <RefreshCw className="w-3 h-3 animate-spin" strokeWidth={1.5} />
@@ -1229,7 +1263,7 @@ export default function PanelProgramacion() {
                       )}
                       <ChevronDown
                         className={`w-4 h-4 transition-transform ${isExp ? 'rotate-180' : ''}`}
-                        style={{ color: 'var(--text-muted)' }}
+                        style={{ color: 'var(--moon-muted)' }}
                         strokeWidth={1.5}
                       />
                     </div>
@@ -1237,7 +1271,7 @@ export default function PanelProgramacion() {
                     {isExp && (
                       <div className="px-5 py-4 space-y-4" style={{ borderTop: `1px solid ${BD}` }}>
                         {p.description && (
-                          <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--text-secondary, var(--text-muted))' }}>{p.description}</p>
+                          <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--text-secondary, var(--moon-muted))' }}><EmojiText text={p.description} /></p>
                         )}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-light">
                           {[
@@ -1247,8 +1281,8 @@ export default function PanelProgramacion() {
                             { label: 'Creado',   value: fechaNumerica(p.createdAt instanceof Date ? p.createdAt : new Date()) },
                           ].map(({ label, value }) => (
                             <div key={label}>
-                              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                              <p style={{ color: 'var(--text-primary)' }}>{value}</p>
+                              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--moon-muted)' }}>{label}</p>
+                              <p style={{ color: 'var(--moon-ink)' }}>{value}</p>
                             </div>
                           ))}
                         </div>
@@ -1261,20 +1295,20 @@ export default function PanelProgramacion() {
                         )}
                         {ptasks.length > 0 && (
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: 'var(--text-muted)' }}>Tareas</p>
+                            <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: 'var(--moon-muted)' }}>Tareas</p>
                             <div className="space-y-1.5">
                               {ptasks.slice(0, 4).map(t => {
                                 const ts = TASK_STATUS[t.status];
                                 return (
                                   <div key={t.id} className="flex items-center gap-2 text-xs font-light">
                                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ts.color }} />
-                                    <span className="truncate flex-1" style={{ color: 'var(--text-primary)' }}>{t.title}</span>
-                                    <span style={{ color: ts.color }}>{ts.label}</span>
+                                    <span className="truncate flex-1" style={{ color: 'var(--moon-ink)' }}>{t.title}</span>
+                                    <span style={{ color: panelInk(ts.color) }}>{ts.label}</span>
                                   </div>
                                 );
                               })}
                               {ptasks.length > 4 && (
-                                <p className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>+{ptasks.length - 4} más</p>
+                                <p className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>+{ptasks.length - 4} más</p>
                               )}
                             </div>
                           </div>
@@ -1292,8 +1326,15 @@ export default function PanelProgramacion() {
       {/* ════ SPRINTS ═══════════════════════════════════════════════════════ */}
       {activeTab === 'sprints' && (
         <div className="space-y-4">
+          <WorkViewToolbar label="Planificación del sprint" description="Enfoca el tablero en responsables, bloqueos de asignación y entregas prioritarias."
+            count={visibleSprintTasks.length} total={tasks.length}
+            onReset={sprintSearch || sprintFocus !== 'all' || selectedProject !== 'all' ? () => { setSprintSearch(''); setSprintFocus('all'); setSelectedProject('all'); } : undefined}
+            onExport={() => exportWorkspaceCsv('moon-sprint', ['Tarea', 'Proyecto', 'Estado', 'Prioridad', 'Responsable', 'Fecha límite'], visibleSprintTasks.map(t => [t.title, projects.find(p => p.id === t.projectId)?.name || 'Proyecto no disponible', TASK_STATUS[t.status]?.label || t.status, PRIORITY_META[t.priority]?.label || t.priority, users.find(u => u.uid === t.assignee)?.displayName || (t.assignee ? 'Usuario no encontrado' : 'Sin asignar'), t.dueDate]))}>
+            <label>Enfoque del equipo<select value={sprintFocus} onChange={e => setSprintFocus(e.target.value as typeof sprintFocus)}><option value="all">Todas las tareas</option><option value="mine">Asignadas a mí</option><option value="unassigned">Abiertas sin responsable</option><option value="priority">Abiertas de prioridad alta</option><option value="overdue">Abiertas vencidas</option></select></label>
+          </WorkViewToolbar>
           {/* Filtros kanban */}
           <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--moon-muted)' }} /><input value={sprintSearch} onChange={e => setSprintSearch(e.target.value)} aria-label="Buscar tareas del sprint" placeholder="Buscar tarea, descripción o etiqueta…" style={{ ...inputStyle, width: '100%', paddingLeft: 38 }} /></div>
             <div className="relative">
               <select
                 value={selectedProject}
@@ -1303,13 +1344,13 @@ export default function PanelProgramacion() {
                 <option value="all">Todos los proyectos</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
             </div>
             {canEdit && (
               <button
                 onClick={() => openTaskModal()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light ml-auto"
-                style={{ background: 'var(--text-primary)', color: 'var(--bg-sidebar)' }}
+                className="moon-panel-primary flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light ml-auto"
+                style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Nueva tarea
               </button>
@@ -1321,19 +1362,19 @@ export default function PanelProgramacion() {
             {(Object.entries(TASK_STATUS) as [SprintTask['status'], typeof TASK_STATUS[keyof typeof TASK_STATUS]][]).map(([status, meta]) => {
               const colTasks = tasksByStatus(status);
               return (
-                <div
+                <div data-moon-reveal="card"
                   key={status}
                   className="rounded-2xl overflow-hidden flex-shrink-0"
-                  style={{ border: `1px solid ${BD}`, background: 'var(--sidebar-card-bg)', width: 220, minWidth: 200 }}
+                  style={{ border: `1px solid ${BD}`, background: 'var(--moon-surface)', width: 220, minWidth: 200 }}
                   onDragOver={e => { e.preventDefault(); }}
                   onDrop={e => { e.preventDefault(); if (dragTask && canEdit) handleMoveTask(dragTask, status); setDragTask(null); }}
                 >
                   <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${BD}` }}>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
-                      <span className="text-xs font-light" style={{ color: meta.color }}>{meta.label}</span>
+                      <span className="text-xs font-light" style={{ color: panelInk(meta.color) }}>{meta.label}</span>
                     </div>
-                    <span className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>{colTasks.length}</span>
+                    <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>{colTasks.length}</span>
                   </div>
                   <div className="p-2 space-y-2" style={{ minHeight: 100 }}>
                     {colTasks.map(t => {
@@ -1346,10 +1387,10 @@ export default function PanelProgramacion() {
                           onDragStart={() => setDragTask(t.id)}
                           onDragEnd={() => setDragTask(null)}
                           className={`rounded-xl p-3 group ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                          style={{ background: 'var(--sidebar-bg, var(--sidebar-card-bg))', border: `1px solid ${BD}` }}
+                          style={{ background: 'var(--sidebar-bg, var(--moon-surface))', border: `1px solid ${BD}` }}
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="text-xs font-light leading-relaxed flex-1" style={{ color: 'var(--text-primary)' }}>{t.title}</p>
+                            <p className="text-xs font-light leading-relaxed flex-1" style={{ color: 'var(--moon-ink)' }}>{t.title}</p>
                             {/* Siempre visibles: con hover no había forma de borrar en pantallas táctiles. */}
                             {canEdit && (
                               <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -1358,7 +1399,7 @@ export default function PanelProgramacion() {
                                   title="Editar tarea"
                                   aria-label="Editar tarea"
                                   className="w-5 h-5 rounded-md flex items-center justify-center transition-all hover:opacity-70"
-                                  style={{ color: 'var(--text-muted)' }}
+                                  style={{ color: 'var(--moon-muted)' }}
                                 >
                                   <Edit3 className="w-3 h-3" strokeWidth={1.5} />
                                 </button>
@@ -1368,7 +1409,7 @@ export default function PanelProgramacion() {
                                     title="Eliminar tarea"
                                     aria-label="Eliminar tarea"
                                     className="w-5 h-5 rounded-md flex items-center justify-center transition-all hover:opacity-70"
-                                    style={{ color: 'var(--text-muted)' }}
+                                    style={{ color: 'var(--moon-muted)' }}
                                   >
                                     <X className="w-3 h-3" strokeWidth={1.5} />
                                   </button>
@@ -1377,16 +1418,16 @@ export default function PanelProgramacion() {
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-light px-1.5 py-0.5 rounded-md" style={{ color: pm.color, background: pm.color + '18' }}>
+                            <span className="text-[10px] font-light px-1.5 py-0.5 rounded-md" style={{ color: panelInk(pm.color), background: pm.color + '18' }}>
                               {pm.label}
                             </span>
-                            {proj && <span className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>{proj.name}</span>}
-                            {t.dueDate && <span className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>{fmtFecha(t.dueDate, 'dd/MM')}</span>}
+                            {proj && <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>{proj.name}</span>}
+                            {t.dueDate && <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>{fmtFecha(t.dueDate, 'dd/MM')}</span>}
                             {t.assignee && userName(t.assignee) && (
-                              <span className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>· {userName(t.assignee)}</span>
+                              <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>· {userName(t.assignee)}</span>
                             )}
                             {(t.labels ?? []).map(l => (
-                              <span key={l} className="text-[10px] font-light px-1.5 py-0.5 rounded-md" style={{ color: 'var(--text-muted)', border: `1px solid ${BD}` }}>
+                              <span key={l} className="text-[10px] font-light px-1.5 py-0.5 rounded-md" style={{ color: 'var(--moon-muted)', border: `1px solid ${BD}` }}>
                                 {l}
                               </span>
                             ))}
@@ -1398,10 +1439,10 @@ export default function PanelProgramacion() {
                               onChange={e => handleMoveTask(t.id, e.target.value as SprintTask['status'])}
                               aria-label="Cambiar estado de la tarea"
                               className="mt-2 w-full text-[10px] font-light rounded-md px-1.5 py-1 outline-none cursor-pointer"
-                              style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${BD}`, color: TASK_STATUS[t.status]?.color ?? 'var(--text-muted)' }}
+                              style={{ background: 'var(--moon-surface)', border: `1px solid ${BD}`, color: panelInk(TASK_STATUS[t.status]?.color ?? 'var(--moon-muted)') }}
                             >
                               {(Object.entries(TASK_STATUS) as [SprintTask['status'], { label: string }][]).map(([k, v]) => (
-                                <option key={k} value={k} style={{ background: 'var(--sidebar-card-bg)', color: 'var(--text-primary)' }}>{v.label}</option>
+                                <option key={k} value={k} style={{ background: 'var(--moon-surface)', color: 'var(--moon-ink)' }}>{v.label}</option>
                               ))}
                             </select>
                           )}
@@ -1409,7 +1450,7 @@ export default function PanelProgramacion() {
                       );
                     })}
                     {colTasks.length === 0 && (
-                      <div className="py-6 text-center text-xs font-light" style={{ color: 'var(--border-main)' }}>Arrastra aquí</div>
+                      <div className="py-6 text-center text-xs font-light" style={{ color: 'var(--moon-line)' }}>Arrastra aquí</div>
                     )}
                   </div>
                 </div>
@@ -1432,13 +1473,13 @@ export default function PanelProgramacion() {
                 <option value="all">Todos los proyectos</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
             </div>
             {canEdit && (
               <button
                 onClick={openChangeModal}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light ml-auto"
-                style={{ background: 'var(--text-primary)', color: 'var(--bg-sidebar)' }}
+                className="moon-panel-primary flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light ml-auto"
+                style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Release
               </button>
@@ -1447,8 +1488,8 @@ export default function PanelProgramacion() {
 
           {filteredChanges.length === 0 ? (
             <div className="py-16 text-center rounded-2xl" style={{ border: `1px dashed ${BD}` }}>
-              <GitBranch className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--border-main)' }} strokeWidth={1} />
-              <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin releases registrados</p>
+              <GitBranch className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-line)' }} strokeWidth={1} />
+              <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin releases registrados</p>
             </div>
           ) : (
             <div className="relative pl-6">
@@ -1461,31 +1502,31 @@ export default function PanelProgramacion() {
                     <div key={c.id} className="relative">
                       <div
                         className="absolute -left-[22px] top-4 w-4 h-4 rounded-full flex items-center justify-center"
-                        style={{ background: 'var(--sidebar-card-bg)', border: `2px solid ${meta.color}` }}
+                        style={{ background: 'var(--moon-surface)', border: `2px solid ${meta.color}` }}
                       >
                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
                       </div>
-                      <div className="rounded-2xl p-4" style={cardStyle}>
+                      <div data-moon-reveal="card" className="moon-panel rounded-2xl p-4" style={cardStyle}>
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>{c.title}</span>
+                            <span className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>{c.title}</span>
                             <span className="text-[10px] font-light px-2 py-0.5 rounded-full"
-                              style={{ color: meta.color, background: meta.color + '18', border: `1px solid ${meta.color}30` }}>
+                              style={{ color: panelInk(meta.color), background: meta.color + '18', border: `1px solid ${meta.color}30` }}>
                               {meta.label}
                             </span>
                             {c.breaking && (
-                              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-400">breaking</span>
+                              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-md bg-red-500/10 moon-panel-tone-red">breaking</span>
                             )}
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>v{c.version}</p>
-                            <p className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>{proj?.name}</p>
+                            <p className="text-xs font-mono" style={{ color: 'var(--moon-muted)' }}>v{c.version}</p>
+                            <p className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>{proj?.name}</p>
                           </div>
                         </div>
                         {c.description && (
-                          <p className="text-xs font-light leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>{c.description}</p>
+                          <p className="text-xs font-light leading-relaxed mb-2" style={{ color: 'var(--moon-muted)' }}><EmojiText text={c.description} /></p>
                         )}
-                        <div className="flex items-center gap-3 text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                        <div className="flex items-center gap-3 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                           <span>{c.authorName ?? '—'}</span>
                           <span>·</span>
                           <span>{format(c.createdAt instanceof Date ? c.createdAt : new Date(), 'dd MMM yyyy, HH:mm', { locale: es })}</span>
@@ -1509,20 +1550,20 @@ export default function PanelProgramacion() {
               { label: 'Tasa completado',   value: stats.totalTasks > 0 ? `${Math.round((stats.doneTasks / stats.totalTasks) * 100)}%` : '—', color: '#4ade80', icon: CheckCircle2 },
               { label: 'Proyectos activos', value: stats.totalActive,   color: '#34d399', icon: Activity },
             ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className="rounded-2xl p-5" style={cardStyle}>
+              <div data-moon-reveal="card" key={label} className="moon-panel rounded-2xl p-5" style={cardStyle}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
-                  <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                  <Icon className="w-4 h-4" style={{ color: panelInk(color) }} strokeWidth={1.5} />
+                  <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--moon-muted)' }}>{label}</p>
                 </div>
-                <p className="text-3xl font-light" style={{ color }}>{value}</p>
+                <p className="text-3xl font-light" style={{ color: panelInk(color) }}>{value}</p>
               </div>
             ))}
           </div>
 
-          <div className="rounded-2xl p-5" style={cardStyle}>
+          <div data-moon-reveal="card" className="moon-panel rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-5">
-              <GitBranch className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-              <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Releases por tipo</p>
+              <GitBranch className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+              <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Releases por tipo</p>
             </div>
             <div className="space-y-3">
               {Object.entries(CHANGE_META).map(([type, meta]) => {
@@ -1532,15 +1573,15 @@ export default function PanelProgramacion() {
                   <div key={type}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <meta.icon className="w-3.5 h-3.5" style={{ color: meta.color }} strokeWidth={1.5} />
-                        <span className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>{meta.label}</span>
+                        <meta.icon className="w-3.5 h-3.5" style={{ color: panelInk(meta.color) }} strokeWidth={1.5} />
+                        <span className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>{meta.label}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>{pct.toFixed(0)}%</span>
-                        <span className="text-sm font-light tabular-nums w-4 text-right" style={{ color: 'var(--text-primary)' }}>{count}</span>
+                        <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>{pct.toFixed(0)}%</span>
+                        <span className="text-sm font-light tabular-nums w-4 text-right" style={{ color: 'var(--moon-ink)' }}>{count}</span>
                       </div>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border-main)' }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--moon-line)' }}>
                       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: meta.color + 'bb' }} />
                     </div>
                   </div>
@@ -1549,13 +1590,13 @@ export default function PanelProgramacion() {
             </div>
           </div>
 
-          <div className="rounded-2xl p-5" style={cardStyle}>
+          <div data-moon-reveal="card" className="moon-panel rounded-2xl p-5" style={cardStyle}>
             <div className="flex items-center gap-2 mb-5">
-              <Layers className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-              <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Progreso por proyecto</p>
+              <Layers className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+              <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Progreso por proyecto</p>
             </div>
             {projects.length === 0 ? (
-              <p className="text-sm font-light text-center py-6" style={{ color: 'var(--text-muted)' }}>Sin proyectos</p>
+              <p className="text-sm font-light text-center py-6" style={{ color: 'var(--moon-muted)' }}>Sin proyectos</p>
             ) : (
               <div className="space-y-4">
                 {projects.map(p => {
@@ -1568,17 +1609,17 @@ export default function PanelProgramacion() {
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sm.color }} />
-                          <span className="text-sm font-light truncate" style={{ color: 'var(--text-primary)' }}>{p.name}</span>
-                          <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--text-muted)' }}>v{p.version}</span>
+                          <span className="text-sm font-light truncate" style={{ color: 'var(--moon-ink)' }}>{p.name}</span>
+                          <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--moon-muted)' }}>v{p.version}</span>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           {ptasks.length > 0 && (
-                            <span className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>{done}/{ptasks.length}</span>
+                            <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>{done}/{ptasks.length}</span>
                           )}
-                          <span className="text-xs font-light" style={{ color: sm.color }}>{prog}%</span>
+                          <span className="text-xs font-light" style={{ color: panelInk(sm.color) }}>{prog}%</span>
                         </div>
                       </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border-main)' }}>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--moon-line)' }}>
                         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${prog}%`, background: sm.color + 'cc' }} />
                       </div>
                     </div>

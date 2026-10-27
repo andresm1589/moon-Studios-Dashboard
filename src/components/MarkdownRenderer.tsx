@@ -1,3 +1,4 @@
+import { EmojiText } from '@/components/discord/EmojiText';
 import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
@@ -201,7 +202,7 @@ const parseInline = (text: string): React.ReactNode[] => {
     ].filter(Boolean) as Array<{ match: RegExpMatchArray; type: string; start: number; end: number }>;
 
     if (matches.length === 0) {
-      nodes.push(<span key={key++}>{remaining}</span>);
+      nodes.push(<EmojiText key={key++} text={remaining} />);
       break;
     }
 
@@ -210,17 +211,17 @@ const parseInline = (text: string): React.ReactNode[] => {
     const first = matches[0];
 
     if (first.match[1]) {
-      nodes.push(<span key={key++}>{first.match[1]}</span>);
+      nodes.push(<EmojiText key={key++} text={first.match[1]} />);
     }
 
     if (first.type === 'bold') {
-      nodes.push(<strong key={key++} className="font-semibold text-white">{first.match[2]}</strong>);
+      nodes.push(<strong key={key++} className="font-semibold text-white"><EmojiText text={first.match[2]} /></strong>);
     } else if (first.type === 'italic') {
-      nodes.push(<em key={key++} className="italic text-zinc-300">{first.match[2]}</em>);
+      nodes.push(<em key={key++} className="italic text-zinc-300"><EmojiText text={first.match[2]} /></em>);
     } else if (first.type === 'code') {
       nodes.push(<code key={key++} className="font-mono text-xs bg-zinc-800 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700">{first.match[2]}</code>);
     } else if (first.type === 'strike') {
-      nodes.push(<span key={key++} className="line-through text-zinc-500">{first.match[2]}</span>);
+      nodes.push(<span key={key++} className="line-through text-zinc-500"><EmojiText text={first.match[2]} /></span>);
     }
 
     remaining = remaining.slice(first.match[0].length);

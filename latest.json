@@ -1,11 +1,11 @@
 {
-    "version":  "2.1.57",
-    "notes":  "Notificaciones: lo leído y lo quitado se guarda en tu cuenta y ya no vuelve en cada sesión; panel agrupado por fecha.",
-    "pub_date":  "2026-10-12T20:38:36Z",
-    "platforms":  {
-                      "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNHkzeGZNa0FGZkFXZjlWWFJDdlpnNzMxdVovUkVRTmZqalo4cGUzRGliSDBaa0JiMW5VelladnJaN0d1cnA0VGxENmRJN3h4NTA1L0R0QncwdGhuNVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxODU1NTE1CWZpbGU6bW9vbiBTdHVkaW9zXzIuMS41N194NjQtc2V0dXAuZXhlCmRKT2RzRnNXWE9JNUVvYnpUZ1BIQnZFc3Bwd1ZabVkwNmFDUkh0V040cnVjQnBtOUM1Zy9uZ2NNZ2JaOC9EV3EvNzFoc2FBWmpkKzB6Q0JBREJzaERRPT0K",
-                                             "url":  "https://github.com/pandita1589/moon-Studios-Dashboard/releases/download/v2.1.57/moon.Studios_2.1.57_x64-setup.exe"
-                                         }
-                  }
+  "version": "2.1.90",
+  "notes": "Tu calendario de Google dentro del calendario de Moon Studios. Solo lectura.",
+  "pub_date": "2026-10-27T02:35:51Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMDZrZG4yMDRUNDJ2UFBuY0ZwS05MS2F6TnpYSkppbmRCR1cxQjF5UUg2alR1R2pqZ2NSa1hac1h2d2Q5bGtUdGxJblBTTVdvM1p3WDU5a2FZTEtPMzZjYzk0MHRlUVFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDY4NTUwCWZpbGU6bW9vbiBTdHVkaW9zXzIuMS45MF94NjQtc2V0dXAuZXhlClF0a2x3U0dKZ0lxbFNzdndrTW9zaUNRcllDUHV1OXNxQlZhWWMrbDFzQlV6QldGOWRkbExzRGVsY0FiRGQ2QU51N0lJWmNNc3BwMXhSTWFwZGlwU0F3PT0K",
+      "url": "https://github.com/andresm1589/moon-Studios-Dashboard/releases/download/v2.1.90/moon.Studios_2.1.90_x64-setup.exe"
+    }
+  }
 }

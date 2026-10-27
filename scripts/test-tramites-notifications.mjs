@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import ts from 'typescript';
+
+// Real pure projections, synthetic records. No Firestore, OS or network calls.
+const moduleURL = code => `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+const compile = async path => ts.transpileModule(await readFile(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const documentModelURL = moduleURL(await compile('../src/lib/tramitesDocumentoModelo.ts'));
+const source = (await compile('../src/lib/tramitesNotifications.ts')).replaceAll("from './tramitesDocumentoModelo'", `from '${documentModelURL}'`);
+const { tramitesOwnNotifications: own, tramitesInboxNotifications: inbox, esRevisorTramites: reviewer } = await import(moduleURL(source));
+const now = new Date('2026-10-18T16:00:00Z');
+const record = (changes = {}, id = 'solicitud-1') => ({ id, data: { solicitanteUid: 'employee', solicitanteNombre: 'Persona del equipo', tipoNombre: 'Tarjeta Moon Studios', soloCeo: false, estado: 'pendiente', createdAt: now, updatedAt: now, ...changes } });
+const document = (changes = {}) => ({ version: 1, plantilla: 'credencial', titulo: 'Credencial Moon Studios', contenido: 'Identificación personal del equipo.', cargo: 'Diseño', area: 'Estudio', vigenteHasta: '', folio: 'MS-DOC-SOLICITUD-1', solicitudId: 'solicitud-1', destinatarioUid: 'employee', destinatarioNombre: 'Persona del equipo', destinatarioCodigo: 'MS-EMPLOYEE', emitidoPor: 'ceo', emitidoPorNombre: 'Dirección', emitidoAt: now, ...changes });
+let count = 0;
+const test = (name, run) => { try { run(); count++; } catch (error) { console.error(`FAIL ${name}`); throw error; } };
+test('pending and cancelled have no employee response notification', () => { assert.equal(own([record(), record({ estado: 'cancelado' })], 'employee').length, 0); });
+test('only the actual recipient can see their response', () => { assert.equal(own([record({ estado: 'aprobado' })], 'other').length, 0); assert.equal(own([record({ estado: 'aprobado' })], '').length, 0); });
+test('review, approval and rejection use task preferences and own source', () => { for (const estado of ['en_revision', 'aprobado', 'rechazado']) { const n = own([record({ estado })], 'employee')[0]; assert.equal(n.category, 'task'); assert.equal(n.fuente, 'tramites-propios'); assert.ok(n.linkTo.includes('vista=mios&id=solicitud-1')); } });
+test('reply comments are visible without a separate notification document', () => { assert.ok(own([record({ estado: 'rechazado', comentario: 'Falta el periodo solicitado.' })], 'employee')[0].preview.includes('Falta el periodo solicitado.')); });
+test('snapshot repetition preserves the read identity', () => { const r = record({ estado: 'en_revision' }); assert.equal(own([r], 'employee')[0].id, own([{ ...r, data: { ...r.data, updatedAt: new Date(now) } }], 'employee')[0].id); });
+test('a new review timestamp changes the notification version', () => { const a = own([record({ estado: 'en_revision' })], 'employee')[0]; const b = own([record({ estado: 'aprobado', resueltoAt: new Date(now.getTime() + 1000) })], 'employee')[0]; assert.notEqual(a.id, b.id); assert.equal(b.createdAt.getTime(), now.getTime() + 1000); });
+test('issued credential replaces approval with a direct document link', () => { const items = own([record({ estado: 'aprobado', documento: document() })], 'employee'); assert.equal(items.length, 1); assert.ok(items[0].title.includes('tarjeta Moon Studios')); assert.equal(items[0].linkTo, '/dashboard/tramites?vista=documentos&id=solicitud-1'); assert.equal(items[0].important, true); });
+test('issued A4 document has its own delivery version', () => { const n = own([record({ estado: 'aprobado', documento: document({ plantilla: 'constancia', emitidoAt: new Date(now.getTime() + 5000) }) })], 'employee')[0]; assert.equal(n.title, 'Tu documento está listo'); assert.equal(n.createdAt.getTime(), now.getTime() + 5000); });
+test('pending serverTimestamp cannot advertise an issued document', () => { const n = own([record({ estado: 'aprobado', documento: document({ emitidoAt: null }) })], 'employee')[0]; assert.ok(n.id.startsWith('tramite_estado_')); });
+test('malformed document cannot advertise a PDF', () => { const n = own([record({ estado: 'aprobado', documento: document({ contenido: '' }) })], 'employee')[0]; assert.ok(n.linkTo.includes('vista=mios')); });
+test('a valid document for another recipient or request is not advertised', () => { for (const documento of [document({ destinatarioUid: 'other', destinatarioCodigo: 'MS-OTHER' }), document({ solicitudId: 'other', folio: 'MS-DOC-OTHER' })]) assert.ok(own([record({ estado: 'aprobado', documento })], 'employee')[0].id.startsWith('tramite_estado_')); });
+test('unconfirmed or invalid response dates are excluded', () => { for (const value of [null, undefined, new Date(NaN), '2026-10-18', { toDate() { throw Error('bad timestamp'); } }]) assert.equal(own([record({ estado: 'aprobado', updatedAt: value })], 'employee').length, 0); });
+test('Firestore timestamp adapters use the actual date', () => { const n = own([record({ estado: 'aprobado', updatedAt: { toDate: () => now } })], 'employee')[0]; assert.equal(n.createdAt.getTime(), now.getTime()); });
+test('request IDs are safely encoded in links', () => { assert.ok(own([record({ estado: 'aprobado' }, 'a &b?')], 'employee')[0].linkTo.endsWith('id=a%20%26b%3F')); });
+test('only exact CEO and confirmed delegated Administration are reviewers', () => { assert.equal(reviewer('CEO', false), true); assert.equal(reviewer('Administración', true), true); for (const role of ['Administración', 'Empleado', 'ceo', undefined]) assert.equal(reviewer(role, false), false); assert.equal(reviewer('Empleado', true), false); });
+test('non-reviewers have no reviewer notification projection', () => { assert.equal(inbox([record()], 'reviewer', 'Empleado', true).length, 0); assert.equal(inbox([record()], 'reviewer', 'Administración', false).length, 0); });
+test('Administration cannot receive work reserved for CEO', () => { assert.equal(inbox([record({ soloCeo: true })], 'admin', 'Administración', true).length, 0); assert.equal(inbox([record({ soloCeo: undefined })], 'admin', 'Administración', true).length, 0); });
+test('CEO can receive a pending CEO-only request', () => { const n = inbox([record({ soloCeo: true })], 'ceo', 'CEO')[0]; assert.equal(n.fuente, 'tramites-bandeja'); assert.equal(n.linkTo, '/dashboard/tramites?vista=bandeja&id=solicitud-1'); });
+test('reviewer sees only pending requests of other employees', () => { assert.equal(inbox([record({ estado: 'en_revision' }), record({ solicitanteUid: 'admin' }), record({ solicitanteUid: '' })], 'admin', 'Administración', true).length, 0); });
+test('reviewer identity stays stable after irrelevant updates', () => { const a = inbox([record()], 'ceo', 'CEO')[0], b = inbox([record({ updatedAt: new Date(now.getTime() + 1000), comentario: 'irrelevante' })], 'ceo', 'CEO')[0]; assert.equal(a.id, b.id); assert.equal(a.createdAt.getTime(), now.getTime()); });
+test('projections do not mutate request or document input', () => { const r = record({ estado: 'aprobado', documento: document() }), copy = structuredClone(r); own([r], 'employee'); inbox([r], 'ceo', 'CEO'); assert.deepEqual(r, copy); });
+console.log(`PASS ${count} Trámites notification projection checks. Synthetic data only; no network or production records.`);

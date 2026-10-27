@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;1,9..40,200&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -146,9 +146,7 @@ html, body {
 }
 
 /* ========== TRANSICIONES ========== */
-*,
-*::before,
-*::after {
+:where(button, a, input, select, textarea) {
   transition-property: background-color, border-color, color, opacity, box-shadow;
   transition-duration: 0.2s;
   transition-timing-function: ease;
@@ -901,8 +899,28 @@ html.light .moon-dialog:not([data-fondo]) { box-shadow: 0 30px 80px rgba(15,15,3
 .moon-dialog-cerrar { color: var(--text-muted); }
 .moon-dialog-cerrar:hover { color: var(--text-primary); background: var(--surface-hover, rgba(255,255,255,0.05)); }
 
-/* :where() deja la especificidad en 0 para que :hover y :focus (abajo)
-   siempre ganen; antes las exclusiones le ganaban al foco. */
+/* Una misma medida legible, incluso en modo compacto. Los grupos con icono
+   llevan su marco en el contenedor; el control interior conserva el teclado. */
+:where(.main-scroll, .moon-dialog, [role="dialog"], [data-slot="popover-content"]) :where(
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]):not([type=hidden]),
+  textarea, select, button[role="combobox"]
+) {
+  box-sizing: border-box;
+  min-height: max(44px, 3.2rem) !important;
+  max-width: 100%;
+  font-size: max(14px, 1rem) !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  padding-block: max(9px, .64rem) !important;
+}
+:where(.main-scroll, .moon-dialog, [role="dialog"]) textarea {
+  min-height: max(112px, 8rem) !important;
+  scroll-padding-block: 12px;
+}
+:where(.main-scroll, .moon-dialog, [role="dialog"]) :where(label:not([role])) {
+  font-size: max(13px, .93rem);
+}
+/* :where() permite que un marco compuesto sustituya la decoración del input. */
 :where(.main-scroll, .moon-dialog, [role="dialog"]) :where(
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]):not([type=hidden]),
   textarea, select, button[role="combobox"]
@@ -913,13 +931,59 @@ html.light .moon-dialog:not([data-fondo]) { box-shadow: 0 30px 80px rgba(15,15,3
   color: var(--text-primary) !important;
   transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
-:is(.main-scroll, .moon-dialog, [role="dialog"]) :is(input, textarea, select, button[role="combobox"]):not([data-libre]):hover {
+:where(.main-scroll, .moon-dialog, [role="dialog"]) :where(input, textarea, select, button[role="combobox"]):where(:not([data-libre])):hover {
   border-color: var(--campo-borde-hover) !important;
 }
-:is(.main-scroll, .moon-dialog, [role="dialog"]) :is(input, textarea, select, button[role="combobox"]):not([type=checkbox]):not([type=radio]):not([type=range]):not([data-libre]):is(:focus, :focus-visible) {
+:where(.main-scroll, .moon-dialog, [role="dialog"]) :where(input, textarea, select, button[role="combobox"]):where(:not([type=checkbox]):not([type=radio]):not([type=range]):not([data-libre])):is(:focus, :focus-visible) {
   outline: none !important;
   border-color: var(--accent-user, #6366f1) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-user, #6366f1) 22%, transparent) !important;
+}
+/* Calendario, buscador global y paletas: un solo marco al enfocar. */
+html :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]) {
+  min-height: 46px;
+  border: 1px solid var(--campo-borde);
+  border-radius: 12px;
+  background: var(--campo-fondo);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+html :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]):focus-within {
+  border-color: var(--accent-user, #6366f1) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-user, #6366f1) 18%, transparent);
+}
+html :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]) > input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  min-width: 0;
+  flex: 1;
+  color: var(--moon-ink) !important;
+}
+html :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]) > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+html.ajustes-sin-foco :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]):focus-within {
+  box-shadow: none;
+}
+html.ajustes-lector :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]):focus-within {
+  outline: 3px solid var(--accent-user, #6366f1);
+  outline-offset: 3px;
+}
+html.ajustes-lector :is([data-moon-field-frame], .cal-search-wrap, .moon-shell-search-field, [data-slot="command-input-wrapper"]) > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+:is(.main-scroll, .moon-dialog, [role="dialog"]) :is(input, textarea, select, button[role="combobox"])[aria-invalid="true"] {
+  border-color: var(--moon-danger, #fca5a5) !important;
+}
+@media (pointer: coarse) {
+  :where(.main-scroll, .moon-dialog, [role="dialog"]) :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]), textarea, select) {
+    font-size: max(16px, 1rem) !important;
+  }
 }
 :is(.main-scroll, .moon-dialog, [role="dialog"]) :is(input, textarea)::placeholder { color: var(--text-muted) !important; opacity: .75; }
 :is(.main-scroll, .moon-dialog, [role="dialog"]) :is(input, textarea, select):disabled { opacity: .55; cursor: not-allowed; }

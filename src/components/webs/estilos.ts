@@ -28,7 +28,7 @@ export const CSS_WEBS = `
 .wb-ruta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: hsl(var(--muted-foreground)); }
 .wb-cab h1 { margin: 4px 0 0; display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 300; letter-spacing: -0.02em; color: ${T}; }
 .wb-cab p { margin: 4px 0 0; font-size: 12.5px; font-weight: 300; color: hsl(var(--muted-foreground)); }
-.wb-panel { border-radius: 20px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); padding: 20px; animation: wbEntra .35s cubic-bezier(.32,.72,0,1); }
+.wb-panel { border-radius: 20px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); padding: 20px; }
 .wb-panel-limpio { padding: 0; background: none; border: none; }
 @keyframes wbEntra { from { opacity: 0; transform: translateY(8px) } }
 

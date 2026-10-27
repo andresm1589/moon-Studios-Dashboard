@@ -1,0 +1,140 @@
+/* Moon workspace: a solid, quiet application shell. */
+:root {
+  --icon-color: var(--moon-muted); --icon-active: var(--moon-ink);
+  --icon-bg-active: var(--moon-surface-raised); --icon-border-active: var(--moon-line);
+  --header-icon-color: var(--moon-muted); --header-icon-bg: var(--moon-surface); --header-icon-border: var(--moon-line);
+  --header-icon-bg-hover: var(--moon-surface-raised); --header-icon-border-hover: var(--moon-line);
+  --header-separator: var(--moon-line); --badge-bg: var(--moon-ink); --badge-color: var(--moon-bg);
+  --content-primary: var(--moon-ink); --content-secondary: var(--moon-muted);
+  --content-tertiary: var(--moon-muted); --content-quaternary: var(--moon-muted);
+  --surface-hover: var(--moon-surface-raised); --surface-subtle: var(--moon-surface-raised); --surface-card: var(--moon-surface);
+  --overlay-bg: var(--moon-surface-raised); --overlay-border: var(--moon-line);
+  --notif-bg: var(--moon-surface); --notif-border: var(--moon-line); --notif-unread-bg: var(--moon-surface-raised);
+  --notif-footer-border: var(--moon-line); --notif-item-border: var(--moon-line);
+  --notif-item-unread-bg: var(--moon-surface-raised); --notif-item-hover-unread: var(--moon-surface-raised); --notif-item-hover: var(--moon-surface-raised);
+  --notif-icon-bg: var(--moon-surface-raised); --notif-empty-bg: var(--moon-surface-raised); --notif-empty-border: var(--moon-line);
+  --notif-badge-bg: var(--moon-surface-raised); --notif-badge-border: var(--moon-line);
+  --notif-tab-active-bg: var(--moon-ink); --notif-tab-active-border: var(--moon-ink);
+  --notif-close-bg: var(--moon-surface-raised); --notif-close-border: var(--moon-line);
+  --notif-readall-bg: var(--moon-surface-raised); --notif-readall-border: var(--moon-line); --notif-count-bg: var(--moon-surface-raised);
+  --logout-bg: var(--moon-surface); --logout-border: var(--moon-line); --logout-shadow: rgba(0,0,0,.18);
+  --logout-icon-bg: var(--moon-surface-raised); --logout-icon-border: var(--moon-line);
+  --logout-btn-bg: var(--moon-surface-raised); --logout-btn-border: var(--moon-line);
+  --logout-text-primary: var(--moon-ink); --logout-text-muted: var(--moon-muted); --logout-text-name: var(--moon-ink); --logout-dot: var(--moon-muted);
+  --scrollbar-thumb: var(--moon-line);
+}
+.moon-shell { display:flex; height:100%; min-height:0; width:100%; overflow:hidden; background:var(--moon-bg); color:var(--moon-ink); }
+.moon-shell :where(button, a, input):focus-visible, .moon-shell-search-dialog :where(button, a, input):focus-visible, .moon-shell-mobile-panel :where(button,a):focus-visible { outline:2px solid var(--moon-ink); outline-offset:3px; }
+.moon-shell-sidebar { display:flex; flex-direction:column; width:248px; flex:0 0 248px; min-width:0; height:100%; background:var(--moon-surface); border-right:1px solid var(--moon-line); transition:width .2s ease,flex-basis .2s ease; }
+.moon-shell-brand { padding:28px 24px 22px; flex-shrink:0; border-bottom:1px solid var(--moon-line); }
+.moon-shell-brand > a { display:block; width:170px; }
+.moon-shell-brand .moon-dashboard-brand { width:100%; height:44px; object-fit:contain; object-position:left center; }
+.moon-shell-brand > span { margin-top:18px; display:flex; align-items:center; justify-content:space-between; color:var(--moon-muted); font-size:.65rem; font-weight:500; letter-spacing:.16em; }
+.moon-shell-brand > span span { padding:2px 6px; border:1px solid var(--moon-line); border-radius:4px; letter-spacing:.02em; }
+.moon-shell-navigation { padding:12px 14px 20px; flex:1; overflow-y:auto; overflow-x:hidden; min-height:0; overscroll-behavior:contain; }
+.moon-shell-nav-group + .moon-shell-nav-group { margin-top:19px; }
+.moon-shell-section-label { margin:0; padding:10px 10px 8px; font-size:.65rem; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color:var(--moon-muted); line-height:1.3; }
+.moon-shell-link { display:flex; align-items:center; gap:11px; min-height:42px; padding:10px 11px; position:relative; border-radius:8px; color:var(--moon-muted); font-size:max(12px,.93rem); font-weight:400; text-decoration:none; transition:background .16s ease,color .16s ease; margin:2px 0; }
+.moon-shell-link > svg { flex-shrink:0; }
+.moon-shell-link:hover { color:var(--moon-ink); background:var(--moon-surface-raised); }
+.moon-shell-link.is-active { background:var(--moon-ink); color:var(--moon-bg); font-weight:500; }
+.moon-shell-link.is-active:hover { background:var(--moon-ink); }
+.moon-shell-link-label { min-width:0; flex:1; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+.moon-shell-badge { font-size:.65rem; line-height:1; padding:4px 5px; min-width:19px; text-align:center; border-radius:5px; background:var(--moon-surface-raised); color:var(--moon-ink); font-variant-numeric:tabular-nums; }
+.moon-shell-link.is-active .moon-shell-badge { background:var(--moon-bg); color:var(--moon-ink); }
+.moon-shell-sidebar-footer { flex-shrink:0; border-top:1px solid var(--moon-line); padding:10px 14px 14px; }
+.moon-shell-profile { display:flex; align-items:center; gap:11px; min-width:0; padding:16px 4px 14px; }
+.moon-shell-avatar { display:inline-flex; align-items:center; justify-content:center; position:relative; overflow:hidden; flex-shrink:0; width:34px; height:34px; border:1px solid var(--moon-line); border-radius:50%; background:var(--moon-surface-raised); color:var(--moon-ink); font-size:.72rem; font-weight:500; }
+.moon-shell-avatar > img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+.moon-shell-profile > div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.moon-shell-profile strong { font-size:.8rem; color:var(--moon-ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.moon-shell-profile > div > span { font-size:.65rem; color:var(--moon-muted); text-transform:capitalize; }
+.moon-shell-footer-actions { display:flex; gap:8px; }
+.moon-shell-footer-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:1; min-height:32px; border:1px solid var(--moon-line); border-radius:7px; background:transparent; color:var(--moon-muted); cursor:pointer; font-size:.7rem; font-weight:400; }
+.moon-shell-footer-button:hover { background:var(--moon-surface-raised); color:var(--moon-ink); }
+.moon-shell.is-collapsed .moon-shell-sidebar { width:80px; flex-basis:80px; }
+.moon-shell.is-collapsed .moon-shell-brand { padding:26px 20px; min-height:100px; display:flex; align-items:center; }
+.moon-shell.is-collapsed .moon-shell-brand > a { width:38px; }
+.moon-shell.is-collapsed .moon-shell-brand .moon-dashboard-brand { height:38px; }
+.moon-shell.is-collapsed .moon-shell-navigation { padding:12px; }
+.moon-shell.is-collapsed .moon-shell-nav-group + .moon-shell-nav-group { border-top:1px solid var(--moon-line); margin-top:12px; padding-top:12px; }
+.moon-shell-link.is-compact { justify-content:center; padding:10px; min-height:43px; }
+.moon-shell-link.is-compact .moon-shell-badge { position:absolute; right:-2px; top:0; font-size:.58rem; padding:3px; min-width:15px; }
+.moon-shell.is-collapsed .moon-shell-sidebar-footer { padding:10px 12px 14px; }
+.moon-shell.is-collapsed .moon-shell-profile { justify-content:center; padding:12px 0; }
+.moon-shell.is-collapsed .moon-shell-footer-actions { flex-direction:column; }
+.moon-shell-workspace { flex:1; min-width:0; height:100%; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.moon-shell-header { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:20px; min-height:78px; padding:0 32px; border-bottom:1px solid var(--moon-line); background:var(--moon-bg); }
+.moon-shell-header-start,.moon-shell-header-actions { display:flex; align-items:center; gap:9px; min-width:0; }
+.moon-shell-mobile-mark { width:26px; height:26px; }
+.moon-shell-breadcrumb { display:flex; align-items:center; gap:10px; min-width:0; color:var(--moon-muted); font-size:.78rem; }
+.moon-shell-breadcrumb strong { font-weight:500; color:var(--moon-ink); white-space:nowrap; }
+.moon-shell-breadcrumb > span { white-space:nowrap; }
+.moon-shell-clock { padding-right:19px; display:flex; flex-direction:column; gap:2px; text-align:right; color:var(--moon-muted); font-size:.65rem; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.moon-shell-clock time { color:var(--moon-ink); font-size:.76rem; font-weight:500; }
+.moon-shell-icon-button { position:relative; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--moon-muted); cursor:pointer; }
+.moon-shell-icon-button:hover,.moon-shell-icon-button.is-active { background:var(--moon-surface-raised); color:var(--moon-ink); border-color:var(--moon-line); }
+.moon-shell-search-button { height:36px; display:flex; align-items:center; gap:9px; color:var(--moon-muted); background:var(--moon-surface); border:1px solid var(--moon-line); border-radius:8px; padding:0 10px; cursor:pointer; font-size:.76rem; margin-right:4px; }
+.moon-shell-search-button:hover { color:var(--moon-ink); border-color:var(--moon-muted); }
+.moon-shell-search-button kbd { display:inline-flex; align-items:center; gap:2px; padding:3px 4px; border:1px solid var(--moon-line); border-radius:4px; color:var(--moon-muted); font-size:.6rem; margin-left:19px; }
+.moon-shell-notification-count { position:absolute; right:1px; top:1px; min-width:14px; padding:3px; border-radius:9px; background:var(--moon-ink); color:var(--moon-bg); font-size:.52rem; line-height:1; text-align:center; font-weight:600; }
+.moon-shell-profile-shortcut { background:transparent; border:0; padding:0; display:flex; align-items:center; cursor:pointer; margin-left:6px; border-radius:50%; }
+.moon-shell-profile-shortcut:hover { box-shadow:0 0 0 3px var(--moon-surface-raised); }
+.moon-shell-main { flex:1; min-height:0; overflow-y:auto; padding:30px 32px 40px; overscroll-behavior:contain; overflow-anchor:none; scroll-behavior:auto; }
+.moon-shell-main:focus { outline:0; }
+.moon-shell-skip { position:fixed; top:8px; left:50%; transform:translate(-50%,-150%); z-index:200; background:var(--moon-ink); color:var(--moon-bg); border-radius:6px; padding:10px 16px; font-size:.85rem; text-decoration:none; }
+.moon-shell-skip:focus { transform:translate(-50%,0); }
+.moon-shell-mobile-panel { display:flex; flex-direction:column; padding:0!important; width:290px!important; max-width:calc(100vw - 32px); background:var(--moon-surface)!important; border-right:1px solid var(--moon-line)!important; color:var(--moon-ink); }
+.moon-shell-mobile-brand { text-align:left!important; padding:28px 24px 22px; border-bottom:1px solid var(--moon-line); flex-shrink:0; }
+.moon-shell-mobile-brand .moon-dashboard-brand { width:174px; height:44px; }
+.moon-shell-mobile-brand p { font-size:.7rem; color:var(--moon-muted); margin-top:12px; }
+.moon-shell-mobile-panel > .moon-shell-navigation { padding-top:8px; }
+.moon-shell-mobile-footer { padding:0 20px 18px; border-top:1px solid var(--moon-line); flex-shrink:0; }
+.moon-shell-mobile-footer > .moon-shell-footer-button { width:100%; min-height:38px; }
+.moon-shell-search-dialog { padding:25px!important; border:1px solid var(--moon-line)!important; background:var(--moon-surface)!important; color:var(--moon-ink)!important; max-height:calc(100dvh - 40px); }
+.moon-shell-search-dialog > h2 { font-size:1.15rem; font-weight:500; letter-spacing:-.025em; }
+.moon-shell-search-dialog > p { color:var(--moon-muted); font-size:.82rem; line-height:1.6; }
+.moon-shell-search-field { display:flex; align-items:center; gap:10px; border:1px solid var(--moon-line); background:var(--moon-bg); padding:0 12px; border-radius:8px; color:var(--moon-muted); }
+.moon-shell-search-field input { min-width:0; width:100%; height:44px; background:transparent; border:0; color:var(--moon-ink); font-size:.85rem; outline:0; }
+.moon-shell-search-results { overflow-y:auto; max-height:min(50dvh,390px); margin:0 -6px -6px; }
+.moon-shell-search-results > button { width:100%; display:flex; align-items:center; gap:12px; min-height:44px; padding:10px 12px; border:0; background:transparent; color:var(--moon-muted); border-radius:7px; cursor:pointer; text-align:left; font-size:.85rem; }
+.moon-shell-search-results > button span { flex:1; }
+.moon-shell-search-results > button:hover { color:var(--moon-ink); background:var(--moon-surface-raised); }
+.moon-shell-search-results > p { padding:18px 12px; color:var(--moon-muted); font-size:.85rem; line-height:1.6; }
+.moon-shell-loading { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; width:100%; height:100%; color:var(--moon-muted); background:var(--moon-bg); font-size:.85rem; }
+.moon-shell-loading img { width:56px; height:56px; }
+.notif-drawer-overlay { position:fixed; inset:var(--titlebar-offset,0px) 0 0; z-index:9989; background:rgba(0,0,0,.5); animation:moonShellFade .18s ease; }
+.notif-drawer { position:fixed; top:var(--titlebar-offset,0px); right:0; bottom:0; z-index:9990; width:420px; max-width:100vw; display:flex; flex-direction:column; background:var(--moon-surface); color:var(--moon-ink); border-left:1px solid var(--moon-line); box-shadow:-20px 0 50px rgba(0,0,0,.12); animation:moonShellDrawer .22s ease; }
+.notif-drawer.closing { animation:moonShellDrawerOut .2s ease forwards; }
+.notif-drawer button:focus-visible,.__lo_overlay button:focus-visible { outline:2px solid var(--moon-ink); outline-offset:3px; }
+.notif-drawer .notif-dismiss-btn { opacity:1!important; }
+.__lo_overlay { animation:moonShellFade .18s ease; }
+.__lo_card_in { animation:moonShellCard .22s ease both; }
+.__lo_card_out { animation:moonShellFadeOut .18s ease both; }
+.__lo_bar { animation:moonShellProgress 1.7s ease both; }
+.__lo_page { animation:moonShellFadeOut .3s ease both; }
+.__lo_dot { display:inline-block; animation:moonShellPulse 1s ease infinite; }
+.__lo_dot:nth-child(2) { animation-delay:.15s; } .__lo_dot:nth-child(3) { animation-delay:.3s; }
+.notif-item-anim { animation:moonShellFade .16s ease both; }
+@keyframes moonShellFade { from { opacity:0; } to { opacity:1; } }
+@keyframes moonShellFadeOut { to { opacity:0; } }
+@keyframes moonShellCard { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes moonShellDrawer { from { transform:translateX(100%); } to { transform:translateX(0); } }
+@keyframes moonShellDrawerOut { to { opacity:0; transform:translateX(100%); } }
+@keyframes moonShellProgress { from { width:0; } to { width:100%; } }
+@keyframes moonShellPulse { 50% { opacity:.35; } }
+/* Names used by existing tools; retained so loading and dropdown feedback work. */
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes shimmer { from { transform:translateX(-100%); } to { transform:translateX(200%); } }
+@keyframes uploadBar { 0% { width:0; margin-left:0; } 50% { width:70%; margin-left:15%; } 100% { width:0; margin-left:100%; } }
+@keyframes dropdownIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes optionIn { from { opacity:0; transform:translateX(-4px); } to { opacity:1; transform:translateX(0); } }
+@media (max-width:1199px) { .moon-shell-header { padding:0 24px; } .moon-shell-main { padding:24px; } .moon-shell-clock { display:none; } .moon-shell-sidebar { width:228px; flex-basis:228px; } .moon-shell-brand { padding-left:22px; padding-right:22px; } }
+@media (max-width:767px) { .moon-shell-header { min-height:66px; padding:0 16px; gap:10px; } .moon-shell-main { padding:20px 16px 30px; } .moon-shell-breadcrumb { gap:6px; font-size:.8rem; } .moon-shell-breadcrumb > span,.moon-shell-breadcrumb > svg { display:none; } .moon-shell-header-start { gap:7px; } .moon-shell-header-actions { gap:3px; } .moon-shell-search-button { width:36px; justify-content:center; padding:0; margin:0; background:transparent; border-color:transparent; } .moon-shell-search-button span,.moon-shell-search-button kbd { display:none; } .moon-shell-profile-shortcut { margin-left:3px; } .moon-shell-profile-shortcut .moon-shell-avatar { width:30px; height:30px; } }
+@media (max-width:389px) { .moon-shell-theme-toggle { display:none; } .moon-shell-header { padding:0 12px; } .moon-shell-main { padding:18px 12px 28px; } }
+@media (prefers-reduced-motion:reduce) { .moon-shell *, .notif-drawer, .notif-drawer-overlay, .notif-item-anim, .__lo_overlay, .__lo_card_in, .__lo_card_out, .__lo_page, .__lo_dot { animation:none!important; transition:none!important; } }
+.notif-drawer > div:first-child > div:first-child { flex-wrap:wrap; gap:12px; }
+.notif-item-anim:focus-visible { outline:2px solid var(--moon-ink); outline-offset:-3px; }
+.moon-shell-logout-card:focus { outline:0; }
+.moon-shell-logout-card button { font-size:12px!important; font-weight:500!important; min-height:40px; }
+html.ajustes-contraste .moon-shell { --moon-muted:var(--moon-ink); }

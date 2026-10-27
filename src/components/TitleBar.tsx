@@ -1,5 +1,6 @@
 import { useIsTauri } from '../hooks/useIsTauri';
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { BrandLogo } from './BrandLogo';
 
 const getWindow = () => {
   try {
@@ -36,8 +37,8 @@ export default function TitleBar() {
       data-tauri-drag-region
       style={{
         height: `${TITLEBAR_HEIGHT}px`,
-        background: "#0a0a0a",
-        borderBottom: "1px solid #1c1c1c",
+        background: "var(--moon-surface)",
+        borderBottom: "1px solid var(--moon-line)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -52,28 +53,18 @@ export default function TitleBar() {
     >
       {/* Logo + Nombre */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <img
-          src="https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png"
-          alt="moon Studios"
-          style={{
-            width: "22px",
-            height: "22px",
-            objectFit: "contain",
-            filter: "brightness(0) invert(1) drop-shadow(0 0 4px rgba(255,255,255,0.2))",
-          }}
-        />
+        <BrandLogo compact style={{ width: '22px', height: '22px', pointerEvents: 'none' }} />
         <span
           style={{
             fontSize: "12px",
-            fontWeight: 200,
-            letterSpacing: "0.2em",
-            color: "#ffffff",
-            fontFamily: "Inter, sans-serif",
-            textTransform: "lowercase",
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+            color: "var(--moon-ink)",
+            fontFamily: "inherit",
           }}
         >
           moon{" "}
-          <span style={{ color: "#a3a3a3", fontWeight: 400 }}>Studios</span>
+          <span style={{ color: "var(--moon-muted)", fontWeight: 400 }}>Studios</span>
         </span>
       </div>
 
@@ -82,9 +73,9 @@ export default function TitleBar() {
         data-tauri-drag-region
         style={{
           fontSize: "11px",
-          fontWeight: 200,
-          color: "#3f3f3f",
-          letterSpacing: "0.2em",
+          fontWeight: 400,
+          color: "var(--moon-muted)",
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
           fontFamily: "Inter, sans-serif",
           position: "absolute",
@@ -100,20 +91,20 @@ export default function TitleBar() {
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         <WindowButton onClick={handleMinimize} title="Minimizar">
           <svg width="10" height="1" viewBox="0 0 10 1" fill="none">
-            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="#6b6b6b" strokeWidth="1.5" />
+            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </WindowButton>
 
         <WindowButton onClick={handleMaximize} title="Maximizar">
           <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-            <rect x="0.75" y="0.75" width="7.5" height="7.5" rx="1" stroke="#6b6b6b" strokeWidth="1.5" />
+            <rect x="0.75" y="0.75" width="7.5" height="7.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </WindowButton>
 
         <WindowButton onClick={handleClose} title="Cerrar" isClose>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <line x1="1" y1="1" x2="9" y2="9" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </WindowButton>
       </div>
@@ -136,12 +127,14 @@ function WindowButton({
     <button
       onClick={onClick}
       title={title}
+      aria-label={title}
       style={{
         width: "28px",
         height: "28px",
         borderRadius: "6px",
         border: "none",
         background: "transparent",
+        color: "var(--moon-muted)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

@@ -1,0 +1,67 @@
+/* Shared Moon surfaces. User accent preferences remain available for focus and states. */
+:root {
+  --moon-bg:#0c0d0e; --moon-surface:#141517; --moon-surface-raised:#1d1f21;
+  --moon-ink:#f2f3ef; --moon-muted:#a0a3a6; --moon-line:#2c2e31;
+  --moon-accent:#f2f3ef; --moon-accent-ink:#121314; --moon-danger:#fca5a5;
+  --background:210 8% 5%; --foreground:75 14% 94%; --card:220 7% 8%; --card-foreground:75 14% 94%;
+  --popover:220 7% 8%; --popover-foreground:75 14% 94%; --muted:210 6% 13%; --muted-foreground:210 4% 65%;
+  --border:220 5% 18%; --input:220 5% 18%; --radius:.65rem;
+  --surface-modal:var(--moon-surface); --campo-fondo:var(--moon-surface-raised); --campo-borde:var(--moon-line); --campo-borde-hover:var(--moon-muted);
+}
+html.light {
+  --moon-bg:#f3f3f0; --moon-surface:#fff; --moon-surface-raised:#f6f6f3;
+  --moon-ink:#191b1d; --moon-muted:#666a6f; --moon-line:#dedfdb;
+  --moon-accent:#191b1d; --moon-accent-ink:#fff; --moon-danger:#b42318;
+  --background:60 11% 95%; --foreground:210 7% 11%; --card:0 0% 100%; --card-foreground:210 7% 11%;
+  --popover:0 0% 100%; --popover-foreground:210 7% 11%; --muted:60 9% 94%; --muted-foreground:213 4% 42%;
+  --border:75 6% 87%; --input:75 6% 87%;
+  --surface-modal:var(--moon-surface); --campo-fondo:var(--moon-surface-raised); --campo-borde:var(--moon-line); --campo-borde-hover:var(--moon-muted);
+}
+body { font-weight:400; color:var(--moon-ink); background:var(--moon-bg); -webkit-font-smoothing:antialiased; }
+button,input,textarea,select { font-family:inherit; }
+button { cursor:pointer; } button:disabled { cursor:not-allowed; }
+[data-slot=card] { background:var(--moon-surface); border-color:var(--moon-line); box-shadow:none; border-radius:12px!important; }
+[data-slot=card-title] { font-weight:600; letter-spacing:-.025em; }
+[data-slot=button] { font-weight:500; border-radius:8px!important; box-shadow:none; }
+[data-slot=tabs-list] { background:var(--moon-surface-raised); border:1px solid var(--moon-line); border-radius:9px!important; padding:4px; height:auto; }
+[data-slot=tabs-trigger] { font-weight:500; font-size:12px; padding:8px 13px; border-radius:6px!important; }
+[data-slot=tabs-trigger][data-state=active] { background:var(--moon-surface); color:var(--moon-ink); box-shadow:0 1px 3px #00000012; }
+[data-slot=dialog-content],[data-slot=alert-dialog-content] { background:var(--moon-surface); color:var(--moon-ink); border:1px solid var(--moon-line)!important; border-radius:14px!important; }
+[data-slot=dialog-title],[data-slot=alert-dialog-title] { font-family:'Space Grotesk',sans-serif; font-size:22px; letter-spacing:-.035em; font-weight:500; }
+[data-slot=popover-content],[data-slot=dropdown-menu-content],[data-slot=select-content] { background:var(--moon-surface); color:var(--moon-ink); border-color:var(--moon-line)!important; border-radius:10px!important; box-shadow:0 16px 40px #0002; }
+[data-slot=input],[data-slot=textarea],[data-slot=select-trigger] { background:var(--moon-surface-raised); color:var(--moon-ink); border-color:var(--moon-line); border-radius:10px!important; font-weight:400; min-height:44px; font-size:max(14px,1rem); line-height:1.5; }
+[data-slot=table-head] { font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--moon-muted); background:var(--moon-surface-raised); height:43px; }
+[data-slot=table-cell] { padding-top:16px; padding-bottom:16px; }
+[data-slot=table-row] { border-color:var(--moon-line); }
+[data-slot=badge] { font-weight:500; border-radius:5px; }
+.moon-spin { animation:moon-spin .8s linear infinite; }
+.moon-page-loader { min-height:100%; display:grid; place-content:center; justify-items:center; gap:24px; background:var(--moon-bg); color:var(--moon-muted); font-size:12px; }
+.moon-page-loader img { width:144px; } .moon-page-loader span { display:flex; align-items:center; gap:10px; }
+.moon-page-loader > img { animation:moon-loader-reveal .7s cubic-bezier(.22,1,.36,1) both; }
+.moon-page-loader > span { animation:moon-loader-reveal .5s .12s both; }
+@keyframes moon-loader-reveal { from { opacity:0; translate:0 12px; } to { opacity:1; translate:0 0; } }
+.moon-access-recovery { min-height:100%; overflow:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:42px; padding:36px 20px; color:var(--moon-ink); background:var(--moon-bg); }
+.moon-access-recovery > img { width:160px; }
+.moon-access-recovery section { width:min(100%,460px); border:1px solid var(--moon-line); border-radius:20px; padding:32px; background:var(--moon-surface); animation:moon-loader-reveal .5s both; }
+.moon-access-recovery section > svg { margin-bottom:22px; }
+.moon-access-recovery .moon-eyebrow { color:var(--moon-muted); display:block; }
+.moon-access-recovery h1 { font:500 32px/1.15 'Space Grotesk',sans-serif; letter-spacing:-.045em; margin:14px 0; }
+.moon-access-recovery p { color:var(--moon-muted); font-size:13px; line-height:1.7; }
+.moon-access-recovery section > div { margin-top:26px; display:flex; gap:10px; flex-wrap:wrap; }
+.moon-access-recovery button { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 14px; background:var(--moon-accent); color:var(--moon-accent-ink); border-radius:8px; font-size:12px; }
+.moon-access-recovery button + button { color:var(--moon-muted); background:var(--moon-surface-raised); border:1px solid var(--moon-line); }
+.moon-access-recovery button:disabled { opacity:.6; }
+@keyframes moon-spin { to { transform:rotate(360deg); } }
+.moon-error-panel { border:1px solid var(--moon-line); border-radius:16px; background:var(--moon-surface); padding:48px 24px; color:var(--moon-ink); }
+.moon-error-panel h2 { font-family:'Space Grotesk',sans-serif; font-size:25px; font-weight:500; letter-spacing:-.04em; }
+.moon-error-panel p { color:var(--moon-muted); font-size:12px; }
+.moon-not-found { height:100%; overflow:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--moon-bg); color:var(--moon-ink); text-align:center; padding:32px 20px; }
+.moon-not-found > img { width:145px; }
+.moon-not-found-orbit { margin:30px 0; width:200px; height:200px; border:1px solid var(--moon-line); border-radius:50%; display:grid; place-items:center; font:500 76px 'Space Grotesk',sans-serif; letter-spacing:-.08em; background:var(--moon-surface); }
+.moon-not-found .moon-eyebrow { color:var(--moon-muted); }
+.moon-not-found h1 { font:500 clamp(28px,4vw,42px) 'Space Grotesk',sans-serif; letter-spacing:-.045em; margin:13px 0; }
+.moon-not-found p { color:var(--moon-muted); font-size:13px; line-height:1.8; }
+.moon-not-found a { display:flex; align-items:center; gap:15px; background:var(--moon-accent); color:var(--moon-accent-ink); padding:13px 18px; border-radius:8px; margin-top:26px; font-size:12px; font-weight:500; }
+html.ajustes-contraste { --moon-muted:#c3c6c9; --moon-line:#6c6f72; }
+html.light.ajustes-contraste { --moon-muted:#383b40; --moon-line:#73777b; }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; scroll-behavior:auto!important; } }

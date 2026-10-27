@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { useMemo, useState, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   ClipboardList, Flag, CalendarDays, UserCheck, UsersRound, Users, Search, Check, Loader2, Bell,
@@ -44,6 +45,8 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
   const editando = !!tarea;
   const [titulo, setTitulo]       = useState(tarea?.title ?? '');
   const [desc, setDesc]           = useState(tarea?.description ?? '');
+  const descEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const titleEmojiRef = useRef<HTMLInputElement>(null);
   const [prioridad, setPrioridad] = useState<PrioridadTarea>(tarea?.priority ?? 'medium');
   const [estado, setEstado]       = useState<EstadoTarea>(tarea?.status ?? 'pending');
   const [fecha, setFecha]         = useState(tarea ? aInputFecha(tarea.fecha) : (fechaInicial ?? ''));
@@ -129,10 +132,10 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
           <div className="flex items-start gap-3 px-5 sm:px-6 pt-5 pb-4" style={{ borderBottom: '1px solid var(--tr-linea)' }}>
             <div className="tr-av tr-av-lg" style={{ borderRadius: 11 }}><ClipboardList size={16} /></div>
             <div className="min-w-0 pr-8">
-              <DialogTitle className="text-[15px] font-normal" style={{ color: 'var(--text-primary)' }}>
+              <DialogTitle className="text-[15px] font-normal" style={{ color: 'var(--moon-ink)' }}>
                 {editando ? 'Editar tarea' : 'Nueva tarea'}
               </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              <DialogDescription className="text-xs mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                 {editando ? 'Los cambios se ven al instante en el Calendario y en Mis tareas.' : 'Define qué hay que hacer, para cuándo y quién se encarga.'}
               </DialogDescription>
             </div>
@@ -142,16 +145,18 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
             {/* Título */}
             <div>
               <label className="tr-form-label" htmlFor="tr-titulo">Título <span className="tr-req">*</span></label>
-              <input id="tr-titulo" value={titulo} onChange={e => setTitulo(e.target.value)} maxLength={160}
+              <input ref={titleEmojiRef} id="tr-titulo" value={titulo} onChange={e => setTitulo(e.target.value)} maxLength={160}
                 placeholder="Ej: Preparar el informe mensual de ventas" className="w-full h-10 px-3 text-sm" />
+              <EmojiButton value={titulo} onChange={setTitulo} inputRef={titleEmojiRef} maxLength={160} disabled={guardando} label="Añadir emoji al título de la tarea" />
               {intento && errores.titulo && <p className="tr-form-error">{errores.titulo}</p>}
             </div>
 
             {/* Descripción */}
             <div>
               <label className="tr-form-label" htmlFor="tr-desc">Descripción</label>
-              <textarea id="tr-desc" value={desc} onChange={e => setDesc(e.target.value)} rows={3} maxLength={4000}
+              <textarea ref={descEmojiRef} id="tr-desc" value={desc} onChange={e => setDesc(e.target.value)} rows={3} maxLength={4000}
                 placeholder="Contexto, pasos o el resultado que esperas…" className="w-full px-3 py-2.5 text-sm resize-none leading-relaxed" />
+              <EmojiButton value={desc} onChange={setDesc} inputRef={descEmojiRef} maxLength={4000} disabled={guardando} label="Añadir emoji a la descripción de la tarea" />
             </div>
 
             {/* Prioridad + fecha */}
@@ -207,21 +212,21 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
               {modo === 'user' && (
                 <>
                   <div className="relative mt-3">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--moon-muted)' }} />
                     <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar por nombre, correo o rol…"
                       className="w-full h-9 pl-9 pr-3 text-sm" aria-label="Buscar persona" />
                   </div>
                   <div className="tr-lista-personas" role="listbox" aria-label="Personas">
                     {personas.length === 0 ? (
-                      <p className="text-xs text-center py-6" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-xs text-center py-6" style={{ color: 'var(--moon-muted)' }}>
                         {usuarios.length === 0 ? 'Todavía no hay usuarios' : 'Nadie coincide con la búsqueda'}
                       </p>
                     ) : personas.map(u => (
                       <button key={u.uid} type="button" className="tr-persona" aria-pressed={persona === u.uid} onClick={() => setPersona(u.uid)}>
                         <span className="tr-av tr-av-lg">{u.avatar ? <img src={u.avatar} alt="" /> : (u.displayName?.[0] ?? '?').toUpperCase()}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[13px] truncate">{u.displayName || u.email}{u.uid === perfil?.uid && <span style={{ color: 'var(--text-muted)' }}> (tú)</span>}</span>
-                          <span className="block text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{u.email}</span>
+                          <span className="block text-[13px] truncate">{u.displayName || u.email}{u.uid === perfil?.uid && <span style={{ color: 'var(--moon-muted)' }}> (tú)</span>}</span>
+                          <span className="block text-[11px] truncate" style={{ color: 'var(--moon-muted)' }}>{u.email}</span>
                         </span>
                         <span className="tr-chip tr-chip-plano">{u.role}</span>
                         {persona === u.uid && <Check size={15} style={{ color: 'var(--tr-a)' }} />}
@@ -238,7 +243,7 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
                     return (
                       <button key={r} type="button" className="tr-rol" aria-pressed={rol === r} onClick={() => setRol(r)}>
                         <span className="flex items-center justify-between text-[13px]">{r} {rol === r && <Check size={14} style={{ color: 'var(--tr-a)' }} />}</span>
-                        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{n} miembro{n === 1 ? '' : 's'}</span>
+                        <span className="text-[11px]" style={{ color: 'var(--moon-muted)' }}>{n} miembro{n === 1 ? '' : 's'}</span>
                       </button>
                     );
                   })}
@@ -254,7 +259,7 @@ function FormularioTarea({ open, onOpenChange, tarea, fechaInicial, usuarios, pe
 
           {/* Pie */}
           <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row sm:items-center gap-3 px-5 sm:px-6 py-4" style={{ borderTop: '1px solid var(--tr-linea)', background: 'var(--tr-card-2)' }}>
-            <label className="flex items-center gap-2 text-xs mr-auto cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+            <label className="flex items-center gap-2 text-xs mr-auto cursor-pointer" style={{ color: 'var(--moon-muted)' }}>
               <input type="checkbox" checked={avisar} onChange={e => setAvisar(e.target.checked)} />
               <Bell size={12} />
               {para.length > 0 ? `Avisar a ${para.length} persona${para.length === 1 ? '' : 's'}` : 'Avisar en la campana'}

@@ -1,4 +1,7 @@
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import '@/styles/enterprise-sections.css';
 import { useAuth } from '@/contexts/AuthContext';
 import { db, subscribeToUsers } from '@/lib/firebase';
 import { supabase } from '@/lib/supabaseclient';
@@ -70,12 +73,12 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const CATEGORIES = [
-  { id: 'general',    label: 'General',    icon: Hash,        color: 'text-zinc-400',   bg: 'bg-zinc-400/10' },
-  { id: 'anuncios',   label: 'Anuncios',   icon: Megaphone,   color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-  { id: 'diseno',     label: 'Diseño',     icon: Palette,     color: 'text-pink-500',   bg: 'bg-pink-500/10' },
-  { id: 'desarrollo', label: 'Desarrollo', icon: Code,        color: 'text-blue-400',   bg: 'bg-blue-400/10' },
-  { id: 'recursos',   label: 'Recursos',   icon: BookOpen,    color: 'text-green-400',  bg: 'bg-green-400/10' },
-  { id: 'importante', label: 'Importante', icon: AlertCircle, color: 'text-red-400',    bg: 'bg-red-400/10' },
+  { id: 'general',    label: 'General',    icon: Hash,        color: 'moon-panel-muted',   bg: 'bg-zinc-400/10' },
+  { id: 'anuncios',   label: 'Anuncios',   icon: Megaphone,   color: 'moon-panel-tone-amber', bg: 'bg-yellow-500/10' },
+  { id: 'diseno',     label: 'Diseño',     icon: Palette,     color: 'moon-panel-tone-pink',   bg: 'bg-pink-500/10' },
+  { id: 'desarrollo', label: 'Desarrollo', icon: Code,        color: 'moon-panel-tone-blue',   bg: 'bg-blue-400/10' },
+  { id: 'recursos',   label: 'Recursos',   icon: BookOpen,    color: 'moon-panel-tone-green',  bg: 'bg-green-400/10' },
+  { id: 'importante', label: 'Importante', icon: AlertCircle, color: 'moon-panel-tone-red',    bg: 'bg-red-400/10' },
 ];
 
 const REACTIONS = ['👍','❤️','😂','😮','🎉','👏','🔥','💡','❓','✅'];
@@ -194,6 +197,7 @@ const HilosComponent: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'updated'|'created'|'popular'>('updated');
   const [filterStatus, setFilterStatus] = useState<'all'|'open'|'closed'>('all');
+  const [interestFilter, setInterestFilter] = useState<'all' | 'mine' | 'subscribed'>('all');
 
   /* ─── Mobile UI ─── */
   const [showSidebar, setShowSidebar] = useState(false);
@@ -246,6 +250,8 @@ const HilosComponent: React.FC = () => {
   const fileReplyRef = useRef<HTMLInputElement>(null);
   const repliesEndRef = useRef<HTMLDivElement>(null);
   const replyTextRef = useRef<HTMLTextAreaElement>(null);
+  const newBodyEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const newTitleEmojiRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   /* ─── Scroll progress ─── */
@@ -824,9 +830,10 @@ const HilosComponent: React.FC = () => {
       );
       const matchStatus = filterStatus === 'all' ||
         (filterStatus === 'open' ? !h.locked : h.locked);
-      return matchCat && matchSearch && matchStatus;
+      const matchInterest = interestFilter === 'all' || (interestFilter === 'mine' ? h.authorUid === uid : h.subscribers?.includes(uid));
+      return matchCat && matchSearch && matchStatus && matchInterest;
     });
-  }, [hilos, archivedHilos, showArchived, activeCategory, searchQuery, filterStatus]);
+  }, [hilos, archivedHilos, showArchived, activeCategory, searchQuery, filterStatus, interestFilter, uid]);
 
   /* ═══════════════════════════════
      SUB-COMPONENTES
@@ -844,43 +851,43 @@ const HilosComponent: React.FC = () => {
         {attachments.map((att, i) => (
           <motion.div key={att.id || i}
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            className="rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 group relative"
+            className="rounded-lg overflow-hidden border moon-panel-border moon-panel-surface group relative"
           >
             {att.type.startsWith('image/') ? (
               <div className="relative aspect-video cursor-pointer" onClick={() => setViewerFile(att)}>
                 <img src={att.thumbnailUrl || att.url} alt={att.name}
                   className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" loading="lazy" />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                  <Eye className="w-6 h-6 text-white" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity moon-media-overlay bg-black/40">
+                  <Eye className="w-6 h-6 moon-panel-ink" />
                 </div>
                 {onRemove && (
                   <button onClick={(e) => { e.stopPropagation(); onRemove(i); }}
-                    className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500">
+                    className="absolute top-2 right-2 p-1 moon-media-overlay bg-black/60 rounded-full moon-panel-ink opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500">
                     <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
             ) : (
               <div className="flex items-center gap-2 p-2.5">
-                <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                  {(() => { const I = getFileIcon(att.type); return <I className="w-4 h-4 text-zinc-400" />; })()}
+                <div className="w-8 h-8 moon-panel-raised rounded-lg flex items-center justify-center flex-shrink-0">
+                  {(() => { const I = getFileIcon(att.type); return <I className="w-4 h-4 moon-panel-muted" />; })()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-zinc-200 text-xs font-medium truncate">{att.name}</p>
-                  <p className="text-zinc-600 text-xs">{formatSize(att.size)}</p>
+                  <p className="moon-panel-ink text-xs font-medium truncate">{att.name}</p>
+                  <p className="moon-panel-muted text-xs">{formatSize(att.size)}</p>
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setViewerFile(att)}
-                    className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors">
+                    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded transition-colors">
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => handleDownload(att)}
-                    className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors">
+                    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded transition-colors">
                     <Download className="w-3.5 h-3.5" />
                   </button>
                   {onRemove && (
                     <button onClick={() => onRemove(i)}
-                      className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors">
+                      className="p-1.5 moon-panel-muted hover:text-red-400 moon-panel-hover rounded transition-colors">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -907,10 +914,10 @@ const HilosComponent: React.FC = () => {
             onClick={() => toggleReaction(targetId, emoji, isReply)}
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all border ${
               reactions[emoji]?.includes(uid)
-                ? 'bg-zinc-700 border-zinc-500 text-white'
-                : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900'
+                ? 'moon-panel-raised moon-panel-border moon-panel-ink'
+                : 'moon-panel-border moon-panel-muted hover:border-zinc-600 moon-panel-hover'
             }`}>
-            <span>{emoji}</span>
+            <EmojiText text={emoji} size={18} />
             <span className="font-medium tabular-nums">{reactions[emoji].length}</span>
           </motion.button>
         ))}
@@ -918,8 +925,8 @@ const HilosComponent: React.FC = () => {
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             onClick={() => setShowEmojiPicker(isOpen ? null : targetId)}
             className={`w-6 h-6 flex items-center justify-center rounded-full border transition-all ${
-              isOpen ? 'border-zinc-500 bg-zinc-800 text-zinc-300'
-                     : 'border-zinc-800 text-zinc-600 hover:border-zinc-600 hover:text-zinc-300'
+              isOpen ? 'moon-panel-border moon-panel-raised moon-panel-muted'
+                     : 'moon-panel-border moon-panel-muted hover:border-zinc-600 moon-panel-hover'
             }`}>
             <Smile className="w-3.5 h-3.5" />
           </motion.button>
@@ -932,7 +939,7 @@ const HilosComponent: React.FC = () => {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.85, y: 6 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute bottom-full left-0 mb-2 z-50 bg-zinc-900 border border-zinc-700 rounded-xl p-2 shadow-2xl shadow-black/60"
+                  className="absolute bottom-full left-0 mb-2 z-50 moon-panel-surface border moon-panel-border rounded-xl p-2 shadow-2xl shadow-black/60"
                   style={{ minWidth: '164px' }}
                 >
                   <div className="grid grid-cols-5 gap-1">
@@ -940,9 +947,9 @@ const HilosComponent: React.FC = () => {
                       <button key={emoji}
                         onClick={() => { toggleReaction(targetId, emoji, isReply); setShowEmojiPicker(null); }}
                         className={`w-7 h-7 flex items-center justify-center rounded-lg text-base transition-all hover:scale-110 active:scale-95 ${
-                          reactions?.[emoji]?.includes(uid) ? 'bg-zinc-700 ring-1 ring-zinc-500' : 'hover:bg-zinc-800'
+                          reactions?.[emoji]?.includes(uid) ? 'moon-panel-raised ring-1 ring-zinc-500' : 'moon-panel-hover'
                         }`}>
-                        {emoji}
+                        <EmojiText text={emoji} size={22} />
                       </button>
                     ))}
                   </div>
@@ -952,7 +959,7 @@ const HilosComponent: React.FC = () => {
           </AnimatePresence>
         </div>
         {totalReactions > 0 && (
-          <span className="text-zinc-600 text-xs">
+          <span className="moon-panel-muted text-xs">
             {totalReactions} {totalReactions === 1 ? 'reacción' : 'reacciones'}
           </span>
         )}
@@ -968,9 +975,9 @@ const HilosComponent: React.FC = () => {
       <div className="relative flex-shrink-0">
         <div className={`${sizes[size]} rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center overflow-hidden ring-2 ring-zinc-900`}>
           {src ? <img src={src} className="w-full h-full object-cover" alt={name} loading="lazy" />
-               : <span className="text-white font-medium">{name?.[0]?.toUpperCase()}</span>}
+               : <span className="moon-panel-ink font-medium">{name?.[0]?.toUpperCase()}</span>}
         </div>
-        {isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full" />}
+        {isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 moon-panel-border rounded-full" />}
       </div>
     );
   }, []);
@@ -1018,9 +1025,9 @@ const HilosComponent: React.FC = () => {
   const SidebarContent = useCallback(() => (
   <div className="flex flex-col h-full overflow-hidden">
     {/* Botón nuevo hilo */}
-    <div className="p-3 border-b border-zinc-800 flex-shrink-0">
+    <div className="p-3 border-b moon-panel-border flex-shrink-0">
       <Button onClick={() => { setShowNewHilo(true); setShowSidebar(false); }}
-        className="w-full bg-white text-black hover:bg-zinc-200 font-medium gap-2 text-sm">
+        className="w-full moon-panel-primary hover:opacity-90 font-medium gap-2 text-sm">
         <Plus className="w-4 h-4" /> Nuevo hilo
       </Button>
     </div>
@@ -1032,11 +1039,11 @@ const HilosComponent: React.FC = () => {
           onClick={() => { setActiveCategory('all'); setShowArchived(false); setShowSidebar(false); }}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
             !showArchived && activeCategory === 'all'
-              ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover moon-panel-hover'
           }`}>
           <GitBranch className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
           <span className="flex-1 text-left">Todos los hilos</span>
-          <span className="text-zinc-600 text-xs bg-zinc-900 px-1.5 py-0.5 rounded-full">{hilos.length}</span>
+          <span className="moon-panel-muted text-xs moon-panel-surface px-1.5 py-0.5 rounded-full">{hilos.length}</span>
         </button>
 
         {CATEGORIES.map(cat => {
@@ -1046,42 +1053,42 @@ const HilosComponent: React.FC = () => {
             <button key={cat.id}
               onClick={() => { setActiveCategory(cat.id); setShowArchived(false); setShowSidebar(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                isActive ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover moon-panel-hover'
               }`}>
-              <cat.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : cat.color}`} strokeWidth={1.5} />
+              <cat.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'moon-panel-ink' : cat.color}`} strokeWidth={1.5} />
               <span className="flex-1 text-left">{cat.label}</span>
-              {count > 0 && <span className="text-zinc-600 text-xs bg-zinc-900 px-1.5 py-0.5 rounded-full">{count}</span>}
+              {count > 0 && <span className="moon-panel-muted text-xs moon-panel-surface px-1.5 py-0.5 rounded-full">{count}</span>}
             </button>
           );
         })}
 
-        <div className="border-t border-zinc-800 my-1.5" />
+        <div className="border-t moon-panel-border my-1.5" />
 
         <button
           onClick={() => { setShowArchived(true); setSelectedHilo(null); setShowSidebar(false); }}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-            showArchived ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+            showArchived ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover moon-panel-hover'
           }`}>
-          <Archive className={`w-4 h-4 flex-shrink-0 ${showArchived ? 'text-white' : 'text-zinc-500'}`} strokeWidth={1.5} />
+          <Archive className={`w-4 h-4 flex-shrink-0 ${showArchived ? 'moon-panel-ink' : 'moon-panel-muted'}`} strokeWidth={1.5} />
           <span className="flex-1 text-left">Archivados</span>
           {archivedHilos.length > 0 && (
-            <span className="text-zinc-600 text-xs bg-zinc-900 px-1.5 py-0.5 rounded-full">{archivedHilos.length}</span>
+            <span className="moon-panel-muted text-xs moon-panel-surface px-1.5 py-0.5 rounded-full">{archivedHilos.length}</span>
           )}
         </button>
       </nav>
 
       {/* Estadísticas — justo debajo del nav, sin gap */}
       <div className="px-3 pt-1 pb-4">
-        <div className="rounded-lg bg-zinc-900/60 border border-zinc-800/60 p-3 space-y-2">
-          <span className="text-zinc-500 text-[10px] font-semibold uppercase tracking-wider">Estadísticas</span>
+        <div className="rounded-lg moon-panel-surface border moon-panel-border p-3 space-y-2">
+          <span className="moon-panel-muted text-[10px] font-semibold uppercase tracking-wider">Estadísticas</span>
           {[
             { label: 'Activos hoy', val: hilos.filter(h => { const d = h.updatedAt?.toDate?.() || new Date(h.updatedAt); return d > new Date(Date.now() - 86400000); }).length },
             { label: 'Fijados', val: hilos.filter(h => h.pinned).length },
             { label: 'Cerrados', val: hilos.filter(h => h.locked).length },
           ].map(s => (
             <div key={s.label} className="flex items-center justify-between">
-              <span className="text-zinc-600 text-xs">{s.label}</span>
-              <span className="text-zinc-400 text-xs font-medium tabular-nums">{s.val}</span>
+              <span className="moon-panel-muted text-xs">{s.label}</span>
+              <span className="moon-panel-muted text-xs font-medium tabular-nums">{s.val}</span>
             </div>
           ))}
         </div>
@@ -1094,7 +1101,7 @@ const HilosComponent: React.FC = () => {
      RENDER PRINCIPAL
   ═══════════════════════════════ */
   return (
-    <div className="h-[calc(100vh-4rem)] flex bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden relative">
+    <div className="moon-module moon-module--hilos h-[calc(100vh-4rem)] flex moon-panel-surface rounded-xl border moon-panel-border overflow-hidden relative">
       {/* Progress bar */}
       <motion.div className="absolute top-0 left-0 right-0 h-0.5 bg-white origin-left z-50"
         style={{ scaleX }} />
@@ -1108,14 +1115,14 @@ const HilosComponent: React.FC = () => {
         {showSidebar && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+            className="fixed inset-0 moon-media-overlay bg-black/60 z-40 xl:hidden"
             onClick={() => setShowSidebar(false)}
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar desktop */}
-      <aside className="hidden lg:flex w-56 flex-shrink-0 border-r border-zinc-800 flex-col bg-zinc-950 overflow-hidden h-full">
+      <aside className="hidden xl:flex w-56 flex-shrink-0 border-r moon-panel-border flex-col moon-panel-surface overflow-hidden h-full">
         <SidebarContent />
       </aside>
 
@@ -1125,12 +1132,12 @@ const HilosComponent: React.FC = () => {
           <motion.aside
             initial={{ x: -224 }} animate={{ x: 0 }} exit={{ x: -224 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed left-0 top-0 bottom-0 w-56 z-50 flex flex-col bg-zinc-950 border-r border-zinc-800 lg:hidden overflow-hidden"
+            className="fixed left-0 top-0 bottom-0 w-56 z-50 flex flex-col moon-panel-surface border-r moon-panel-border xl:hidden overflow-hidden"
           >
-            <div className="flex items-center justify-between p-3 border-b border-zinc-800">
-              <span className="text-white font-medium text-sm">Hilos</span>
+            <div className="flex items-center justify-between p-3 border-b moon-panel-border">
+              <h1 className="moon-panel-ink font-medium text-base">Hilos del equipo</h1>
               <button onClick={() => setShowSidebar(false)}
-                className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+                className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1143,71 +1150,67 @@ const HilosComponent: React.FC = () => {
           LISTA DE HILOS
           En móvil: oculta cuando hay hilo seleccionado
       ══════════════════════ */}
-      <div className={`flex-col border-r border-zinc-800 transition-all duration-300 bg-zinc-950
-        ${selectedHilo ? 'hidden lg:flex lg:w-72 xl:w-80' : 'flex flex-1 lg:flex-none lg:w-72 xl:w-80'}
+      <div className={`enterprise-hilo-list flex-col border-r moon-panel-border moon-panel-surface
+        ${selectedHilo ? 'hidden xl:flex xl:w-80' : 'flex flex-1 xl:flex-none xl:w-80'}
       `}>
         {/* Header lista */}
-        <div className="h-14 flex items-center gap-2 px-3 border-b border-zinc-800 flex-shrink-0 bg-zinc-950/50 backdrop-blur-sm">
+        <div className="enterprise-hilo-toolbar flex items-center gap-2 border-b moon-panel-border flex-shrink-0 moon-panel-surface">
           {/* Hamburger solo en móvil */}
           <button onClick={() => setShowSidebar(true)}
-            className="lg:hidden p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0">
+            className="xl:hidden p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors flex-shrink-0">
             <Menu className="w-4 h-4" />
           </button>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-white font-medium text-sm flex items-center gap-1.5 truncate">
-              {showArchived && <Archive className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />}
+            <h2 className="moon-panel-ink font-medium text-sm flex items-center gap-1.5 truncate">
+              {showArchived && <Archive className="w-3.5 h-3.5 moon-panel-muted flex-shrink-0" />}
               <span className="truncate">
                 {showArchived ? 'Archivados' : activeCategory === 'all' ? 'Todos los hilos' : getCategoryInfo(activeCategory).label}
               </span>
             </h2>
-            <p className="text-zinc-600 text-xs">{filteredHilos.length} hilos</p>
+            <p className="moon-panel-muted text-xs">{filteredHilos.length} hilos</p>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <div className="relative hidden sm:block">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+          <div className="enterprise-hilo-tools items-center gap-1.5 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 moon-panel-muted" />
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Buscar..." className="bg-zinc-900 border border-zinc-800 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white placeholder:text-zinc-600 w-28 focus:outline-none focus:border-zinc-600 transition-colors" />
+                aria-label="Buscar hilos" placeholder="Título, tema o persona…" className="moon-panel-surface border moon-panel-border rounded-lg pl-7 pr-2 py-1.5 text-sm moon-panel-ink focus:outline-none transition-colors" />
             </div>
-            <button onClick={() => setShowFilters(!showFilters)}
-              className={`p-1.5 rounded-lg transition-colors ${showFilters ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-300'}`}>
+            <button aria-label="Mostrar filtros de hilos" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}
+              className={`p-1.5 rounded-lg transition-colors ${showFilters ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'}`}>
               <Filter className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Búsqueda mobile */}
-        <div className="px-3 py-2 border-b border-zinc-800/50 sm:hidden">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
-            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar hilos..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600" />
-          </div>
+        <div className="enterprise-hilo-quick" role="group" aria-label="Participación en hilos">
+          {([{ id: 'all', label: 'Todos' }, { id: 'mine', label: 'Mis hilos' }, { id: 'subscribed', label: 'Siguiendo' }] as const).map(item => <button type="button" key={item.id} aria-pressed={interestFilter === item.id} onClick={() => setInterestFilter(item.id)}>{item.label}</button>)}
+          {(searchQuery || interestFilter !== 'all' || filterStatus !== 'all') && <button type="button" onClick={() => { setSearchQuery(''); setInterestFilter('all'); setFilterStatus('all'); }}>Limpiar</button>}
         </div>
 
         {/* Filtros */}
         <AnimatePresence>
           {showFilters && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }} className="border-b border-zinc-800 overflow-hidden">
+              exit={{ height: 0, opacity: 0 }} className="border-b moon-panel-border overflow-hidden">
               <div className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-zinc-600 text-xs">Ordenar:</span>
+                  <span className="moon-panel-muted text-xs">Ordenar:</span>
                   <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-                    className="bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-300 px-2 py-1 focus:outline-none flex-1">
+                    className="moon-panel-surface border moon-panel-border rounded text-xs moon-panel-muted px-2 py-1 focus:outline-none flex-1">
                     <option value="updated">Última actividad</option>
                     <option value="created">Más recientes</option>
                     <option value="popular">Más vistos</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-zinc-600 text-xs">Estado:</span>
-                  <div className="flex bg-zinc-900 rounded-lg p-0.5 flex-1">
+                  <span className="moon-panel-muted text-xs">Estado:</span>
+                  <div className="flex moon-panel-surface rounded-lg p-0.5 flex-1">
                     {(['all','open','closed'] as const).map(s => (
                       <button key={s} onClick={() => setFilterStatus(s)}
                         className={`flex-1 px-2 py-1 rounded text-xs transition-colors ${
-                          filterStatus === s ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'
+                          filterStatus === s ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'
                         }`}>
                         {s === 'all' ? 'Todos' : s === 'open' ? 'Abiertos' : 'Cerrados'}
                       </button>
@@ -1223,30 +1226,30 @@ const HilosComponent: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <RefreshCw className="w-5 h-5 animate-spin text-zinc-600" />
-              <p className="text-zinc-600 text-xs">Cargando hilos...</p>
+              <RefreshCw className="w-5 h-5 animate-spin moon-panel-muted" />
+              <p className="moon-panel-muted text-xs">Cargando hilos...</p>
             </div>
           ) : (showArchived ? errorArchivados : errorHilos) ? (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
               <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
-                <AlertCircle className="w-7 h-7 text-red-400" strokeWidth={1.5} />
+                <AlertCircle className="w-7 h-7 moon-panel-tone-red" strokeWidth={1.5} />
               </div>
-              <p className="text-zinc-300 text-sm font-medium mb-1">No se pudieron cargar los hilos</p>
-              <p className="text-zinc-500 text-xs break-words select-text max-w-full">
+              <p className="moon-panel-muted text-sm font-medium mb-1">No se pudieron cargar los hilos</p>
+              <p className="moon-panel-muted text-xs break-words select-text max-w-full">
                 {showArchived ? errorArchivados : errorHilos}
               </p>
             </div>
           ) : filteredHilos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-14 h-14 bg-zinc-900 rounded-full flex items-center justify-center mb-4">
+              <div className="w-14 h-14 moon-panel-surface rounded-full flex items-center justify-center mb-4">
                 {showArchived
-                  ? <Archive className="w-7 h-7 text-zinc-700" strokeWidth={1.5} />
-                  : <GitBranch className="w-7 h-7 text-zinc-700" strokeWidth={1.5} />}
+                  ? <Archive className="w-7 h-7 moon-panel-muted" strokeWidth={1.5} />
+                  : <GitBranch className="w-7 h-7 moon-panel-muted" strokeWidth={1.5} />}
               </div>
-              <p className="text-zinc-400 text-sm font-medium mb-1">
+              <p className="moon-panel-muted text-sm font-medium mb-1">
                 {showArchived ? 'Sin hilos archivados' : 'No hay hilos'}
               </p>
-              <p className="text-zinc-600 text-xs">
+              <p className="moon-panel-muted text-xs">
                 {showArchived ? 'Los hilos archivados aparecerán aquí' : 'Crea el primero con el botón de arriba'}
               </p>
             </div>
@@ -1262,9 +1265,9 @@ const HilosComponent: React.FC = () => {
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.02 }}
                     onClick={() => setSelectedHilo(hilo)}
-                    className={`px-3 py-3.5 cursor-pointer transition-all hover:bg-zinc-900/30 relative group border-l-2 ${
-                      isSelected ? 'bg-zinc-900/60 border-l-white' : 'border-l-transparent'
-                    } ${isUnread && !isSelected ? 'bg-zinc-900/20' : ''}`}>
+                    className={`px-3 py-3.5 cursor-pointer transition-all moon-panel-hover relative group border-l-2 ${
+                      isSelected ? 'moon-panel-surface border-l-white' : 'border-l-transparent'
+                    } ${isUnread && !isSelected ? 'moon-panel-surface' : ''}`}>
                     {isUnread && !isSelected && (
                       <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full" />
                     )}
@@ -1275,35 +1278,35 @@ const HilosComponent: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-1.5 mb-1">
                           <h3 className={`text-sm font-medium leading-tight line-clamp-2 ${
-                            isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
-                            {hilo.title}
+                            isSelected ? 'moon-panel-ink' : 'moon-panel-muted group-moon-panel-hover'}`}>
+                            <EmojiText text={hilo.title} />
                           </h3>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            {hilo.pinned && <Pin className="w-3 h-3 text-yellow-500 fill-yellow-500" />}
-                            {hilo.locked && <Lock className="w-3 h-3 text-zinc-500" />}
-                            {hilo.archived && <Archive className="w-3 h-3 text-zinc-600" />}
+                            {hilo.pinned && <Pin className="w-3 h-3 moon-panel-tone-amber fill-yellow-500" />}
+                            {hilo.locked && <Lock className="w-3 h-3 moon-panel-muted" />}
+                            {hilo.archived && <Archive className="w-3 h-3 moon-panel-muted" />}
                           </div>
                         </div>
-                        <p className="text-zinc-600 text-xs line-clamp-1 mb-2">{hilo.body}</p>
+                        <p className="moon-panel-muted text-xs line-clamp-1 mb-2"><EmojiText text={hilo.body} /></p>
                         <div className="flex items-center gap-2 text-xs">
                           <div className="flex items-center gap-1">
                             <Avatar src={hilo.authorAvatar} name={hilo.authorName} size="sm" />
-                            <span className="text-zinc-500 truncate max-w-[70px]">{hilo.authorName}</span>
+                            <span className="moon-panel-muted truncate max-w-[70px]">{hilo.authorName}</span>
                           </div>
-                          <span className="text-zinc-700 flex items-center gap-0.5">
+                          <span className="moon-panel-muted flex items-center gap-0.5">
                             <MessageSquare className="w-3 h-3" />{hilo.replyCount}
                           </span>
-                          <span className="text-zinc-700 flex items-center gap-0.5">
+                          <span className="moon-panel-muted flex items-center gap-0.5">
                             <Eye className="w-3 h-3" />{hilo.viewCount}
                           </span>
-                          <span className="text-zinc-700 ml-auto text-[10px]">{formatRelative(hilo.updatedAt)}</span>
+                          <span className="moon-panel-muted ml-auto text-[10px]">{formatRelative(hilo.updatedAt)}</span>
                         </div>
                         {hilo.tags?.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {hilo.tags.slice(0, 2).map(tag => (
-                              <span key={tag} className="text-zinc-600 text-[10px] bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">#{tag}</span>
+                              <span key={tag} className="moon-panel-muted text-[10px] moon-panel-surface border moon-panel-border px-1.5 py-0.5 rounded">#{tag}</span>
                             ))}
-                            {hilo.tags.length > 2 && <span className="text-zinc-700 text-[10px]">+{hilo.tags.length - 2}</span>}
+                            {hilo.tags.length > 2 && <span className="moon-panel-muted text-[10px]">+{hilo.tags.length - 2}</span>}
                           </div>
                         )}
                       </div>
@@ -1325,17 +1328,17 @@ const HilosComponent: React.FC = () => {
           <motion.div key={selectedHilo.id}
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.15 }}
-            className="flex-1 flex flex-col bg-zinc-950 min-w-0" ref={containerRef}>
+            className="flex-1 flex flex-col moon-panel-surface min-w-0" ref={containerRef}>
 
             {/* Header detalle */}
-            <div className="h-14 flex items-center gap-2 px-3 sm:px-4 border-b border-zinc-800 flex-shrink-0 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
+            <div className="h-14 flex items-center gap-2 px-3 sm:px-4 border-b moon-panel-border flex-shrink-0 moon-panel-surface backdrop-blur-md sticky top-0 z-10">
               <button onClick={() => setSelectedHilo(null)}
-                className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0">
+                className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors flex-shrink-0">
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div className="flex-1 min-w-0">
-                <h1 className="text-white font-medium text-sm truncate">{selectedHilo.title}</h1>
-                <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+                <h2 className="moon-page-title moon-panel-ink font-medium text-sm truncate"><EmojiText text={selectedHilo.title} /></h2>
+                <div className="flex items-center gap-1.5 text-xs moon-panel-muted">
                   <span className="truncate max-w-[120px]">por {selectedHilo.authorName}</span>
                   <span>•</span>
                   <span className="flex-shrink-0">{formatRelative(selectedHilo.createdAt)}</span>
@@ -1343,60 +1346,60 @@ const HilosComponent: React.FC = () => {
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {onlineUsers.length > 0 && (
-                  <div className="hidden sm:flex items-center gap-1 mr-1 px-2 py-1 bg-zinc-900 rounded-full">
+                  <div className="hidden sm:flex items-center gap-1 mr-1 px-2 py-1 moon-panel-surface rounded-full">
                     <div className="flex -space-x-2">
                       {onlineUsers.slice(0, 3).map(u => <Avatar key={u.uid} src={u.avatar} name={u.displayName} size="sm" />)}
                     </div>
-                    {onlineUsers.length > 3 && <span className="text-zinc-500 text-xs ml-1">+{onlineUsers.length - 3}</span>}
+                    {onlineUsers.length > 3 && <span className="moon-panel-muted text-xs ml-1">+{onlineUsers.length - 3}</span>}
                   </div>
                 )}
                 <button onClick={() => toggleSubscription(selectedHilo)}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    selectedHilo.subscribers?.includes(uid) ? 'text-blue-400 bg-blue-400/10' : 'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800'
+                    selectedHilo.subscribers?.includes(uid) ? 'moon-panel-tone-blue bg-blue-400/10' : 'moon-panel-muted moon-panel-hover moon-panel-hover'
                   }`}>
                   {selectedHilo.subscribers?.includes(uid) ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                 </button>
                 <button onClick={() => shareHilo(selectedHilo)}
-                  className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors">
+                  className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
                   <Share2 className="w-4 h-4" />
                 </button>
                 {(isAdmin || selectedHilo.authorUid === uid) && (
                   <div className="relative group">
-                    <button className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors">
+                    <button className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 py-1">
+                    <div className="absolute right-0 top-full mt-1 w-48 moon-panel-surface border moon-panel-border rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 py-1">
   {/* Todas las opciones disponibles para admin O autor */}
   {(isAdmin || selectedHilo.authorUid === uid) && (
     <>
       <button onClick={() => togglePin(selectedHilo)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors text-left">
+        className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-muted moon-panel-hover transition-colors text-left">
         <Pin className="w-4 h-4" />{selectedHilo.pinned ? 'Desfijar' : 'Fijar'}
       </button>
       <button onClick={() => toggleLock(selectedHilo)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors text-left">
+        className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-muted moon-panel-hover transition-colors text-left">
         {selectedHilo.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
         {selectedHilo.locked ? 'Abrir hilo' : 'Cerrar hilo'}
       </button>
-      <div className="border-t border-zinc-800 my-1" />
+      <div className="border-t moon-panel-border my-1" />
       {showArchived ? (
         <button onClick={() => unarchiveHilo(selectedHilo)}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors text-left">
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-muted moon-panel-hover transition-colors text-left">
           <ArchiveRestore className="w-4 h-4" />Desarchivar
         </button>
       ) : (
         <button onClick={() => archiveHilo(selectedHilo)}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors text-left">
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-muted moon-panel-hover transition-colors text-left">
           <Archive className="w-4 h-4" />Archivar
         </button>
       )}
-      <div className="border-t border-zinc-800 my-1" />
+      <div className="border-t moon-panel-border my-1" />
       <button onClick={() => startEditHilo(selectedHilo)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors text-left">
+        className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-muted moon-panel-hover transition-colors text-left">
         <Edit3 className="w-4 h-4" />Editar hilo
       </button>
       <button onClick={() => deleteHilo(selectedHilo)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-400/10 transition-colors text-left">
+        className="w-full flex items-center gap-2 px-4 py-2 text-sm moon-panel-tone-red hover:bg-red-400/10 transition-colors text-left">
         <Trash2 className="w-4 h-4" />Eliminar hilo
       </button>
     </>
@@ -1410,44 +1413,44 @@ const HilosComponent: React.FC = () => {
             {/* Contenido scrolleable */}
             <div className="flex-1 overflow-y-auto">
               {/* Mensaje original */}
-              <div className="px-4 sm:px-6 py-5 border-b border-zinc-800/50">
+              <div className="px-4 sm:px-6 py-5 border-b moon-panel-border">
                 <div className="flex gap-3 sm:gap-4">
                   <Avatar src={selectedHilo.authorAvatar} name={selectedHilo.authorName} size="lg"
                     isOnline={onlineUsers.some(u => u.uid === selectedHilo.authorUid)} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="text-white font-medium text-sm">{selectedHilo.authorName}</span>
-                      <span className="text-zinc-600 text-xs px-2 py-0.5 bg-zinc-900 rounded-full">{selectedHilo.authorRole}</span>
-                      <span className="text-zinc-700 text-xs ml-auto">{formatFull(selectedHilo.createdAt)}</span>
-                      {selectedHilo.edited && <span className="text-zinc-700 text-xs">(editado)</span>}
+                      <span className="moon-panel-ink font-medium text-sm">{selectedHilo.authorName}</span>
+                      <span className="moon-panel-muted text-xs px-2 py-0.5 moon-panel-surface rounded-full">{selectedHilo.authorRole}</span>
+                      <span className="moon-panel-muted text-xs ml-auto">{formatFull(selectedHilo.createdAt)}</span>
+                      {selectedHilo.edited && <span className="moon-panel-muted text-xs">(editado)</span>}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mb-3">
                       {(() => {
                         const cat = getCategoryInfo(selectedHilo.category);
                         return (
-                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${cat.bg} ${cat.color} border border-zinc-800`}>
+                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${cat.bg} ${cat.color} border moon-panel-border`}>
                             <cat.icon className="w-3 h-3" />{cat.label}
                           </span>
                         );
                       })()}
                       {selectedHilo.isAnnouncement && (
-                        <span className="flex items-center gap-1 text-yellow-500 text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+                        <span className="flex items-center gap-1 moon-panel-tone-amber text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
                           <Sparkles className="w-3 h-3" />Anuncio
                         </span>
                       )}
                       {selectedHilo.archived && (
-                        <span className="flex items-center gap-1 text-zinc-500 text-xs px-2 py-0.5 rounded-full bg-zinc-500/10 border border-zinc-500/20">
+                        <span className="flex items-center gap-1 moon-panel-muted text-xs px-2 py-0.5 rounded-full bg-zinc-500/10 border moon-panel-border">
                           <Archive className="w-3 h-3" />Archivado
                         </span>
                       )}
                       {selectedHilo.tags?.map(tag => (
-                        <span key={tag} className="text-zinc-500 text-xs px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full">#{tag}</span>
+                        <span key={tag} className="moon-panel-muted text-xs px-2 py-0.5 moon-panel-surface border moon-panel-border rounded-full">#{tag}</span>
                       ))}
                     </div>
                     <MarkdownRenderer content={selectedHilo.body} />
                     <AttachmentGrid attachments={selectedHilo.attachments} />
-                    <div className="flex items-center gap-3 mt-4 pt-3 border-t border-zinc-800/50 flex-wrap">
-                      <div className="flex items-center gap-3 text-xs text-zinc-600">
+                    <div className="flex items-center gap-3 mt-4 pt-3 border-t moon-panel-border flex-wrap">
+                      <div className="flex items-center gap-3 text-xs moon-panel-muted">
                         <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{selectedHilo.viewCount.toLocaleString()} vistas</span>
                         <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{selectedHilo.replyCount} respuestas</span>
                       </div>
@@ -1461,22 +1464,22 @@ const HilosComponent: React.FC = () => {
               <div className="px-4 sm:px-6 py-4">
                 {loadingReplies ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <RefreshCw className="w-5 h-5 animate-spin text-zinc-600" />
-                    <p className="text-zinc-600 text-xs">Cargando respuestas...</p>
+                    <RefreshCw className="w-5 h-5 animate-spin moon-panel-muted" />
+                    <p className="moon-panel-muted text-xs">Cargando respuestas...</p>
                   </div>
                 ) : errorReplies && errorReplies.hiloId === selectedHilo.id ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <AlertCircle className="w-6 h-6 text-red-400 mb-3" />
-                    <p className="text-zinc-400 text-sm font-medium mb-1">No se pudieron cargar las respuestas</p>
-                    <p className="text-zinc-600 text-xs break-words select-text">{errorReplies.msg}</p>
+                    <AlertCircle className="w-6 h-6 moon-panel-tone-red mb-3" />
+                    <p className="moon-panel-muted text-sm font-medium mb-1">No se pudieron cargar las respuestas</p>
+                    <p className="moon-panel-muted text-xs break-words select-text">{errorReplies.msg}</p>
                   </div>
                 ) : replies.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mb-3">
-                      <MessageSquare className="w-6 h-6 text-zinc-700" />
+                    <div className="w-12 h-12 moon-panel-surface rounded-full flex items-center justify-center mb-3">
+                      <MessageSquare className="w-6 h-6 moon-panel-muted" />
                     </div>
-                    <p className="text-zinc-500 text-sm font-medium mb-1">Sin respuestas aún</p>
-                    <p className="text-zinc-600 text-xs">Sé el primero en compartir tu opinión</p>
+                    <p className="moon-panel-muted text-sm font-medium mb-1">Sin respuestas aún</p>
+                    <p className="moon-panel-muted text-xs">Sé el primero en compartir tu opinión</p>
                   </div>
                 ) : (
                   <>
@@ -1486,9 +1489,9 @@ const HilosComponent: React.FC = () => {
                           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.04 }} className="group">
                           {reply.parentId && (
-                            <div className="flex items-center gap-2 mb-2 ml-10 text-xs text-zinc-600">
+                            <div className="flex items-center gap-2 mb-2 ml-10 text-xs moon-panel-muted">
                               <ArrowLeft className="w-3 h-3 rotate-[-45deg]" />
-                              <span>Respondiendo a <span className="text-zinc-500">
+                              <span>Respondiendo a <span className="moon-panel-muted">
                                 {replies.find(r => r.id === reply.parentId)?.authorName || 'mensaje'}
                               </span></span>
                             </div>
@@ -1497,31 +1500,31 @@ const HilosComponent: React.FC = () => {
                             <div className="flex flex-col items-center">
                               <Avatar src={reply.authorAvatar} name={reply.authorName}
                                 isOnline={onlineUsers.some(u => u.uid === reply.authorUid)} />
-                              {idx < replies.length - 1 && <div className="w-px flex-1 bg-zinc-800 mt-2" />}
+                              {idx < replies.length - 1 && <div className="w-px flex-1 moon-panel-raised mt-2" />}
                             </div>
                             <div className="flex-1 min-w-0 pb-5">
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-zinc-300 font-medium text-sm">{reply.authorName}</span>
-                                <span className="text-zinc-600 text-xs">{reply.authorRole}</span>
-                                <span className="text-zinc-700 text-xs ml-auto opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
+                                <span className="moon-panel-muted font-medium text-sm">{reply.authorName}</span>
+                                <span className="moon-panel-muted text-xs">{reply.authorRole}</span>
+                                <span className="moon-panel-muted text-xs ml-auto opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                                   {formatFull(reply.createdAt)}
                                 </span>
-                                {reply.edited && <span className="text-zinc-700 text-xs">(editado)</span>}
+                                {reply.edited && <span className="moon-panel-muted text-xs">(editado)</span>}
                               </div>
                               <MarkdownRenderer content={reply.body} className="opacity-90" />
                               <AttachmentGrid attachments={reply.attachments} />
                               <div className="flex items-center gap-2 mt-2 flex-wrap">
                                 <ReactionBar reactions={reply.reactions || {}} targetId={reply.id} isReply={true} />
                                 <button onClick={() => setReplyingTo(reply)}
-                                  className="text-zinc-600 hover:text-zinc-400 text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  className="moon-panel-muted moon-panel-hover text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <ArrowLeft className="w-3 h-3 rotate-[-45deg]" />Responder
                                 </button>
                                 {(isAdmin || reply.authorUid === uid) && (
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                                    <button onClick={() => startEditReply(reply)} className="p-1 text-zinc-600 hover:text-zinc-400 rounded">
+                                    <button onClick={() => startEditReply(reply)} className="p-1 moon-panel-muted moon-panel-hover rounded">
                                       <Edit3 className="w-3.5 h-3.5" />
                                     </button>
-                                    <button onClick={() => deleteReply(reply)} className="p-1 text-zinc-600 hover:text-red-400 rounded">
+                                    <button onClick={() => deleteReply(reply)} className="p-1 moon-panel-muted hover:text-red-400 rounded">
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
@@ -1535,7 +1538,7 @@ const HilosComponent: React.FC = () => {
                     {hasMoreReplies && (
                       <div className="flex justify-center py-4">
                         <button onClick={() => loadReplies(selectedHilo.id, true)} disabled={loadingMore}
-                          className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-sm rounded-lg transition-colors disabled:opacity-50">
+                          className="flex items-center gap-2 px-4 py-2 moon-panel-surface moon-panel-hover moon-panel-muted text-sm rounded-lg transition-colors disabled:opacity-50">
                           {loadingMore ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
                           Cargar más respuestas
                         </button>
@@ -1548,32 +1551,32 @@ const HilosComponent: React.FC = () => {
             </div>
 
             {/* Caja de reply */}
-            <div className="border-t border-zinc-800 bg-zinc-950 flex-shrink-0">
+            <div className="border-t moon-panel-border moon-panel-surface flex-shrink-0">
               {selectedHilo.locked && !isAdmin ? (
-                <div className="flex items-center justify-center gap-2 px-4 py-3 text-zinc-600 bg-zinc-900/30">
+                <div className="flex items-center justify-center gap-2 px-4 py-3 moon-panel-muted moon-panel-surface">
                   <Lock className="w-4 h-4" />
                   <span className="text-sm">Este hilo está cerrado</span>
                 </div>
               ) : (
                 <div className="p-3 sm:p-4">
                   {replyingTo && (
-                    <div className="flex items-center justify-between px-3 py-2 mb-2 bg-zinc-900 rounded-lg border border-zinc-800">
-                      <div className="flex items-center gap-2 text-xs text-zinc-500 min-w-0">
+                    <div className="flex items-center justify-between px-3 py-2 mb-2 moon-panel-surface rounded-lg border moon-panel-border">
+                      <div className="flex items-center gap-2 text-xs moon-panel-muted min-w-0">
                         <ArrowLeft className="w-3 h-3 rotate-[-45deg] flex-shrink-0" />
-                        <span className="truncate">Respondiendo a <span className="text-zinc-400">{replyingTo.authorName}</span></span>
+                        <span className="truncate">Respondiendo a <span className="moon-panel-muted">{replyingTo.authorName}</span></span>
                       </div>
-                      <button onClick={() => setReplyingTo(null)} className="text-zinc-600 hover:text-zinc-400 flex-shrink-0 ml-2">
+                      <button onClick={() => setReplyingTo(null)} className="moon-panel-muted moon-panel-hover flex-shrink-0 ml-2">
                         <X className="w-3 h-3" />
                       </button>
                     </div>
                   )}
                   {editingReply && (
                     <div className="flex items-center justify-between px-3 py-2 mb-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                      <div className="flex items-center gap-2 text-xs text-blue-400">
+                      <div className="flex items-center gap-2 text-xs moon-panel-tone-blue">
                         <Edit3 className="w-3 h-3" /><span>Editando mensaje</span>
                       </div>
                       <button onClick={() => { setEditingReply(null); setReplyBody(''); setReplyAttachments([]); }}
-                        className="text-zinc-600 hover:text-zinc-400">
+                        className="moon-panel-muted moon-panel-hover">
                         <X className="w-3 h-3" />
                       </button>
                     </div>
@@ -1586,21 +1589,21 @@ const HilosComponent: React.FC = () => {
                       {/* Sugerencias de @mención: fuera de la caja con overflow-hidden para que no se recorten */}
                       {showMentions && sugerenciasMencion.length > 0 && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                          className="absolute bottom-full left-0 mb-2 bg-zinc-900 border border-zinc-800 rounded-xl p-2 min-w-[200px] max-w-full shadow-2xl z-30">
+                          className="absolute bottom-full left-0 mb-2 moon-panel-surface border moon-panel-border rounded-xl p-2 min-w-[200px] max-w-full shadow-2xl z-30">
                           {sugerenciasMencion.map((user, i) => (
                             <button key={user.uid} type="button"
                               onMouseDown={e => e.preventDefault()}
                               onClick={() => insertarMencion(user)}
                               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left ${
-                                i === mentionIndex ? 'bg-zinc-800' : 'hover:bg-zinc-800'}`}>
+                                i === mentionIndex ? 'moon-panel-raised' : 'moon-panel-hover'}`}>
                               <Avatar src={user.avatar} name={user.displayName} size="sm"
                                 isOnline={onlineUsers.some(o => o.uid === user.uid)} />
-                              <span className="text-zinc-300 text-sm truncate">{user.displayName}</span>
+                              <span className="moon-panel-muted text-sm truncate">{user.displayName}</span>
                             </button>
                           ))}
                         </motion.div>
                       )}
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-zinc-700 transition-all">
+                      <div className="moon-panel-surface border moon-panel-border rounded-xl overflow-hidden focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-zinc-700 transition-all">
                         <textarea ref={replyTextRef} value={replyBody}
                           onChange={e => {
                             setReplyBody(e.target.value);
@@ -1627,38 +1630,39 @@ const HilosComponent: React.FC = () => {
                           }}
                           placeholder={replyingTo ? `Respondiendo a ${replyingTo.authorName}...` : 'Escribe una respuesta... (Ctrl+Enter para enviar)'}
                           rows={3} maxLength={5000}
-                          className="w-full bg-transparent text-white text-sm focus:outline-none resize-none placeholder:text-zinc-600 leading-relaxed px-3 py-2.5"
+                          className="w-full bg-transparent moon-panel-ink text-sm focus:outline-none resize-none placeholder:text-zinc-600 leading-relaxed px-3 py-2.5"
                         />
-                        <div className="flex items-center justify-between px-2.5 py-2 border-t border-zinc-800/50">
+                        <div className="flex items-center justify-between px-2.5 py-2 border-t moon-panel-border">
                           <div className="flex items-center gap-1">
+  <EmojiButton value={replyBody} onChange={setReplyBody} inputRef={replyTextRef} maxLength={5000} disabled={submittingReply} label="Añadir emoji a la respuesta" />
   <input ref={fileReplyRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt"
     className="hidden"
     onChange={e => e.target.files && uploadFiles(e.target.files, setReplyAttachments, setUploadingReply)} />
   <button onClick={() => fileReplyRef.current?.click()} disabled={uploadingReply}
-    className="p-1.5 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 rounded-lg transition-colors">
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
     {uploadingReply ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
   </button>
   <button onClick={() => setReplyBody(p => p + '**texto**')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-bold transition-colors" title="Negrita">B</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-bold transition-colors" title="Negrita">B</button>
   <button onClick={() => setReplyBody(p => p + '*texto*')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs italic transition-colors" title="Cursiva">I</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs italic transition-colors" title="Cursiva">I</button>
   <button onClick={() => setReplyBody(p => p + '\n# ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-semibold transition-colors" title="Título">#</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-semibold transition-colors" title="Título">#</button>
   <button onClick={() => setReplyBody(p => p + '\n- ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs transition-colors" title="Lista">•</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs transition-colors" title="Lista">•</button>
   <button onClick={() => setReplyBody(p => p + '\n```js\n\n```')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-mono transition-colors" title="Código">{`</>`}</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-mono transition-colors" title="Código">{`</>`}</button>
   <button onClick={() => setReplyBody(p => p + '\n> ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs transition-colors" title="Cita">❝</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs transition-colors" title="Cita">❝</button>
 </div>
                           <div className="flex items-center gap-2">
-                            <span className={`text-xs hidden sm:block transition-colors ${replyBody.length > 4500 ? 'text-red-500' : 'text-zinc-600'}`}>
+                            <span className={`text-xs hidden sm:block transition-colors ${replyBody.length > 4500 ? 'moon-panel-tone-red' : 'moon-panel-muted'}`}>
                               {replyBody.length}/5000
                             </span>
                             <button
                               onClick={editingReply ? handleUpdateReply : handleReply}
                               disabled={submittingReply || !replyBody.trim()}
-                              className="flex items-center gap-1.5 bg-white text-black hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium px-3 py-1.5 rounded-lg">
+                              className="flex items-center gap-1.5 moon-panel-primary hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium px-3 py-1.5 rounded-lg">
                               {submittingReply ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                 : editingReply ? <Check className="w-3.5 h-3.5" />
                                 : <Send className="w-3.5 h-3.5" />}
@@ -1675,12 +1679,12 @@ const HilosComponent: React.FC = () => {
           </motion.div>
         ) : (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="hidden lg:flex flex-1 flex-col items-center justify-center text-center p-8">
-            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-5 relative">
-              <GitBranch className="w-10 h-10 text-zinc-700" strokeWidth={1} />
+            className="hidden xl:flex flex-1 flex-col items-center justify-center text-center p-8">
+            <div className="w-20 h-20 moon-panel-surface rounded-full flex items-center justify-center mb-5 relative">
+              <GitBranch className="w-10 h-10 moon-panel-muted" strokeWidth={1} />
             </div>
-            <h3 className="text-zinc-400 font-medium text-base mb-2">Selecciona un hilo</h3>
-            <p className="text-zinc-600 text-sm max-w-xs">Elige una conversación o crea una nueva</p>
+            <h3 className="moon-panel-muted font-medium text-base mb-2">Selecciona un hilo</h3>
+            <p className="moon-panel-muted text-sm max-w-xs">Elige una conversación o crea una nueva</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1689,98 +1693,100 @@ const HilosComponent: React.FC = () => {
           MODAL NUEVO/EDITAR HILO
       ══════════════════════ */}
       <Dialog open={showNewHilo} onOpenChange={open => { if (!open) { resetNewHilo(); setEditingHilo(null); } setShowNewHilo(open); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-[95vw] max-w-2xl p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-4 sm:px-6 py-4 border-b border-zinc-800">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink w-[95vw] max-w-2xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 py-4 border-b moon-panel-border">
             <DialogTitle className="font-medium text-sm flex items-center gap-2">
-              <GitBranch className="w-4 h-4 text-zinc-400" />
+              <GitBranch className="w-4 h-4 moon-panel-muted" />
               {editingHilo ? 'Editar hilo' : 'Nuevo hilo'}
             </DialogTitle>
             <DialogDescription className="sr-only">{editingHilo ? 'Editar el hilo' : 'Crear un nuevo hilo'}</DialogDescription>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-zinc-800">
-              <label className="text-zinc-500 text-xs font-medium uppercase tracking-wider mb-3 block">Categoría</label>
+            <div className="p-4 sm:p-6 border-b moon-panel-border">
+              <label className="moon-panel-muted text-xs font-medium uppercase tracking-wider mb-3 block">Categoría</label>
               <div className="flex flex-wrap gap-2">
                 {CATEGORIES.map(cat => (
                   <button key={cat.id} onClick={() => setNewCategory(cat.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      newCategory === cat.id ? 'bg-zinc-800 border-zinc-600 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+                      newCategory === cat.id ? 'moon-panel-raised moon-panel-border moon-panel-ink' : 'moon-panel-border moon-panel-muted hover:border-zinc-700 moon-panel-hover'
                     }`}>
-                    <cat.icon className={`w-3.5 h-3.5 ${newCategory === cat.id ? 'text-white' : cat.color}`} strokeWidth={1.5} />
+                    <cat.icon className={`w-3.5 h-3.5 ${newCategory === cat.id ? 'moon-panel-ink' : cat.color}`} strokeWidth={1.5} />
                     {cat.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="px-4 sm:px-6 py-4 border-b border-zinc-800">
-              <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Título descriptivo..."
-                maxLength={200} className="w-full bg-transparent text-white text-base sm:text-lg font-medium focus:outline-none placeholder:text-zinc-700" />
+            <div className="px-4 sm:px-6 py-4 border-b moon-panel-border">
+              <input ref={newTitleEmojiRef} value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Título descriptivo..."
+                maxLength={200} className="w-full bg-transparent moon-panel-ink text-base sm:text-lg font-medium focus:outline-none placeholder:text-zinc-700" />
               <div className="flex justify-end mt-1">
-                <span className="text-zinc-700 text-xs">{newTitle.length}/200</span>
+                <EmojiButton value={newTitle} onChange={setNewTitle} inputRef={newTitleEmojiRef} maxLength={200} disabled={submitting} label="Añadir emoji al título del hilo" />
+                <span className="moon-panel-muted text-xs">{newTitle.length}/200</span>
               </div>
             </div>
-            <div className="px-4 sm:px-6 py-4 border-b border-zinc-800">
-              <textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="Describe tu tema en detalle..."
-                rows={8} maxLength={10000} className="w-full bg-transparent text-zinc-300 text-sm focus:outline-none resize-none placeholder:text-zinc-700 leading-relaxed" />
+            <div className="px-4 sm:px-6 py-4 border-b moon-panel-border">
+              <textarea ref={newBodyEmojiRef} value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="Describe tu tema en detalle..."
+                rows={8} maxLength={10000} className="w-full bg-transparent moon-panel-muted text-sm focus:outline-none resize-none placeholder:text-zinc-700 leading-relaxed" />
               <div className="flex justify-between items-center mt-2">
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
+  <EmojiButton value={newBody} onChange={setNewBody} inputRef={newBodyEmojiRef} maxLength={10000} disabled={submitting} label="Añadir emoji al hilo" />
   <button onClick={() => setNewBody(p => p + '**texto**')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-bold transition-colors" title="Negrita">B</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-bold transition-colors" title="Negrita">B</button>
   <button onClick={() => setNewBody(p => p + '*texto*')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs italic transition-colors" title="Cursiva">I</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs italic transition-colors" title="Cursiva">I</button>
   <button onClick={() => setNewBody(p => p + '\n# ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-semibold transition-colors" title="Título">#</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-semibold transition-colors" title="Título">#</button>
   <button onClick={() => setNewBody(p => p + '\n- ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs transition-colors" title="Lista">•</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs transition-colors" title="Lista">•</button>
   <button onClick={() => setNewBody(p => p + '\n```js\n\n```')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs font-mono transition-colors" title="Código">{`</>`}</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs font-mono transition-colors" title="Código">{`</>`}</button>
   <button onClick={() => setNewBody(p => p + '\n> ')}
-    className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded text-xs transition-colors" title="Cita">❝</button>
+    className="p-1.5 moon-panel-muted moon-panel-hover moon-panel-hover rounded text-xs transition-colors" title="Cita">❝</button>
 </div>
-                <span className={`text-xs ${newBody.length > 9000 ? 'text-red-500' : 'text-zinc-700'}`}>{newBody.length}/10000</span>
+                <span className={`text-xs ${newBody.length > 9000 ? 'moon-panel-tone-red' : 'moon-panel-muted'}`}>{newBody.length}/10000</span>
               </div>
             </div>
-            <div className="px-4 sm:px-6 py-3 border-b border-zinc-800">
+            <div className="px-4 sm:px-6 py-3 border-b moon-panel-border">
               <div className="flex items-center gap-3">
-                <Hash className="w-4 h-4 text-zinc-600 flex-shrink-0" />
+                <Hash className="w-4 h-4 moon-panel-muted flex-shrink-0" />
                 <input value={newTags} onChange={e => setNewTags(e.target.value)}
                   placeholder="Tags separados por comas (máx. 5)"
-                  className="flex-1 bg-transparent text-zinc-300 text-sm focus:outline-none placeholder:text-zinc-700" />
+                  className="flex-1 bg-transparent moon-panel-muted text-sm focus:outline-none placeholder:text-zinc-700" />
               </div>
             </div>
             {isAdmin && (
-              <div className="px-4 sm:px-6 py-3 border-b border-zinc-800">
+              <div className="px-4 sm:px-6 py-3 border-b moon-panel-border">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input type="checkbox" checked={isAnnouncement} onChange={e => setIsAnnouncement(e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900" />
-                  <span className="text-sm text-zinc-400">Marcar como anuncio</span>
-                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                    className="w-4 h-4 rounded moon-panel-border moon-panel-surface" />
+                  <span className="text-sm moon-panel-muted">Marcar como anuncio</span>
+                  <Sparkles className="w-4 h-4 moon-panel-tone-amber" />
                 </label>
               </div>
             )}
             {newAttachments.length > 0 && (
-              <div className="px-4 sm:px-6 py-3 border-b border-zinc-800 bg-zinc-900/30">
+              <div className="px-4 sm:px-6 py-3 border-b moon-panel-border moon-panel-surface">
                 <AttachmentGrid attachments={newAttachments}
                   onRemove={i => setNewAttachments(prev => prev.filter((_, idx) => idx !== i))} />
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-zinc-800">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t moon-panel-border">
             <div>
               <input ref={fileNewRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt" className="hidden"
                 onChange={e => e.target.files && uploadFiles(e.target.files, setNewAttachments, setUploadingFiles)} />
               <button onClick={() => fileNewRef.current?.click()} disabled={uploadingFiles}
-                className="flex items-center gap-2 text-zinc-500 hover:text-white text-sm transition-colors px-2 py-1.5 rounded-lg hover:bg-zinc-900">
+                className="flex items-center gap-2 moon-panel-muted moon-panel-hover text-sm transition-colors px-2 py-1.5 rounded-lg moon-panel-hover">
                 {uploadingFiles ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
                 <span className="hidden sm:inline">{uploadingFiles ? 'Subiendo...' : 'Adjuntar'}</span>
               </button>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => { resetNewHilo(); setEditingHilo(null); setShowNewHilo(false); }}
-                className="text-zinc-500 hover:text-white text-sm">Cancelar</Button>
+                className="moon-panel-muted moon-panel-hover text-sm">Cancelar</Button>
               <Button onClick={editingHilo ? handleUpdateHilo : handleCreateHilo}
                 disabled={submitting || !newTitle.trim() || !newBody.trim()}
-                className="bg-white text-black hover:bg-zinc-200 font-medium gap-2 text-sm">
+                className="moon-panel-primary hover:opacity-90 font-medium gap-2 text-sm">
                 {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" />Guardando...</>
                   : editingHilo ? <><Check className="w-4 h-4" />Guardar</>
                   : <><Send className="w-4 h-4" />Publicar</>}
@@ -1794,36 +1800,36 @@ const HilosComponent: React.FC = () => {
           VISOR DE ARCHIVOS
       ══════════════════════ */}
       <Dialog open={!!viewerFile} onOpenChange={open => !open && setViewerFile(null)}>
-        <DialogContent showCloseButton={false} className="bg-zinc-950 border-zinc-800 w-[95vw] !max-w-5xl p-0 overflow-hidden">
+        <DialogContent showCloseButton={false} className="moon-panel-surface moon-panel-border w-[95vw] !max-w-5xl p-0 overflow-hidden">
           <DialogDescription className="sr-only">Vista previa del archivo</DialogDescription>
           {viewerFile && (
             <div className="flex flex-col max-h-[90vh]">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <div className="flex items-center justify-between px-4 py-3 border-b moon-panel-border">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 bg-zinc-900 rounded-lg flex-shrink-0">
-                    <File className="w-4 h-4 text-zinc-400" />
+                  <div className="p-2 moon-panel-surface rounded-lg flex-shrink-0">
+                    <File className="w-4 h-4 moon-panel-muted" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{viewerFile.name}</p>
-                    <p className="text-zinc-600 text-xs">{formatSize(viewerFile.size)}</p>
+                    <p className="moon-panel-ink text-sm font-medium truncate">{viewerFile.name}</p>
+                    <p className="moon-panel-muted text-xs">{formatSize(viewerFile.size)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => handleDownload(viewerFile)}
-                    className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+                    className="p-2 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
                     <Download className="w-4 h-4" />
                   </button>
                   <button onClick={() => void abrirExterno(viewerFile.url)} title="Abrir fuera de la app"
-                    className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors inline-flex">
+                    className="p-2 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors inline-flex">
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   <button onClick={() => setViewerFile(null)}
-                    className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+                    className="p-2 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <div className="flex-1 flex items-center justify-center p-4 bg-zinc-950 overflow-auto">
+              <div className="flex-1 flex items-center justify-center p-4 moon-panel-surface overflow-auto">
                 {tipoVista(viewerFile) === 'imagen' ? (
                   <img src={viewerFile.url} alt={viewerFile.name}
                     className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
@@ -1834,15 +1840,15 @@ const HilosComponent: React.FC = () => {
                 ) : (
                   // Word, Excel, etc.: sin visor de terceros; se abre o se descarga.
                   <div className="text-center py-12">
-                    <File className="w-14 h-14 text-zinc-700 mx-auto mb-4" />
-                    <p className="text-zinc-500 text-sm mb-4">Vista previa no disponible para este tipo de archivo</p>
+                    <File className="w-14 h-14 moon-panel-muted mx-auto mb-4" />
+                    <p className="moon-panel-muted text-sm mb-4">Vista previa no disponible para este tipo de archivo</p>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
                       <button onClick={() => void abrirExterno(viewerFile.url)}
-                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-sm rounded-lg transition-colors inline-flex items-center gap-2">
+                        className="px-4 py-2 moon-panel-raised moon-panel-hover moon-panel-ink text-sm rounded-lg transition-colors inline-flex items-center gap-2">
                         <ExternalLink className="w-4 h-4" />Abrir
                       </button>
                       <button onClick={() => handleDownload(viewerFile)}
-                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-sm rounded-lg transition-colors inline-flex items-center gap-2">
+                        className="px-4 py-2 moon-panel-raised moon-panel-hover moon-panel-ink text-sm rounded-lg transition-colors inline-flex items-center gap-2">
                         <Download className="w-4 h-4" />Descargar
                       </button>
                     </div>
@@ -1858,39 +1864,39 @@ const HilosComponent: React.FC = () => {
           MODAL COMPARTIR
       ══════════════════════ */}
       <Dialog open={showShareModal} onOpenChange={open => { setShowShareModal(open); if (!open) setShowQR(false); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white w-[95vw] max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink w-[95vw] max-w-md">
           <DialogHeader>
             <DialogTitle className="font-medium flex items-center gap-2">
               <Share2 className="w-4 h-4" />Compartir hilo
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 text-sm">
+            <DialogDescription className="moon-panel-muted text-sm">
               Cualquiera con este enlace podrá leer el hilo sin login.
             </DialogDescription>
           </DialogHeader>
           {selectedHilo && (
             <div className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="text-zinc-500 text-xs font-medium uppercase tracking-wider mb-2 block">Enlace público</label>
-                <div className="flex items-center gap-2 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+                <label className="moon-panel-muted text-xs font-medium uppercase tracking-wider mb-2 block">Enlace público</label>
+                <div className="flex items-center gap-2 p-3 moon-panel-surface rounded-lg border moon-panel-border">
                   <input type="text" value={getShareUrl(selectedHilo.id)} readOnly
-                    className="flex-1 bg-transparent text-xs text-zinc-400 focus:outline-none min-w-0" />
+                    className="flex-1 bg-transparent text-xs moon-panel-muted focus:outline-none min-w-0" />
                   <button onClick={() => copyLink(selectedHilo.id)}
-                    className={`p-2 rounded-lg transition-all flex-shrink-0 ${linkCopied ? 'text-green-400 bg-green-400/10' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
+                    className={`p-2 rounded-lg transition-all flex-shrink-0 ${linkCopied ? 'moon-panel-tone-green bg-green-400/10' : 'moon-panel-muted moon-panel-hover moon-panel-hover'}`}>
                     {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
                 </div>
-                {linkCopied && <p className="text-green-400 text-xs mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" />Enlace copiado</p>}
+                {linkCopied && <p className="moon-panel-tone-green text-xs mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" />Enlace copiado</p>}
               </div>
               <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <Eye className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <Eye className="w-4 h-4 moon-panel-tone-blue mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-blue-300 text-xs font-medium">Modo lectura</p>
+                  <p className="moon-panel-tone-blue text-xs font-medium">Modo lectura</p>
                   <p className="text-blue-400/70 text-xs mt-0.5">El visitante puede leer el hilo y comentarios. Para participar necesita iniciar sesión.</p>
                 </div>
               </div>
               <div>
                 <button onClick={() => setShowQR(!showQR)}
-                  className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
+                  className="flex items-center gap-2 moon-panel-muted moon-panel-hover text-sm transition-colors">
                   <QrCode className="w-4 h-4" />
                   {showQR ? 'Ocultar QR' : 'Mostrar QR'}
                   <ChevronDown className={`w-3 h-3 transition-transform ${showQR ? 'rotate-180' : ''}`} />
@@ -1898,14 +1904,14 @@ const HilosComponent: React.FC = () => {
                 <AnimatePresence>
                   {showQR && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <div className="mt-3 flex flex-col items-center gap-3 p-4 bg-zinc-900 rounded-xl border border-zinc-800">
+                      <div className="mt-3 flex flex-col items-center gap-3 p-4 moon-panel-surface rounded-xl border moon-panel-border">
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getShareUrl(selectedHilo.id))}&bgcolor=18181b&color=ffffff&margin=2`}
                           alt="QR Code" className="w-40 h-40 rounded-lg" loading="lazy" />
-                        <p className="text-zinc-600 text-xs">Escanea con la cámara del móvil</p>
+                        <p className="moon-panel-muted text-xs">Escanea con la cámara del móvil</p>
                         <a href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(getShareUrl(selectedHilo.id))}&bgcolor=18181b&color=ffffff&margin=2`}
                           download={`qr-hilo-${selectedHilo.id}.png`} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
+                          className="flex items-center gap-2 moon-panel-muted moon-panel-hover text-xs transition-colors">
                           <Download className="w-3.5 h-3.5" />Descargar QR
                         </a>
                       </div>
@@ -1950,70 +1956,70 @@ export const HilosObserverView: React.FC<{ hiloId: string }> = ({ hiloId }) => {
   }, [hiloId]);
 
   if (loading) return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <RefreshCw className="w-8 h-8 animate-spin text-zinc-400" />
+    <div className="min-h-screen moon-panel-surface flex items-center justify-center">
+      <RefreshCw className="w-8 h-8 animate-spin moon-panel-muted" />
     </div>
   );
   if (error || !hilo) return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4 p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-400" />
-      <p className="text-zinc-300 text-lg font-medium">{error || 'Hilo no encontrado'}</p>
-      <a href="/" className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-zinc-200">Ir al inicio</a>
+    <div className="min-h-screen moon-panel-surface flex flex-col items-center justify-center gap-4 p-8 text-center">
+      <AlertCircle className="w-12 h-12 moon-panel-tone-red" />
+      <p className="moon-panel-muted text-lg font-medium">{error || 'Hilo no encontrado'}</p>
+      <a href="/" className="px-4 py-2 moon-panel-primary rounded-lg text-sm font-medium hover:opacity-90">Ir al inicio</a>
     </div>
   );
 
   const cat = getCategoryInfo(hilo.category);
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <div className="sticky top-0 z-50 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-4 py-2.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-zinc-400 min-w-0">
+    <div className="min-h-screen moon-panel-surface">
+      <div className="sticky top-0 z-50 moon-panel-surface backdrop-blur border-b moon-panel-border px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs moon-panel-muted min-w-0">
           <Eye className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">Modo <span className="font-medium text-zinc-300">lectura</span></span>
+          <span className="truncate">Modo <span className="font-medium moon-panel-muted">lectura</span></span>
         </div>
-        <a href="/login" className="flex-shrink-0 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-medium hover:bg-zinc-200 transition-colors">
+        <a href="/login" className="flex-shrink-0 px-3 py-1.5 moon-panel-primary rounded-lg text-xs font-medium hover:opacity-90 transition-colors">
           Iniciar sesión →
         </a>
       </div>
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 sm:p-6 mb-5">
+        <div data-moon-reveal="card" className="moon-panel-surface rounded-xl border moon-panel-border p-4 sm:p-6 mb-5">
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${cat.bg} ${cat.color} border border-zinc-800`}>
+            <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${cat.bg} ${cat.color} border moon-panel-border`}>
               <cat.icon className="w-3 h-3" />{cat.label}
             </span>
             {hilo.isAnnouncement && (
-              <span className="flex items-center gap-1 text-yellow-500 text-xs px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+              <span className="flex items-center gap-1 moon-panel-tone-amber text-xs px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
                 <Sparkles className="w-3 h-3" />Anuncio
               </span>
             )}
             {hilo.tags?.map(tag => (
-              <span key={tag} className="text-zinc-500 text-xs px-2 py-0.5 bg-zinc-800 border border-zinc-700 rounded-full">#{tag}</span>
+              <span key={tag} className="moon-panel-muted text-xs px-2 py-0.5 moon-panel-raised border moon-panel-border rounded-full">#{tag}</span>
             ))}
           </div>
-          <h1 className="text-white text-lg sm:text-xl font-semibold mb-3">{hilo.title}</h1>
-          <div className="flex items-center gap-2 mb-4 text-xs text-zinc-500 flex-wrap">
-            <span className="font-medium text-zinc-400">{hilo.authorName}</span>
+          <h1 className="moon-panel-ink text-lg sm:text-xl font-semibold mb-3"><EmojiText text={hilo.title} /></h1>
+          <div className="flex items-center gap-2 mb-4 text-xs moon-panel-muted flex-wrap">
+            <span className="font-medium moon-panel-muted">{hilo.authorName}</span>
             <span>•</span><span>{hilo.authorRole}</span>
             <span>•</span><span>{formatFull(hilo.createdAt)}</span>
             {hilo.edited && <span>(editado)</span>}
           </div>
-          <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap mb-4">{hilo.body}</p>
+          <p className="moon-panel-muted text-sm leading-relaxed whitespace-pre-wrap mb-4"><EmojiText text={hilo.body} /></p>
           {hilo.attachments?.length > 0 && (
             <div className={`grid gap-2 mt-4 ${hilo.attachments.length === 1 ? 'grid-cols-1 max-w-md' : 'grid-cols-2'}`}>
               {hilo.attachments.map(att => (
-                <div key={att.id} className="rounded-lg overflow-hidden border border-zinc-700 bg-zinc-800">
+                <div key={att.id} className="rounded-lg overflow-hidden border moon-panel-border moon-panel-raised">
                   {att.type.startsWith('image/') ? (
                     <div className="relative aspect-video cursor-pointer" onClick={() => setViewerFile(att)}>
                       <img src={att.thumbnailUrl || att.url} alt={att.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity"><Eye className="w-6 h-6 text-white" /></div>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 moon-media-overlay bg-black/40 transition-opacity"><Eye className="w-6 h-6 moon-panel-ink" /></div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3 p-3">
-                      <File className="w-5 h-5 text-zinc-400 flex-shrink-0" />
+                      <File className="w-5 h-5 moon-panel-muted flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-zinc-200 text-xs font-medium truncate">{att.name}</p>
-                        <p className="text-zinc-500 text-xs">{formatSize(att.size)}</p>
+                        <p className="moon-panel-ink text-xs font-medium truncate">{att.name}</p>
+                        <p className="moon-panel-muted text-xs">{formatSize(att.size)}</p>
                       </div>
-                      <button onClick={() => setViewerFile(att)} className="p-1.5 text-zinc-500 hover:text-white rounded transition-colors">
+                      <button onClick={() => setViewerFile(att)} className="p-1.5 moon-panel-muted moon-panel-hover rounded transition-colors">
                         <Eye className="w-4 h-4" />
                       </button>
                     </div>
@@ -2022,49 +2028,49 @@ export const HilosObserverView: React.FC<{ hiloId: string }> = ({ hiloId }) => {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-zinc-800 text-xs text-zinc-500">
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t moon-panel-border text-xs moon-panel-muted">
             <span className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />{hilo.viewCount} vistas</span>
             <span className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" />{hilo.replyCount} respuestas</span>
           </div>
         </div>
         <div className="space-y-3 mb-8">
-          <h2 className="text-zinc-400 text-sm font-medium">{replies.length} {replies.length === 1 ? 'respuesta' : 'respuestas'}</h2>
+          <h2 className="moon-panel-muted text-sm font-medium">{replies.length} {replies.length === 1 ? 'respuesta' : 'respuestas'}</h2>
           {replies.map(reply => (
-            <div key={reply.id} className="bg-zinc-900 rounded-xl border border-zinc-800 p-4">
+            <div data-moon-reveal="row" key={reply.id} className="moon-panel-surface rounded-xl border moon-panel-border p-4">
               <div className="flex items-center gap-2 mb-2 text-xs flex-wrap">
-                <span className="font-medium text-zinc-300">{reply.authorName}</span>
-                <span className="text-zinc-600">{reply.authorRole}</span>
-                <span className="text-zinc-700 ml-auto">{formatFull(reply.createdAt)}</span>
+                <span className="font-medium moon-panel-muted">{reply.authorName}</span>
+                <span className="moon-panel-muted">{reply.authorRole}</span>
+                <span className="moon-panel-muted ml-auto">{formatFull(reply.createdAt)}</span>
               </div>
               <MarkdownRenderer content={reply.body} className="opacity-90" />
             </div>
           ))}
           {hilo.replyCount > 20 && (
-            <p className="text-center text-zinc-600 text-xs py-2">
+            <p className="text-center moon-panel-muted text-xs py-2">
               Inicia sesión para ver las {hilo.replyCount} respuestas completas
             </p>
           )}
         </div>
         <div className="text-center">
-          <p className="text-zinc-600 text-sm mb-3">¿Quieres participar en esta discusión?</p>
-          <a href="/login" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-lg font-medium text-sm hover:bg-zinc-200 transition-colors">
+          <p className="moon-panel-muted text-sm mb-3">¿Quieres participar en esta discusión?</p>
+          <a href="/login" className="inline-flex items-center gap-2 px-6 py-2.5 moon-panel-primary rounded-lg font-medium text-sm hover:opacity-90 transition-colors">
             Iniciar sesión
           </a>
         </div>
       </div>
       {/* Visor observer */}
       <Dialog open={!!viewerFile} onOpenChange={open => !open && setViewerFile(null)}>
-        <DialogContent showCloseButton={false} className="bg-zinc-950 border-zinc-800 w-[95vw] !max-w-5xl p-0 overflow-hidden">
+        <DialogContent showCloseButton={false} className="moon-panel-surface moon-panel-border w-[95vw] !max-w-5xl p-0 overflow-hidden">
           <DialogDescription className="sr-only">Vista previa del archivo</DialogDescription>
           {viewerFile && (
             <div className="flex flex-col max-h-[90vh]">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                <p className="text-white text-sm font-medium truncate">{viewerFile.name}</p>
-                <button onClick={() => setViewerFile(null)} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg ml-2">
+              <div className="flex items-center justify-between px-4 py-3 border-b moon-panel-border">
+                <p className="moon-panel-ink text-sm font-medium truncate">{viewerFile.name}</p>
+                <button onClick={() => setViewerFile(null)} className="p-2 moon-panel-muted moon-panel-hover moon-panel-hover rounded-lg ml-2">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex-1 p-4 bg-zinc-950 overflow-auto">
+              <div className="flex-1 p-4 moon-panel-surface overflow-auto">
                 {tipoVista(viewerFile) === 'imagen' ? (
                   <img src={viewerFile.url} alt={viewerFile.name} className="max-w-full max-h-[70vh] object-contain rounded-lg mx-auto block" />
                 ) : tipoVista(viewerFile) === 'pdf' ? (
@@ -2074,10 +2080,10 @@ export const HilosObserverView: React.FC<{ hiloId: string }> = ({ hiloId }) => {
                 ) : (
                   // Sin visor de Google: se ofrece abrir el archivo directamente.
                   <div className="text-center py-12">
-                    <File className="w-14 h-14 text-zinc-700 mx-auto mb-4" />
-                    <p className="text-zinc-500 text-sm mb-4">Vista previa no disponible para este tipo de archivo</p>
+                    <File className="w-14 h-14 moon-panel-muted mx-auto mb-4" />
+                    <p className="moon-panel-muted text-sm mb-4">Vista previa no disponible para este tipo de archivo</p>
                     <button onClick={() => void abrirExterno(viewerFile.url)}
-                      className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-sm rounded-lg transition-colors inline-flex items-center gap-2">
+                      className="px-4 py-2 moon-panel-raised moon-panel-hover moon-panel-ink text-sm rounded-lg transition-colors inline-flex items-center gap-2">
                       <Download className="w-4 h-4" />Abrir / descargar
                     </button>
                   </div>

@@ -27,9 +27,10 @@ export class ProteccionErrores extends React.Component<Props, Estado> {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="moon-error-panel flex flex-col items-center gap-3 py-12 text-center" role="alert">
         <AlertTriangle className="w-6 h-6 text-amber-400" strokeWidth={1.5} />
-        <p className="text-sm font-light text-white">Este panel tuvo un error y no se pudo mostrar.</p>
+        <h2>Este espacio necesita un momento.</h2>
+        <p>No pudimos cargar el panel. Puedes volver a intentarlo.</p>
         <p className="text-xs font-light max-w-md break-words" style={{ color: 'hsl(var(--muted-foreground))' }}>
           {this.state.error.message || 'Error desconocido'} · Si sigue pasando, actualiza la app (puede haber una versión nueva).
         </p>

@@ -1,3 +1,5 @@
+import { panelInk } from '@/lib/panelColors';
+import { EnterpriseFocus } from '@/components/EnterpriseFocus';
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -179,15 +181,15 @@ const CATEGORIAS_EGRESO = [
 ];
 
 const ESTADO_FACTURA_CONFIG = {
-  pendiente: { label: 'Pendiente', color: 'text-yellow-400', bg: 'bg-yellow-950/60', border: 'border-yellow-800/60' },
-  pagada:    { label: 'Pagada',    color: 'text-green-400',  bg: 'bg-green-950/60',  border: 'border-green-800/60'  },
-  vencida:   { label: 'Vencida',   color: 'text-red-400',    bg: 'bg-red-950/60',    border: 'border-red-800/60'    },
-  anulada:   { label: 'Anulada',   color: 'text-zinc-400',   bg: 'bg-zinc-800/60',   border: 'border-zinc-700/60'   },
+  pendiente: { label: 'Pendiente', color: 'moon-panel-tone-amber', bg: 'moon-panel-fill-amber', border: 'border-yellow-800/60' },
+  pagada:    { label: 'Pagada',    color: 'moon-panel-tone-green',  bg: 'moon-panel-fill-green',  border: 'border-green-800/60'  },
+  vencida:   { label: 'Vencida',   color: 'moon-panel-tone-red',    bg: 'moon-panel-fill-red',    border: 'border-red-800/60'    },
+  anulada:   { label: 'Anulada',   color: 'moon-panel-muted',   bg: 'moon-panel-raised',   border: 'moon-panel-border'   },
 };
 
 const ESTADO_SUELDO_CONFIG = {
-  pendiente: { label: 'Pendiente', color: 'text-yellow-400', bg: 'bg-yellow-950/60', border: 'border-yellow-800/60' },
-  pagado:    { label: 'Pagado',    color: 'text-green-400',  bg: 'bg-green-950/60',  border: 'border-green-800/60'  },
+  pendiente: { label: 'Pendiente', color: 'moon-panel-tone-amber', bg: 'moon-panel-fill-amber', border: 'border-yellow-800/60' },
+  pagado:    { label: 'Pagado',    color: 'moon-panel-tone-green',  bg: 'moon-panel-fill-green',  border: 'border-green-800/60'  },
 };
 
 const _PLAN_PE_RAW: { codigo: string; nombre: string; tipo: 'activo' | 'pasivo' | 'patrimonio' | 'ingreso' | 'gasto' }[] = [
@@ -540,11 +542,11 @@ const PLAN_CONTABLE: PlanEntry[] = [
 ];
 
 const TIPO_COLOR: Record<string, string> = {
-  activo:     'text-blue-400',
-  pasivo:     'text-orange-400',
-  patrimonio: 'text-purple-400',
-  ingreso:    'text-emerald-400',
-  gasto:      'text-red-400',
+  activo:     'moon-panel-tone-blue',
+  pasivo:     'moon-panel-tone-orange',
+  patrimonio: 'moon-panel-tone-purple',
+  ingreso:    'moon-panel-tone-green',
+  gasto:      'moon-panel-tone-red',
 };
 
 const MONEDAS_CONFIG: Record<Moneda, { label: string; simbolo: string; locale: string; iso: string; flag: string }> = {
@@ -651,6 +653,7 @@ const aSoles = (amount: number, currency: string, cfg: MonedaConfig): number => 
 const Contador: React.FC = () => {
   const { userProfile, isCEO, isContador } = useAuth();
   const canWrite = isCEO || isContador;
+  const [workspaceTab, setWorkspaceTab] = useState('resumen');
 
   // ── Contabilidad state ──
   const [transacciones,  setTransacciones]  = useState<Transaccion[]>([]);
@@ -1493,68 +1496,59 @@ const Contador: React.FC = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <RefreshCw className="w-8 h-8 animate-spin text-zinc-500" />
+      <RefreshCw className="w-8 h-8 animate-spin moon-panel-muted" />
     </div>
   );
 
   return (
-    <div className="space-y-6">
-     {/* DESPUÉS — todo en un solo header */}
-<div className="flex flex-wrap items-center justify-between gap-3">
-  <h2 className="text-2xl font-extralight text-white flex items-center gap-3">
-    <DollarSign className="w-6 h-6 text-emerald-400" strokeWidth={1.5} />
-    Contabilidad
-  </h2>
-  <div className="flex items-center gap-2">
+    <div className="moon-module moon-module--contador space-y-6">
+      <EnterpriseFocus eyebrow="Finanzas · Control empresarial" title="Contabilidad"
+        description="Prioriza los cobros, revisa la planilla y mantén los movimientos de la empresa al día."
+        metrics={[
+          { label: 'Por cobrar / pagar', value: facturasPendientes, detail: 'Facturas pendientes', onClick: () => { setFacSearch(''); setFacEstado('pendiente'); setWorkspaceTab('facturas'); } },
+          { label: 'Vencidas', value: facturasVencidas, detail: 'Requieren atención', onClick: () => { setFacSearch(''); setFacEstado('vencida'); setWorkspaceTab('facturas'); } },
+          { label: 'Planilla pendiente', value: sueldosPendientes, detail: 'Revisar pagos al equipo', onClick: () => setWorkspaceTab('empleados') },
+        ]}>
     {canWrite && (
-      <Button
-        variant="outline" size="sm"
-        onClick={() => { setMonedaForm(monedaConfig); setShowMonedaModal(true); }}
-        className="border-zinc-800 text-white hover:bg-zinc-900 gap-2 font-extralight"
-      >
-        <span>{MONEDAS_CONFIG[monedaConfig.monedaActiva].flag}</span>
-        <span className="text-zinc-300 text-xs">{MONEDAS_CONFIG[monedaConfig.monedaActiva].simbolo}</span>
-        <span className="text-zinc-500 text-xs">{monedaConfig.monedaActiva}</span>
-      </Button>
+      <>
+        <button type="button" className="enterprise-action enterprise-action--primary" onClick={() => { setWorkspaceTab('transacciones'); setShowTxModal(true); }}><Plus />Registrar movimiento</button>
+        <button type="button" className="enterprise-action" onClick={() => { setMonedaForm(monedaConfig); setShowMonedaModal(true); }}><Settings />Moneda: {monedaConfig.monedaActiva}</button>
+      </>
     )}
-    <Button variant="outline" size="sm" disabled={refreshing} onClick={handleRefresh}
-      className="border-zinc-800 text-white hover:bg-zinc-900">
-      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-    </Button>
-  </div>
-</div>
+        <button type="button" className="enterprise-action" disabled={refreshing} onClick={handleRefresh}><RefreshCw className={refreshing ? 'animate-spin' : ''} />Actualizar</button>
+      </EnterpriseFocus>
 
-      <Tabs defaultValue="resumen">
-        <TabsList className="bg-zinc-950 border border-zinc-800 flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="resumen"       className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+      <Tabs value={workspaceTab} onValueChange={setWorkspaceTab}>
+        <TabsList className="moon-panel-surface border moon-panel-border flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="resumen"       className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <BarChart2 className="w-4 h-4 mr-2" /> Resumen
           </TabsTrigger>
-          <TabsTrigger value="empleados"     className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="empleados"     className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <Users className="w-4 h-4 mr-2" /> Empleados
             {sueldosPendientes > 0 && (
-              <Badge className="ml-2 bg-yellow-950 text-yellow-400 border-yellow-800 text-xs px-1.5 py-0">
+              <Badge className="ml-2 moon-panel-fill-amber moon-panel-tone-amber border-yellow-800 text-xs px-1.5 py-0">
                 {sueldosPendientes}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="transacciones" className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="transacciones" className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <Wallet className="w-4 h-4 mr-2" /> Transacciones
           </TabsTrigger>
-          <TabsTrigger value="facturas"      className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="facturas"      className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <FileText className="w-4 h-4 mr-2" /> Facturas
             {(facturasPendientes + facturasVencidas) > 0 && (
-              <Badge className="ml-2 bg-yellow-950 text-yellow-400 border-yellow-800 text-xs px-1.5 py-0">
+              <Badge className="ml-2 moon-panel-fill-amber moon-panel-tone-amber border-yellow-800 text-xs px-1.5 py-0">
                 {facturasPendientes + facturasVencidas}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="presupuestos"  className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="presupuestos"  className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <Target className="w-4 h-4 mr-2" /> Presupuestos
           </TabsTrigger>
-          <TabsTrigger value="librodiario" className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="librodiario" className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <BookOpen className="w-4 h-4 mr-2" /> Libro Diario
           </TabsTrigger>
-          <TabsTrigger value="librobancos" className="data-[state=active]:bg-zinc-900 text-zinc-400 data-[state=active]:text-white font-extralight">
+          <TabsTrigger value="librobancos" className="moon-panel-active moon-panel-muted moon-panel-active font-extralight">
             <Wallet className="w-4 h-4 mr-2" /> Libro Bancos
           </TabsTrigger>
         </TabsList>
@@ -1564,19 +1558,19 @@ const Contador: React.FC = () => {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: 'Total Ingresos', value: formatMoney(totalIngresos),
-                icon: ArrowUpCircle,   color: 'text-emerald-400', border: 'border-emerald-900/40' },
+                icon: ArrowUpCircle,   color: 'moon-panel-tone-green', border: 'border-emerald-900/40' },
               { label: 'Total Egresos',  value: formatMoney(totalEgresos),
-                icon: ArrowDownCircle, color: 'text-red-400',     border: 'border-red-900/40'     },
+                icon: ArrowDownCircle, color: 'moon-panel-tone-red',     border: 'border-red-900/40'     },
               { label: 'Balance Neto',   value: formatMoney(balance),
-                icon: DollarSign,      color: balance >= 0 ? 'text-emerald-400' : 'text-red-400',
+                icon: DollarSign,      color: balance >= 0 ? 'moon-panel-tone-green' : 'moon-panel-tone-red',
                 border: balance >= 0 ? 'border-emerald-900/40' : 'border-red-900/40' },
               { label: 'Facturas Pendientes', value: facturasPendientes,
-                icon: FileText,        color: 'text-yellow-400', border: 'border-yellow-900/40' },
+                icon: FileText,        color: 'moon-panel-tone-amber', border: 'border-yellow-900/40' },
             ].map(kpi => (
-              <Card key={kpi.label} className={`bg-zinc-950 border-zinc-800 ${kpi.border}`}>
+              <Card data-moon-reveal="card" key={kpi.label} className={`moon-panel-surface moon-panel-border ${kpi.border}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">{kpi.label}</p>
+                    <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">{kpi.label}</p>
                     <kpi.icon className={`w-4 h-4 ${kpi.color}`} strokeWidth={1.5} />
                   </div>
                   <p className={`text-xl font-extralight ${kpi.color}`}>{kpi.value}</p>
@@ -1585,9 +1579,9 @@ const Contador: React.FC = () => {
             ))}
           </div>
 
-          <Card className="bg-zinc-950 border-zinc-800">
+          <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-zinc-400 font-extralight text-sm uppercase tracking-wider">
+              <CardTitle className="moon-panel-muted font-extralight text-sm uppercase tracking-wider">
                 Ingresos vs Egresos por mes · {anioActual}
               </CardTitle>
             </CardHeader>
@@ -1599,11 +1593,11 @@ const Contador: React.FC = () => {
                   <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false}
                     tickFormatter={v => `S/ ${(v/1000).toFixed(0)}k`} />
                   <Tooltip
-                    contentStyle={{ background: '#09090b', border: '1px solid #27272a', borderRadius: 8 }}
-                    labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
+                    contentStyle={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)', borderRadius: 12, color: 'var(--moon-ink)' }}
+                    labelStyle={{ color: 'var(--moon-muted)', fontSize: 12 }}
                     formatter={(val: number) => [formatMoney(val)]}
                   />
-                  <Legend formatter={v => <span style={{ color: '#71717a', fontSize: 11 }}>{v}</span>} />
+                  <Legend formatter={v => <span style={{ color: "var(--moon-muted)", fontSize: 11 }}>{v}</span>} />
                   <Bar dataKey="ingresos" name="Ingresos" fill="#34d399" radius={[4,4,0,0]} />
                   <Bar dataKey="egresos"  name="Egresos"  fill="#f87171" radius={[4,4,0,0]} />
                 </BarChart>
@@ -1612,9 +1606,9 @@ const Contador: React.FC = () => {
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-zinc-950 border-zinc-800">
+            <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-zinc-400 font-extralight text-sm uppercase tracking-wider">
+                <CardTitle className="moon-panel-muted font-extralight text-sm uppercase tracking-wider">
                   Evolución del balance · {anioActual}
                 </CardTitle>
               </CardHeader>
@@ -1626,7 +1620,7 @@ const Contador: React.FC = () => {
                     <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false}
                       tickFormatter={v => `S/ ${(v/1000).toFixed(0)}k`} />
                     <Tooltip
-                      contentStyle={{ background: '#09090b', border: '1px solid #27272a', borderRadius: 8 }}
+                      contentStyle={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)', borderRadius: 12, color: 'var(--moon-ink)' }}
                       formatter={(val: number) => [formatMoney(val), 'Balance']}
                     />
                     <Line type="monotone" dataKey="balance" stroke="#a78bfa"
@@ -1636,15 +1630,15 @@ const Contador: React.FC = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-zinc-950 border-zinc-800">
+            <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-zinc-400 font-extralight text-sm uppercase tracking-wider">
+                <CardTitle className="moon-panel-muted font-extralight text-sm uppercase tracking-wider">
                   Egresos por categoría
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {catData.length === 0 ? (
-                  <p className="text-zinc-600 text-sm font-extralight text-center py-8">Sin egresos registrados</p>
+                  <p className="moon-panel-muted text-sm font-extralight text-center py-8">Sin egresos registrados</p>
                 ) : (
                   <div className="space-y-3">
                     {catData.sort((a,b) => b.monto - a.monto).slice(0,6).map(c => {
@@ -1653,10 +1647,10 @@ const Contador: React.FC = () => {
                       return (
                         <div key={c.cat}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-zinc-400 text-xs font-extralight">{c.cat}</span>
-                            <span className="text-zinc-300 text-xs font-extralight">{formatMoney(c.monto)}</span>
+                            <span className="moon-panel-muted text-xs font-extralight">{c.cat}</span>
+                            <span className="moon-panel-muted text-xs font-extralight">{formatMoney(c.monto)}</span>
                           </div>
-                          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-1.5 moon-panel-raised rounded-full overflow-hidden">
                             <div className="h-full bg-red-500/70 rounded-full" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
@@ -1672,38 +1666,38 @@ const Contador: React.FC = () => {
         {/* ══ EMPLEADOS ════════════════════════════════════════════════════════ */}
         <TabsContent value="empleados" className="mt-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="bg-zinc-950 border-zinc-800 border-blue-900/30">
+            <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border border-blue-900/30">
               <CardContent className="p-4">
-                <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">Total empleados</p>
-                <p className="text-2xl font-extralight text-white mt-1">{empleados.length}</p>
+                <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">Total empleados</p>
+                <p className="text-2xl font-extralight moon-panel-ink mt-1">{empleados.length}</p>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-950 border-zinc-800 border-yellow-900/30">
+            <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border border-yellow-900/30">
               <CardContent className="p-4">
-                <p className="text-yellow-400 text-xs font-extralight uppercase tracking-wider">Sueldos pendientes</p>
-                <p className="text-2xl font-extralight text-white mt-1">{sueldosPendientes}</p>
+                <p className="moon-panel-tone-amber text-xs font-extralight uppercase tracking-wider">Sueldos pendientes</p>
+                <p className="text-2xl font-extralight moon-panel-ink mt-1">{sueldosPendientes}</p>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-950 border-zinc-800 border-emerald-900/30">
+            <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border border-emerald-900/30">
               <CardContent className="p-4">
-                <p className="text-emerald-400 text-xs font-extralight uppercase tracking-wider">Planilla este mes</p>
-                <p className="text-xl font-extralight text-emerald-400 mt-1">{formatMoney(totalPlanillaMes)}</p>
+                <p className="moon-panel-tone-green text-xs font-extralight uppercase tracking-wider">Planilla este mes</p>
+                <p className="text-xl font-extralight moon-panel-tone-green mt-1">{formatMoney(totalPlanillaMes)}</p>
               </CardContent>
             </Card>
           </div>
 
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" />
             <Input value={empSearch} onChange={e => setEmpSearch(e.target.value)}
-              placeholder="Buscar empleado..." className="pl-9 bg-zinc-900 border-zinc-800 text-white font-extralight" />
+              placeholder="Buscar empleado..." className="pl-9 moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
           </div>
 
-          <Card className="bg-zinc-950 border-zinc-800">
+          <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
             <CardContent className="p-0">
               {empFiltrados.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Users className="w-8 h-8 text-zinc-700 mx-auto mb-2" strokeWidth={1} />
-                  <p className="text-zinc-500 font-extralight text-sm">Sin empleados</p>
+                  <Users className="w-8 h-8 moon-panel-muted mx-auto mb-2" strokeWidth={1} />
+                  <p className="moon-panel-muted font-extralight text-sm">Sin empleados</p>
                 </div>
               ) : empFiltrados.map(emp => {
                 const sueldosEmp    = sueldos.filter(s => s.empleadoUid === emp.uid);
@@ -1711,29 +1705,29 @@ const Contador: React.FC = () => {
                 const pendientesEmp = sueldosEmp.filter(s => s.estado === 'pendiente').length;
                 return (
                   <div key={emp.uid}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/30 transition-colors">
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b moon-panel-border last:border-0 moon-panel-hover transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-full moon-panel-raised border moon-panel-border overflow-hidden flex items-center justify-center flex-shrink-0">
                         {emp.avatar
                           ? <img src={emp.avatar} alt={emp.displayName} className="w-full h-full object-cover"
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          : <span className="text-white font-extralight text-sm">{emp.displayName?.[0]?.toUpperCase()}</span>
+                          : <span className="moon-panel-ink font-extralight text-sm">{emp.displayName?.[0]?.toUpperCase()}</span>
                         }
                       </div>
                       <div>
-                        <p className="text-white font-extralight text-sm">{emp.displayName}</p>
+                        <p className="moon-panel-ink font-extralight text-sm">{emp.displayName}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-zinc-500 text-xs font-extralight">{emp.role}</span>
+                          <span className="moon-panel-muted text-xs font-extralight">{emp.role}</span>
                           {ultimoSueldo && (
                             <>
-                              <span className="text-zinc-700 text-xs">·</span>
-                              <span className="text-zinc-500 text-xs font-extralight">
+                              <span className="moon-panel-muted text-xs">·</span>
+                              <span className="moon-panel-muted text-xs font-extralight">
                                 Último: {formatMoney(ultimoSueldo.netoAPagar || ultimoSueldo.montoBase)}
                               </span>
                             </>
                           )}
                           {pendientesEmp > 0 && (
-                            <Badge className="bg-yellow-950/60 text-yellow-400 border border-yellow-800/60 font-extralight text-[10px] px-1.5 py-0">
+                            <Badge className="moon-panel-fill-amber moon-panel-tone-amber border border-yellow-800/60 font-extralight text-[10px] px-1.5 py-0">
                               {pendientesEmp} pendiente{pendientesEmp > 1 ? 's' : ''}
                             </Badge>
                           )}
@@ -1744,18 +1738,18 @@ const Contador: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm"
                         onClick={() => { setContractEmp(emp); setShowContractModal(true); }}
-                        className="text-zinc-500 hover:text-white hover:bg-zinc-800 text-xs font-extralight gap-1.5"
+                        className="moon-panel-muted moon-panel-hover moon-panel-hover text-xs font-extralight gap-1.5"
                         title="Ver contratos">
                         <FileText className="w-3.5 h-3.5" /> Contrato
                       </Button>
 
                       <Button variant="ghost" size="sm"
                         onClick={() => { setSelectedEmp(emp); setShowEmpDetail(true); }}
-                        className="text-zinc-500 hover:text-white hover:bg-zinc-800 text-xs font-extralight gap-1.5">
+                        className="moon-panel-muted moon-panel-hover moon-panel-hover text-xs font-extralight gap-1.5">
                         <CreditCard className="w-3.5 h-3.5" /> Sueldos
                       </Button>
 
-                      <ChevronRight className="w-4 h-4 text-zinc-700" />
+                      <ChevronRight className="w-4 h-4 moon-panel-muted" />
                     </div>
                   </div>
                 );
@@ -1769,25 +1763,25 @@ const Contador: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="flex gap-2 flex-wrap">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" />
                 <Input value={txSearch} onChange={e => setTxSearch(e.target.value)}
-                  placeholder="Buscar..." className="pl-9 bg-zinc-900 border-zinc-800 text-white font-extralight w-48" />
+                  placeholder="Buscar..." className="pl-9 moon-panel-surface moon-panel-border moon-panel-ink font-extralight w-48" />
               </div>
               <Select value={txFiltro} onValueChange={(v: any) => setTxFiltro(v)}>
-                <SelectTrigger className="w-36 bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="w-36 moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="todos" className="font-extralight">Todos</SelectItem>
                   <SelectItem value="ingreso" className="font-extralight">Ingresos</SelectItem>
                   <SelectItem value="egreso"  className="font-extralight">Egresos</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={txCatFiltro} onValueChange={setTxCatFiltro}>
-                <SelectTrigger className="w-40 bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="w-40 moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="todas" className="font-extralight">Todas las categorías</SelectItem>
                   {[...CATEGORIAS_INGRESO, ...CATEGORIAS_EGRESO].map(c => (
                     <SelectItem key={c} value={c} className="font-extralight">{c}</SelectItem>
@@ -1797,7 +1791,7 @@ const Contador: React.FC = () => {
             </div>
             {canWrite && (
               <Button onClick={() => setShowTxModal(true)}
-                className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+                className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
                 <Plus className="w-4 h-4" /> Nueva Transacción
               </Button>
             )}
@@ -1805,59 +1799,59 @@ const Contador: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { label: 'Mostradas', value: txFiltradas.length, color: 'text-white' },
-              { label: 'Ingresos filtrados', value: formatMoney(txFiltradas.filter(t=>t.tipo==='ingreso').reduce((a,t)=>a+t.monto,0)), color: 'text-emerald-400' },
-              { label: 'Egresos filtrados',  value: formatMoney(txFiltradas.filter(t=>t.tipo==='egreso').reduce((a,t)=>a+t.monto,0)),  color: 'text-red-400'     },
+              { label: 'Mostradas', value: txFiltradas.length, color: 'moon-panel-ink' },
+              { label: 'Ingresos filtrados', value: formatMoney(txFiltradas.filter(t=>t.tipo==='ingreso').reduce((a,t)=>a+t.monto,0)), color: 'moon-panel-tone-green' },
+              { label: 'Egresos filtrados',  value: formatMoney(txFiltradas.filter(t=>t.tipo==='egreso').reduce((a,t)=>a+t.monto,0)),  color: 'moon-panel-tone-red'     },
             ].map(s => (
-              <Card key={s.label} className="bg-zinc-950 border-zinc-800">
+              <Card data-moon-reveal="card" key={s.label} className="moon-panel-surface moon-panel-border">
                 <CardContent className="p-3">
-                  <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">{s.label}</p>
+                  <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">{s.label}</p>
                   <p className={`text-lg font-extralight mt-0.5 ${s.color}`}>{s.value}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <Card className="bg-zinc-950 border-zinc-800">
+          <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
             <CardContent className="p-0">
               {txFiltradas.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Wallet className="w-8 h-8 text-zinc-700 mx-auto mb-2" strokeWidth={1} />
-                  <p className="text-zinc-500 font-extralight text-sm">Sin transacciones</p>
+                  <Wallet className="w-8 h-8 moon-panel-muted mx-auto mb-2" strokeWidth={1} />
+                  <p className="moon-panel-muted font-extralight text-sm">Sin transacciones</p>
                 </div>
               ) : txFiltradas.map(t => (
                 <div key={t.id}
-                  className="flex items-center justify-between px-4 py-3 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/30 transition-colors">
+                  className="flex items-center justify-between px-4 py-3 border-b moon-panel-border last:border-0 moon-panel-hover transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      t.tipo === 'ingreso' ? 'bg-emerald-950/60 border border-emerald-800/60' : 'bg-red-950/60 border border-red-800/60'
+                      t.tipo === 'ingreso' ? 'moon-panel-fill-green border border-emerald-800/60' : 'moon-panel-fill-red border border-red-800/60'
                     }`}>
                       {t.tipo === 'ingreso'
-                        ? <TrendingUp className="w-4 h-4 text-emerald-400"  strokeWidth={1.5} />
-                        : <TrendingDown className="w-4 h-4 text-red-400"     strokeWidth={1.5} />
+                        ? <TrendingUp className="w-4 h-4 moon-panel-tone-green"  strokeWidth={1.5} />
+                        : <TrendingDown className="w-4 h-4 moon-panel-tone-red"     strokeWidth={1.5} />
                       }
                     </div>
                     <div>
-                      <p className="text-white font-extralight text-sm">{t.descripcion}</p>
+                      <p className="moon-panel-ink font-extralight text-sm">{t.descripcion}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-zinc-500 text-xs font-extralight">{t.categoria}</span>
-                        <span className="text-zinc-700 text-xs">·</span>
-                        <span className="text-zinc-600 text-xs font-extralight">
+                        <span className="moon-panel-muted text-xs font-extralight">{t.categoria}</span>
+                        <span className="moon-panel-muted text-xs">·</span>
+                        <span className="moon-panel-muted text-xs font-extralight">
                           {format(toDate(t.fecha), 'dd MMM yyyy', { locale: es })}
                         </span>
-                        <span className="text-zinc-700 text-xs">·</span>
-                        <span className="text-zinc-600 text-xs font-extralight">{t.creadoPorNombre}</span>
+                        <span className="moon-panel-muted text-xs">·</span>
+                        <span className="moon-panel-muted text-xs font-extralight">{t.creadoPorNombre}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`font-extralight text-sm ${t.tipo === 'ingreso' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span className={`font-extralight text-sm ${t.tipo === 'ingreso' ? 'moon-panel-tone-green' : 'moon-panel-tone-red'}`}>
                       {t.tipo === 'ingreso' ? '+' : '-'}{formatMoney(t.monto)}
                     </span>
                     {canWrite && (
                       <Button variant="ghost" size="sm"
                         onClick={() => handleDelete('contabilidad_transacciones', t.id)}
-                        className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30">
+                        className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30">
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     )}
@@ -1871,14 +1865,14 @@ const Contador: React.FC = () => {
         {/* ══ FACTURAS ═════════════════════════════════════════════════════════ */}
         <TabsContent value="facturas" className="mt-6 space-y-5">
           {companyConfig.empresaNombre ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-zinc-900/60 border border-zinc-800 rounded-lg">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 moon-panel-surface border moon-panel-border rounded-lg">
               <div className="flex items-center gap-3">
                 {companyConfig.logoUrl && (
                   <img src={companyConfig.logoUrl} alt="logo" className="h-8 w-auto object-contain rounded" />
                 )}
                 <div>
-                  <p className="text-white font-extralight text-sm">{companyConfig.empresaNombre}</p>
-                  <p className="text-zinc-500 text-xs font-extralight">
+                  <p className="moon-panel-ink font-extralight text-sm">{companyConfig.empresaNombre}</p>
+                  <p className="moon-panel-muted text-xs font-extralight">
                     {companyConfig.ruc && `RUC ${companyConfig.ruc}`}
                     {companyConfig.ruc && companyConfig.direccion && ' · '}
                     {companyConfig.direccion}
@@ -1888,14 +1882,14 @@ const Contador: React.FC = () => {
               {canWrite && (
                 <Button variant="ghost" size="sm"
                   onClick={() => { setConfigForm(companyConfig); setShowConfigModal(true); }}
-                  className="text-zinc-500 hover:text-white hover:bg-zinc-800 gap-1.5 font-extralight text-xs">
+                  className="moon-panel-muted moon-panel-hover moon-panel-hover gap-1.5 font-extralight text-xs">
                   <Settings className="w-3.5 h-3.5" /> Editar
                 </Button>
               )}
             </div>
           ) : canWrite && (
             <button onClick={() => setShowConfigModal(true)}
-              className="w-full flex items-center gap-3 p-3 border border-dashed border-zinc-700 rounded-lg text-zinc-500 hover:text-white hover:border-zinc-500 transition-colors">
+              className="w-full flex items-center gap-3 p-3 border border-dashed moon-panel-border rounded-lg moon-panel-muted moon-panel-hover hover:border-zinc-500 transition-colors">
               <Building2 className="w-4 h-4" />
               <span className="text-sm font-extralight">Configurar datos de empresa para los PDFs</span>
             </button>
@@ -1904,15 +1898,15 @@ const Contador: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="flex gap-2 flex-wrap">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" />
                 <Input value={facSearch} onChange={e => setFacSearch(e.target.value)}
-                  placeholder="Buscar..." className="pl-9 bg-zinc-900 border-zinc-800 text-white font-extralight w-48" />
+                  placeholder="Buscar..." className="pl-9 moon-panel-surface moon-panel-border moon-panel-ink font-extralight w-48" />
               </div>
               <Select value={facEstado} onValueChange={(v: any) => setFacEstado(v)}>
-                <SelectTrigger className="w-40 bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="w-40 moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="todos"    className="font-extralight">Todos los estados</SelectItem>
                   <SelectItem value="pendiente" className="font-extralight">Pendiente</SelectItem>
                   <SelectItem value="pagada"    className="font-extralight">Pagada</SelectItem>
@@ -1923,49 +1917,49 @@ const Contador: React.FC = () => {
             </div>
             {canWrite && (
               <Button onClick={() => setShowFacModal(true)}
-                className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+                className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
                 <Plus className="w-4 h-4" /> Nueva Factura
               </Button>
             )}
           </div>
 
           {facturasVencidas > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-              <p className="text-red-400 text-sm font-extralight">
+            <div className="flex items-center gap-3 p-3 moon-panel-fill-red border border-red-900/50 rounded-lg">
+              <AlertCircle className="w-4 h-4 moon-panel-tone-red flex-shrink-0" />
+              <p className="moon-panel-tone-red text-sm font-extralight">
                 {facturasVencidas} factura{facturasVencidas > 1 ? 's' : ''} vencida{facturasVencidas > 1 ? 's' : ''}
               </p>
             </div>
           )}
 
-          <Card className="bg-zinc-950 border-zinc-800">
+          <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
             <CardContent className="p-0">
               {facFiltradas.length === 0 ? (
                 <div className="py-12 text-center">
-                  <FileText className="w-8 h-8 text-zinc-700 mx-auto mb-2" strokeWidth={1} />
-                  <p className="text-zinc-500 font-extralight text-sm">Sin facturas</p>
+                  <FileText className="w-8 h-8 moon-panel-muted mx-auto mb-2" strokeWidth={1} />
+                  <p className="moon-panel-muted font-extralight text-sm">Sin facturas</p>
                 </div>
               ) : facFiltradas.map(f => {
                 const cfg = ESTADO_FACTURA_CONFIG[f.estado];
                 return (
                   <div key={f.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/30 transition-colors">
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b moon-panel-border last:border-0 moon-panel-hover transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-4 h-4 text-zinc-500" strokeWidth={1.5} />
+                      <div className="w-9 h-9 rounded-lg moon-panel-surface border moon-panel-border flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 moon-panel-muted" strokeWidth={1.5} />
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-white font-extralight text-sm">{f.entidad}</p>
-                          <span className="text-zinc-600 text-xs font-extralight">#{f.numero}</span>
+                          <p className="moon-panel-ink font-extralight text-sm">{f.entidad}</p>
+                          <span className="moon-panel-muted text-xs font-extralight">#{f.numero}</span>
                           <Badge className="text-[10px] px-1.5 py-0 font-extralight" variant="outline">
                             {f.tipoEntidad}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-zinc-500 text-xs font-extralight">{f.descripcion}</span>
-                          <span className="text-zinc-700 text-xs">·</span>
-                          <span className="text-zinc-600 text-xs font-extralight">
+                          <span className="moon-panel-muted text-xs font-extralight">{f.descripcion}</span>
+                          <span className="moon-panel-muted text-xs">·</span>
+                          <span className="moon-panel-muted text-xs font-extralight">
                             {format(toDate(f.fecha), 'dd MMM yyyy', { locale: es })}
                           </span>
                         </div>
@@ -1974,13 +1968,13 @@ const Contador: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-extralight text-sm">{formatMoney(f.monto)}</span>
+                      <span className="moon-panel-ink font-extralight text-sm">{formatMoney(f.monto)}</span>
 
                       <Button variant="ghost" size="sm"
                         onClick={() => handleDownloadPDF(f)}
                         disabled={generatingPdf === f.id}
                         title="Descargar PDF"
-                        className="text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/30">
+                        className="moon-panel-muted hover:text-emerald-400 hover:bg-emerald-950/30">
                         {generatingPdf === f.id
                           ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                           : <Download className="w-3.5 h-3.5" />
@@ -1992,11 +1986,11 @@ const Contador: React.FC = () => {
                           <SelectTrigger className={`w-28 h-7 text-xs font-extralight border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-zinc-800">
-                            <SelectItem value="pendiente" className="font-extralight text-yellow-400">Pendiente</SelectItem>
-                            <SelectItem value="pagada"    className="font-extralight text-green-400">Pagada</SelectItem>
-                            <SelectItem value="vencida"   className="font-extralight text-red-400">Vencida</SelectItem>
-                            <SelectItem value="anulada"   className="font-extralight text-zinc-400">Anulada</SelectItem>
+                          <SelectContent className="moon-panel-surface moon-panel-border">
+                            <SelectItem value="pendiente" className="font-extralight moon-panel-tone-amber">Pendiente</SelectItem>
+                            <SelectItem value="pagada"    className="font-extralight moon-panel-tone-green">Pagada</SelectItem>
+                            <SelectItem value="vencida"   className="font-extralight moon-panel-tone-red">Vencida</SelectItem>
+                            <SelectItem value="anulada"   className="font-extralight moon-panel-muted">Anulada</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
@@ -2008,7 +2002,7 @@ const Contador: React.FC = () => {
                       {canWrite && (
                         <Button variant="ghost" size="sm"
                           onClick={() => handleDelete('contabilidad_facturas', f.id)}
-                          className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30">
+                          className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30">
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       )}
@@ -2023,12 +2017,12 @@ const Contador: React.FC = () => {
         {/* ══ PRESUPUESTOS ═════════════════════════════════════════════════════ */}
         <TabsContent value="presupuestos" className="mt-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-zinc-500 font-extralight text-sm">
+            <p className="moon-panel-muted font-extralight text-sm">
               {presupuestos.length} presupuesto{presupuestos.length !== 1 ? 's' : ''} activos
             </p>
             {canWrite && (
               <Button onClick={() => { setEditPresId(null); setShowPresModal(true); }}
-                className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+                className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
                 <Plus className="w-4 h-4" /> Nuevo Presupuesto
               </Button>
             )}
@@ -2036,8 +2030,8 @@ const Contador: React.FC = () => {
 
           {presupuestos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Target className="w-8 h-8 text-zinc-700 mb-2" strokeWidth={1} />
-              <p className="text-zinc-500 font-extralight text-sm">Sin presupuestos creados</p>
+              <Target className="w-8 h-8 moon-panel-muted mb-2" strokeWidth={1} />
+              <p className="moon-panel-muted font-extralight text-sm">Sin presupuestos creados</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2047,15 +2041,15 @@ const Contador: React.FC = () => {
                 const libre = Math.max(p.montoAsignado - usado, 0);
                 const over  = usado > p.montoAsignado;
                 return (
-                  <Card key={p.id} className={`bg-zinc-950 border-zinc-800 ${over ? 'border-red-900/50' : ''}`}>
+                  <Card data-moon-reveal="card" key={p.id} className={`moon-panel-surface moon-panel-border ${over ? 'border-red-900/50' : ''}`}>
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-white font-extralight">{p.nombre}</p>
+                          <p className="moon-panel-ink font-extralight">{p.nombre}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-zinc-500 text-xs font-extralight">{p.categoria}</span>
-                            <span className="text-zinc-700 text-xs">·</span>
-                            <span className="text-zinc-600 text-xs font-extralight">{p.periodo}</span>
+                            <span className="moon-panel-muted text-xs font-extralight">{p.categoria}</span>
+                            <span className="moon-panel-muted text-xs">·</span>
+                            <span className="moon-panel-muted text-xs font-extralight">{p.periodo}</span>
                           </div>
                         </div>
                         {canWrite && (
@@ -2071,12 +2065,12 @@ const Contador: React.FC = () => {
                                 });
                                 setShowPresModal(true);
                               }}
-                              className="text-zinc-600 hover:text-white hover:bg-zinc-800 h-7 w-7 p-0">
+                              className="moon-panel-muted moon-panel-hover moon-panel-hover h-7 w-7 p-0">
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
                             <Button variant="ghost" size="sm"
                               onClick={() => handleDelete('contabilidad_presupuestos', p.id)}
-                              className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
+                              className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
@@ -2085,14 +2079,14 @@ const Contador: React.FC = () => {
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs font-extralight">
-                          <span className={over ? 'text-red-400' : 'text-zinc-400'}>
+                          <span className={over ? 'moon-panel-tone-red' : 'moon-panel-muted'}>
                             Usado: {formatMoney(usado)}
                           </span>
-                          <span className="text-zinc-500">
+                          <span className="moon-panel-muted">
                             Asignado: {formatMoney(p.montoAsignado)}
                           </span>
                         </div>
-                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-2 moon-panel-raised rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${
                               over ? 'bg-red-500' : pct > 80 ? 'bg-yellow-500' : 'bg-emerald-500'
@@ -2101,10 +2095,10 @@ const Contador: React.FC = () => {
                           />
                         </div>
                         <div className="flex items-center justify-between text-xs font-extralight">
-                          <span className={`${over ? 'text-red-400' : 'text-zinc-500'}`}>
+                          <span className={`${over ? 'moon-panel-tone-red' : 'moon-panel-muted'}`}>
                             {pct.toFixed(0)}% utilizado
                           </span>
-                          <span className={over ? 'text-red-400' : 'text-emerald-400'}>
+                          <span className={over ? 'moon-panel-tone-red' : 'moon-panel-tone-green'}>
                             {over ? `Excedido en ${formatMoney(usado - p.montoAsignado)}` : `Libre: ${formatMoney(libre)}`}
                           </span>
                         </div>
@@ -2120,18 +2114,18 @@ const Contador: React.FC = () => {
         <TabsContent value="librodiario" className="mt-6 space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'N° Asientos',  value: asientos.length,            color: 'text-white'      },
-              { label: 'Total Debe',   value: formatMoney(totalDebeLibro), color: 'text-blue-400'   },
-              { label: 'Total Haber',  value: formatMoney(totalHaberLibro),color: 'text-purple-400' },
+              { label: 'N° Asientos',  value: asientos.length,            color: 'moon-panel-ink'      },
+              { label: 'Total Debe',   value: formatMoney(totalDebeLibro), color: 'moon-panel-tone-blue'   },
+              { label: 'Total Haber',  value: formatMoney(totalHaberLibro),color: 'moon-panel-tone-purple' },
               {
                 label: Math.abs(totalDebeLibro - totalHaberLibro) < 0.01 ? '✓ Libro cuadrado' : '⚠ Revisar',
                 value: `${asientosFiltrados.length} mostrados`,
-                color: Math.abs(totalDebeLibro - totalHaberLibro) < 0.01 ? 'text-emerald-400' : 'text-yellow-400',
+                color: Math.abs(totalDebeLibro - totalHaberLibro) < 0.01 ? 'moon-panel-tone-green' : 'moon-panel-tone-amber',
               },
             ].map(kpi => (
-              <Card key={kpi.label} className="bg-zinc-950 border-zinc-800">
+              <Card data-moon-reveal="card" key={kpi.label} className="moon-panel-surface moon-panel-border">
                 <CardContent className="p-4">
-                  <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">{kpi.label}</p>
+                  <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">{kpi.label}</p>
                   <p className={`text-lg font-extralight mt-1 ${kpi.color}`}>{kpi.value}</p>
                 </CardContent>
               </Card>
@@ -2141,19 +2135,19 @@ const Contador: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="flex gap-2 flex-wrap">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" />
                 <Input
                   value={asientoSearch}
                   onChange={e => setAsientoSearch(e.target.value)}
                   placeholder="Buscar cuenta, glosa..."
-                  className="pl-9 bg-zinc-900 border-zinc-800 text-white font-extralight w-52"
+                  className="pl-9 moon-panel-surface moon-panel-border moon-panel-ink font-extralight w-52"
                 />
               </div>
               <Select value={asientoFiltroMes} onValueChange={setAsientoFiltroMes}>
-                <SelectTrigger className="w-40 bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="w-40 moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="todos" className="font-extralight">Todos los meses</SelectItem>
                   {[new Date().getFullYear(), new Date().getFullYear() - 1].flatMap(anio =>
   Array.from({ length: 12 }, (_, i) => {
@@ -2169,7 +2163,7 @@ const Contador: React.FC = () => {
               </Select>
             </div>
             {canWrite && (
-              <Button onClick={() => setShowAsientoModal(true)} className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+              <Button onClick={() => setShowAsientoModal(true)} className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
                 <Plus className="w-4 h-4" /> Nuevo Asiento
               </Button>
             )}
@@ -2186,8 +2180,8 @@ const Contador: React.FC = () => {
 
           {asientosFiltrados.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <BookOpen className="w-8 h-8 text-zinc-700 mb-2" strokeWidth={1} />
-              <p className="text-zinc-500 font-extralight text-sm">Sin asientos registrados</p>
+              <BookOpen className="w-8 h-8 moon-panel-muted mb-2" strokeWidth={1} />
+              <p className="moon-panel-muted font-extralight text-sm">Sin asientos registrados</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -2195,46 +2189,46 @@ const Contador: React.FC = () => {
                 const isExpanded = expandedAsiento === asiento.id;
                 const cuadrado   = Math.abs(asiento.totalDebe - asiento.totalHaber) < 0.01;
                 return (
-                  <Card key={asiento.id} className={`bg-zinc-950 border-zinc-800 ${!cuadrado ? 'border-red-900/60' : ''}`}>
+                  <Card data-moon-reveal="card" key={asiento.id} className={`moon-panel-surface moon-panel-border ${!cuadrado ? 'border-red-900/60' : ''}`}>
                     <CardContent className="p-0">
                       <button
                         type="button"
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-900/40 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-4 py-3 moon-panel-hover transition-colors text-left"
                         onClick={() => setExpandedAsiento(isExpanded ? null : asiento.id)}
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-8 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center flex-shrink-0">
-                            <span className="text-zinc-300 font-extralight text-xs">#{asiento.numero}</span>
+                          <div className="w-12 h-8 rounded-md moon-panel-raised border moon-panel-border flex items-center justify-center flex-shrink-0">
+                            <span className="moon-panel-muted font-extralight text-xs">#{asiento.numero}</span>
                           </div>
                           <div>
-                            <p className="text-white font-extralight text-sm">{asiento.glosa}</p>
+                            <p className="moon-panel-ink font-extralight text-sm">{asiento.glosa}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-zinc-500 text-xs font-extralight">
+                              <span className="moon-panel-muted text-xs font-extralight">
                                 {format(toDate(asiento.fecha), "dd 'de' MMMM yyyy", { locale: es })}
                               </span>
-                              <span className="text-zinc-700 text-xs">·</span>
-                              <span className="text-zinc-600 text-xs font-extralight">{asiento.lineas?.length || 0} líneas</span>
+                              <span className="moon-panel-muted text-xs">·</span>
+                              <span className="moon-panel-muted text-xs font-extralight">{asiento.lineas?.length || 0} líneas</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right hidden sm:block">
-                            <p className="text-blue-400 font-extralight text-sm">{formatMoney(asiento.totalDebe)}</p>
-                            <p className="text-zinc-600 text-xs font-extralight">Debe</p>
+                            <p className="moon-panel-tone-blue font-extralight text-sm">{formatMoney(asiento.totalDebe)}</p>
+                            <p className="moon-panel-muted text-xs font-extralight">Debe</p>
                           </div>
                           <div className="text-right hidden sm:block">
-                            <p className="text-purple-400 font-extralight text-sm">{formatMoney(asiento.totalHaber)}</p>
-                            <p className="text-zinc-600 text-xs font-extralight">Haber</p>
+                            <p className="moon-panel-tone-purple font-extralight text-sm">{formatMoney(asiento.totalHaber)}</p>
+                            <p className="moon-panel-muted text-xs font-extralight">Haber</p>
                           </div>
                           {cuadrado
-                            ? <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" strokeWidth={1.5} />
-                            : <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0"    strokeWidth={1.5} />
+                            ? <CheckCircle className="w-4 h-4 moon-panel-tone-green flex-shrink-0" strokeWidth={1.5} />
+                            : <AlertCircle className="w-4 h-4 moon-panel-tone-red flex-shrink-0"    strokeWidth={1.5} />
                           }
-                          <ChevronRight className={`w-4 h-4 text-zinc-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`w-4 h-4 moon-panel-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                           {canWrite && (
                             <Button variant="ghost" size="sm"
                               onClick={e => { e.stopPropagation(); handleDelete('contabilidad_asientos', asiento.id); }}
-                              className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
+                              className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           )}
@@ -2242,8 +2236,8 @@ const Contador: React.FC = () => {
                       </button>
 
                       {isExpanded && (
-                        <div className="border-t border-zinc-800">
-                          <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-zinc-900/60 text-xs font-extralight uppercase tracking-wider text-zinc-500">
+                        <div className="border-t moon-panel-border">
+                          <div className="grid grid-cols-12 gap-2 px-4 py-2 moon-panel-surface text-xs font-extralight uppercase tracking-wider moon-panel-muted">
                             <div className="col-span-2">Cuenta</div>
                             <div className="col-span-5">Descripción</div>
                             <div className="col-span-2 text-right">Debe</div>
@@ -2253,48 +2247,48 @@ const Contador: React.FC = () => {
                           {asiento.lineas?.map((linea, idx) => {
                             const tipo = PLAN_CONTABLE.find(p => p.codigo === linea.cuentaCodigo)?.tipo;
                             return (
-                              <div key={idx} className="grid grid-cols-12 gap-2 px-4 py-2.5 border-t border-zinc-900 hover:bg-zinc-900/20">
+                              <div key={idx} className="grid grid-cols-12 gap-2 px-4 py-2.5 border-t moon-panel-border moon-panel-hover">
                                 <div className="col-span-2 flex items-center">
-                                  <span className={`font-mono text-xs ${tipo ? TIPO_COLOR[tipo] : 'text-zinc-400'}`}>
+                                  <span className={`font-mono text-xs ${tipo ? TIPO_COLOR[tipo] : 'moon-panel-muted'}`}>
                                     {linea.cuentaCodigo}
                                   </span>
                                 </div>
                                 <div className="col-span-5">
-  <p className="text-zinc-300 font-extralight text-xs">
-    {linea.cuentaNombre || <span className="text-zinc-600 italic">Sin cuenta PCGE</span>}
+  <p className="moon-panel-muted font-extralight text-xs">
+    {linea.cuentaNombre || <span className="moon-panel-muted italic">Sin cuenta PCGE</span>}
   </p>
   {linea.glosa && linea.glosa !== asiento.glosa && (
-    <p className="text-zinc-600 font-extralight text-[10px] mt-0.5">{linea.glosa}</p>
+    <p className="moon-panel-muted font-extralight text-[10px] mt-0.5">{linea.glosa}</p>
   )}
 </div>
                                 <div className="col-span-2 text-right">
                                   {linea.debe > 0
-                                    ? <span className="text-blue-400 font-extralight text-sm">{formatMoney(linea.debe)}</span>
-                                    : <span className="text-zinc-700 text-xs">—</span>}
+                                    ? <span className="moon-panel-tone-blue font-extralight text-sm">{formatMoney(linea.debe)}</span>
+                                    : <span className="moon-panel-muted text-xs">—</span>}
                                 </div>
                                 <div className="col-span-2 text-right">
                                   {linea.haber > 0
-                                    ? <span className="text-purple-400 font-extralight text-sm">{formatMoney(linea.haber)}</span>
-                                    : <span className="text-zinc-700 text-xs">—</span>}
+                                    ? <span className="moon-panel-tone-purple font-extralight text-sm">{formatMoney(linea.haber)}</span>
+                                    : <span className="moon-panel-muted text-xs">—</span>}
                                 </div>
                                 <div className="col-span-1" />
                               </div>
                             );
                           })}
-                          <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-zinc-900/40 border-t border-zinc-700">
+                          <div className="grid grid-cols-12 gap-2 px-4 py-3 moon-panel-surface border-t moon-panel-border">
                             <div className="col-span-7 flex items-center">
-                              <span className="text-zinc-500 font-extralight text-xs uppercase tracking-wider">Sumas iguales</span>
+                              <span className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">Sumas iguales</span>
                             </div>
                             <div className="col-span-2 text-right">
-                              <span className="text-blue-400 font-extralight text-sm">{formatMoney(asiento.totalDebe)}</span>
+                              <span className="moon-panel-tone-blue font-extralight text-sm">{formatMoney(asiento.totalDebe)}</span>
                             </div>
                             <div className="col-span-2 text-right">
-                              <span className="text-purple-400 font-extralight text-sm">{formatMoney(asiento.totalHaber)}</span>
+                              <span className="moon-panel-tone-purple font-extralight text-sm">{formatMoney(asiento.totalHaber)}</span>
                             </div>
                             <div className="col-span-1 flex items-center justify-end">
                               {cuadrado
-                                ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                                : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                                ? <CheckCircle className="w-3.5 h-3.5 moon-panel-tone-green" />
+                                : <AlertCircle className="w-3.5 h-3.5 moon-panel-tone-red" />}
                             </div>
                           </div>
                         </div>
@@ -2304,24 +2298,24 @@ const Contador: React.FC = () => {
                 );
               })}
 
-              <Card className="bg-zinc-900 border-zinc-700">
+              <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
                 <CardContent className="p-4">
                   <div className="grid grid-cols-12 gap-2">
                     <div className="col-span-7 flex items-center">
-                      <span className="text-zinc-400 font-extralight text-sm uppercase tracking-wider">Totales del período</span>
+                      <span className="moon-panel-muted font-extralight text-sm uppercase tracking-wider">Totales del período</span>
                     </div>
                     <div className="col-span-2 text-right">
-                      <p className="text-blue-400 font-extralight text-sm">{formatMoney(totalDebeLibro)}</p>
-                      <p className="text-zinc-600 text-xs font-extralight">Debe</p>
+                      <p className="moon-panel-tone-blue font-extralight text-sm">{formatMoney(totalDebeLibro)}</p>
+                      <p className="moon-panel-muted text-xs font-extralight">Debe</p>
                     </div>
                     <div className="col-span-2 text-right">
-                      <p className="text-purple-400 font-extralight text-sm">{formatMoney(totalHaberLibro)}</p>
-                      <p className="text-zinc-600 text-xs font-extralight">Haber</p>
+                      <p className="moon-panel-tone-purple font-extralight text-sm">{formatMoney(totalHaberLibro)}</p>
+                      <p className="moon-panel-muted text-xs font-extralight">Haber</p>
                     </div>
                     <div className="col-span-1 flex items-center justify-end">
                       {Math.abs(totalDebeLibro - totalHaberLibro) < 0.01
-                        ? <CheckCircle className="w-4 h-4 text-emerald-400" />
-                        : <AlertCircle className="w-4 h-4 text-yellow-400" />}
+                        ? <CheckCircle className="w-4 h-4 moon-panel-tone-green" />
+                        : <AlertCircle className="w-4 h-4 moon-panel-tone-amber" />}
                     </div>
                   </div>
                 </CardContent>
@@ -2335,40 +2329,40 @@ const Contador: React.FC = () => {
 
           {/* Totales */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Card className="bg-zinc-950 border-emerald-900/40">
+            <Card data-moon-reveal="card" className="moon-panel-surface border-emerald-900/40">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />
-                  <p className="text-emerald-400 text-xs font-extralight uppercase tracking-wider">Ingresos</p>
+                  <TrendingUp className="w-4 h-4 moon-panel-tone-green" strokeWidth={1.5} />
+                  <p className="moon-panel-tone-green text-xs font-extralight uppercase tracking-wider">Ingresos</p>
                 </div>
-                <p className="text-white text-lg font-extralight">{formatBancoCurrency(libroIngresos, 'PEN')}</p>
-                <p className="text-zinc-600 text-xs font-extralight">{libroFiltered.filter(e => e.tipo === 'ingreso').length} movimientos</p>
+                <p className="moon-panel-ink text-lg font-extralight">{formatBancoCurrency(libroIngresos, 'PEN')}</p>
+                <p className="moon-panel-muted text-xs font-extralight">{libroFiltered.filter(e => e.tipo === 'ingreso').length} movimientos</p>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-950 border-red-900/40">
+            <Card data-moon-reveal="card" className="moon-panel-surface border-red-900/40">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingDown className="w-4 h-4 text-red-400" strokeWidth={1.5} />
-                  <p className="text-red-400 text-xs font-extralight uppercase tracking-wider">Egresos</p>
+                  <TrendingDown className="w-4 h-4 moon-panel-tone-red" strokeWidth={1.5} />
+                  <p className="moon-panel-tone-red text-xs font-extralight uppercase tracking-wider">Egresos</p>
                 </div>
-                <p className="text-white text-lg font-extralight">{formatBancoCurrency(libroEgresos, 'PEN')}</p>
-                <p className="text-zinc-600 text-xs font-extralight">{libroFiltered.filter(e => e.tipo === 'egreso').length} movimientos</p>
+                <p className="moon-panel-ink text-lg font-extralight">{formatBancoCurrency(libroEgresos, 'PEN')}</p>
+                <p className="moon-panel-muted text-xs font-extralight">{libroFiltered.filter(e => e.tipo === 'egreso').length} movimientos</p>
               </CardContent>
             </Card>
-            <Card className={`bg-zinc-950 ${libroBalance >= 0 ? 'border-blue-900/40' : 'border-red-900/40'}`}>
+            <Card data-moon-reveal="card" className={`moon-panel-surface ${libroBalance >= 0 ? 'border-blue-900/40' : 'border-red-900/40'}`}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="w-4 h-4" style={{ color: libroBalance >= 0 ? '#60a5fa' : '#f87171' }} strokeWidth={1.5} />
-                  <p className="text-xs font-extralight uppercase tracking-wider" style={{ color: libroBalance >= 0 ? '#60a5fa' : '#f87171' }}>Balance</p>
+                  <DollarSign className="w-4 h-4" style={{ color: panelInk(libroBalance >= 0 ? '#60a5fa' : '#f87171') }} strokeWidth={1.5} />
+                  <p className="text-xs font-extralight uppercase tracking-wider" style={{ color: panelInk(libroBalance >= 0 ? '#60a5fa' : '#f87171') }}>Balance</p>
                 </div>
-                <p className="text-white text-lg font-extralight">{formatBancoCurrency(Math.abs(libroBalance), 'PEN')}</p>
-                <p className="text-zinc-600 text-xs font-extralight">{libroBalance >= 0 ? 'Favorable' : 'Negativo'}</p>
+                <p className="moon-panel-ink text-lg font-extralight">{formatBancoCurrency(Math.abs(libroBalance), 'PEN')}</p>
+                <p className="moon-panel-muted text-xs font-extralight">{libroBalance >= 0 ? 'Favorable' : 'Negativo'}</p>
               </CardContent>
             </Card>
           </div>
 
           {libroFiltered.some(e => e.currency && e.currency !== 'PEN') && (
-            <p className="text-zinc-600 text-xs font-extralight -mt-2">
+            <p className="moon-panel-muted text-xs font-extralight -mt-2">
               Totales en soles: los movimientos en USD y EUR se convierten con el tipo de cambio configurado.
             </p>
           )}
@@ -2377,17 +2371,17 @@ const Contador: React.FC = () => {
           {libroBancoSummary.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {libroBancoSummary.map(b => (
-                <Card key={b.bankId} className="bg-zinc-950 border-zinc-800">
+                <Card data-moon-reveal="card" key={b.bankId} className="moon-panel-surface moon-panel-border">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-sm">{BANCO_FLAG[b.country]}</span>
-                      <span className="text-white font-extralight text-xs truncate">{b.bankName}</span>
+                      <span className="moon-panel-ink font-extralight text-xs truncate">{b.bankName}</span>
                     </div>
                     <div className="space-y-0.5">
-                      <p className="text-emerald-400 font-extralight text-xs">+ {formatBancoCurrency(b.ing, 'PEN')}</p>
-                      <p className="text-red-400 font-extralight text-xs">- {formatBancoCurrency(b.egr, 'PEN')}</p>
-                      <div className="h-px bg-zinc-800 my-1" />
-                      <p className={`font-extralight text-xs ${b.balance >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                      <p className="moon-panel-tone-green font-extralight text-xs">+ {formatBancoCurrency(b.ing, 'PEN')}</p>
+                      <p className="moon-panel-tone-red font-extralight text-xs">- {formatBancoCurrency(b.egr, 'PEN')}</p>
+                      <div className="h-px moon-panel-raised my-1" />
+                      <p className={`font-extralight text-xs ${b.balance >= 0 ? 'moon-panel-tone-blue' : 'moon-panel-tone-red'}`}>
                         = {formatBancoCurrency(Math.abs(b.balance), 'PEN')}
                       </p>
                     </div>
@@ -2402,41 +2396,41 @@ const Contador: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap justify-between">
               <div className="flex items-center gap-2 flex-wrap flex-1">
                 <div className="relative min-w-[180px] flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" />
                   <Input value={libroSearch} onChange={e => setLibroSearch(e.target.value)}
-                    placeholder="Buscar movimiento..." className="pl-9 bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                    placeholder="Buscar movimiento..." className="pl-9 moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
                 </div>
-                <div className="inline-flex bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 gap-0.5">
+                <div className="inline-flex moon-panel-surface border moon-panel-border rounded-lg p-0.5 gap-0.5">
                   {([['todos','Todos'],['ingreso','Ingresos'],['egreso','Egresos']] as [string,string][]).map(([val,label]) => (
                     <button key={val} type="button" onClick={() => setLibroFilterTipo(val as any)}
                       className={`px-3 py-1.5 rounded-md text-xs font-extralight transition-all ${
-                        libroFilterTipo === val ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                        libroFilterTipo === val ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'
                       }`}>{label}</button>
                   ))}
                 </div>
                 <Button variant="outline" size="sm"
                   onClick={() => setShowLibroFilters(p => !p)}
-                  className={`border-zinc-800 font-extralight text-xs gap-1.5 ${showLibroFilters ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900'}`}>
+                  className={`moon-panel-border font-extralight text-xs gap-1.5 ${showLibroFilters ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'}`}>
                   <Search className="w-3.5 h-3.5" /> Filtros
                 </Button>
               </div>
               {canWrite && (
                 <Button onClick={() => setShowLibroModal(true)}
-                  className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+                  className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
                   <Plus className="w-4 h-4" /> Nuevo movimiento
                 </Button>
               )}
             </div>
 
             {showLibroFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl moon-panel-surface border moon-panel-border">
                 <div className="space-y-1.5">
-                  <Label className="text-zinc-500 font-extralight text-xs uppercase tracking-wider">Banco</Label>
+                  <Label className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">Banco</Label>
                   <Select value={libroFilterBanco} onValueChange={setLibroFilterBanco}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white font-extralight h-8 text-xs">
+                    <SelectTrigger className="moon-panel-raised moon-panel-border moon-panel-ink font-extralight h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectContent className="moon-panel-surface moon-panel-border">
                       <SelectItem value="all" className="font-extralight text-xs">Todos los bancos</SelectItem>
                       {libroBancosUsados.map(id => {
                         const b = getBancoById(id);
@@ -2448,42 +2442,42 @@ const Contador: React.FC = () => {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-zinc-500 font-extralight text-xs uppercase tracking-wider">Desde</Label>
+                  <Label className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">Desde</Label>
                   <Input type="date" value={libroDateFrom} onChange={e => setLibroDateFrom(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white font-extralight h-8 text-xs [color-scheme:dark]" />
+                    className="moon-panel-raised moon-panel-border moon-panel-ink font-extralight h-8 text-xs [color-scheme:dark]" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-zinc-500 font-extralight text-xs uppercase tracking-wider">Hasta</Label>
+                  <Label className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">Hasta</Label>
                   <Input type="date" value={libroDateTo} onChange={e => setLibroDateTo(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white font-extralight h-8 text-xs [color-scheme:dark]" />
+                    className="moon-panel-raised moon-panel-border moon-panel-ink font-extralight h-8 text-xs [color-scheme:dark]" />
                 </div>
               </div>
             )}
           </div>
 
           {/* Tabla de movimientos */}
-          <Card className="bg-zinc-950 border-zinc-800">
+          <Card data-moon-reveal="card" className="moon-panel-surface moon-panel-border">
             <CardContent className="p-0">
               {libroEntries.length === 0 ? (
                 <div className="py-16 text-center">
-                  <Wallet className="w-8 h-8 text-zinc-700 mx-auto mb-2" strokeWidth={1} />
-                  <p className="text-zinc-500 font-extralight text-sm">Sin movimientos registrados</p>
-                  <p className="text-zinc-700 font-extralight text-xs mt-1">Registra el primer ingreso o egreso por banco</p>
+                  <Wallet className="w-8 h-8 moon-panel-muted mx-auto mb-2" strokeWidth={1} />
+                  <p className="moon-panel-muted font-extralight text-sm">Sin movimientos registrados</p>
+                  <p className="moon-panel-muted font-extralight text-xs mt-1">Registra el primer ingreso o egreso por banco</p>
                 </div>
               ) : libroFiltered.length === 0 ? (
                 <div className="py-12 text-center">
-                  <p className="text-zinc-600 font-extralight text-sm">Sin resultados para los filtros aplicados</p>
+                  <p className="moon-panel-muted font-extralight text-sm">Sin resultados para los filtros aplicados</p>
                 </div>
               ) : (
                 <>
                   {/* Header */}
-                  <div className="grid grid-cols-12 gap-3 px-4 py-2 border-b border-zinc-800" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <span className="col-span-2 text-zinc-600 text-xs font-extralight uppercase tracking-wider">Fecha</span>
-                    <span className="col-span-1 text-zinc-600 text-xs font-extralight uppercase tracking-wider">Tipo</span>
-                    <span className="col-span-3 text-zinc-600 text-xs font-extralight uppercase tracking-wider">Descripción</span>
-                    <span className="col-span-2 text-zinc-600 text-xs font-extralight uppercase tracking-wider">Banco</span>
-                    <span className="col-span-1 text-zinc-600 text-xs font-extralight uppercase tracking-wider">Cat.</span>
-                    <span className="col-span-2 text-zinc-600 text-xs font-extralight uppercase tracking-wider text-right">Importe</span>
+                  <div className="grid grid-cols-12 gap-3 px-4 py-2 border-b moon-panel-border" style={{ background: "var(--moon-surface)" }}>
+                    <span className="col-span-2 moon-panel-muted text-xs font-extralight uppercase tracking-wider">Fecha</span>
+                    <span className="col-span-1 moon-panel-muted text-xs font-extralight uppercase tracking-wider">Tipo</span>
+                    <span className="col-span-3 moon-panel-muted text-xs font-extralight uppercase tracking-wider">Descripción</span>
+                    <span className="col-span-2 moon-panel-muted text-xs font-extralight uppercase tracking-wider">Banco</span>
+                    <span className="col-span-1 moon-panel-muted text-xs font-extralight uppercase tracking-wider">Cat.</span>
+                    <span className="col-span-2 moon-panel-muted text-xs font-extralight uppercase tracking-wider text-right">Importe</span>
                     <span className="col-span-1" />
                   </div>
                   <div className="divide-y divide-zinc-900/50">
@@ -2493,43 +2487,43 @@ const Contador: React.FC = () => {
                       const isIng     = entry.tipo === 'ingreso';
                       const isDel     = libroDeletingId === entry.id;
                       return (
-                        <div key={entry.id} className="grid grid-cols-12 gap-3 px-4 py-3 items-center hover:bg-zinc-900/30 transition-colors">
+                        <div key={entry.id} className="grid grid-cols-12 gap-3 px-4 py-3 items-center moon-panel-hover transition-colors">
                           <div className="col-span-2">
-                            <p className="text-zinc-400 font-extralight text-xs">{format(entryDate, 'dd MMM', { locale: es })}</p>
-                            <p className="text-zinc-700 font-extralight text-[10px]">{format(entryDate, 'yyyy')}</p>
+                            <p className="moon-panel-muted font-extralight text-xs">{format(entryDate, 'dd MMM', { locale: es })}</p>
+                            <p className="moon-panel-muted font-extralight text-[10px]">{format(entryDate, 'yyyy')}</p>
                           </div>
                           <div className="col-span-1">
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isIng ? 'bg-emerald-950/60' : 'bg-red-950/60'}`}>
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isIng ? 'moon-panel-fill-green' : 'moon-panel-fill-red'}`}>
                               {isIng
-                                ? <TrendingUp className="w-3 h-3 text-emerald-400" strokeWidth={1.5} />
-                                : <TrendingDown className="w-3 h-3 text-red-400" strokeWidth={1.5} />}
+                                ? <TrendingUp className="w-3 h-3 moon-panel-tone-green" strokeWidth={1.5} />
+                                : <TrendingDown className="w-3 h-3 moon-panel-tone-red" strokeWidth={1.5} />}
                             </div>
                           </div>
                           <div className="col-span-3 min-w-0">
-                            <p className="text-white font-extralight text-xs truncate">{entry.description}</p>
-                            {entry.reference && <p className="text-zinc-600 font-extralight text-[10px]">Ref: {entry.reference}</p>}
+                            <p className="moon-panel-ink font-extralight text-xs truncate">{entry.description}</p>
+                            {entry.reference && <p className="moon-panel-muted font-extralight text-[10px]">Ref: {entry.reference}</p>}
                           </div>
                           <div className="col-span-2">
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs">{banco ? BANCO_FLAG[banco.country] : '💼'}</span>
-                              <span className="text-zinc-400 font-extralight text-xs truncate">{entry.bankName}</span>
+                              <span className="moon-panel-muted font-extralight text-xs truncate">{entry.bankName}</span>
                             </div>
                           </div>
                           <div className="col-span-1">
-                            <span className="text-zinc-600 font-extralight text-xs truncate">{entry.category}</span>
+                            <span className="moon-panel-muted font-extralight text-xs truncate">{entry.category}</span>
                           </div>
                           <div className="col-span-2 text-right">
-                            <p className={`font-extralight text-sm ${isIng ? 'text-emerald-400' : 'text-red-400'}`}>
+                            <p className={`font-extralight text-sm ${isIng ? 'moon-panel-tone-green' : 'moon-panel-tone-red'}`}>
                               {isIng ? '+' : '-'} {formatBancoCurrency(entry.amount, entry.currency)}
                             </p>
-                            <p className="text-zinc-700 font-extralight text-[10px]">{entry.currency}</p>
+                            <p className="moon-panel-muted font-extralight text-[10px]">{entry.currency}</p>
                           </div>
                           <div className="col-span-1 flex justify-end">
                             {canWrite && (
                               <Button variant="ghost" size="sm"
                                 onClick={() => handleDeleteLibroEntry(entry.id, entry.description)}
                                 disabled={isDel}
-                                className="text-zinc-700 hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
+                                className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30 h-7 w-7 p-0">
                                 {isDel
                                   ? <RefreshCw className="w-3 h-3 animate-spin" />
                                   : <Trash2 className="w-3 h-3" />}
@@ -2541,8 +2535,8 @@ const Contador: React.FC = () => {
                     })}
                   </div>
                   {/* Pie */}
-                  <div className="px-4 py-3 border-t border-zinc-800 text-center">
-                    <p className="text-zinc-600 font-extralight text-xs">
+                  <div className="px-4 py-3 border-t moon-panel-border text-center">
+                    <p className="moon-panel-muted font-extralight text-xs">
                       Mostrando {libroFiltered.length} de {libroEntries.length} movimientos
                     </p>
                   </div>
@@ -2555,28 +2549,28 @@ const Contador: React.FC = () => {
 
       {/* ═══ MODAL: Nuevo movimiento Libro Bancos ══════════════════════════════════ */}
       <Dialog open={showLibroModal} onOpenChange={setShowLibroModal}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-emerald-400" /> Nuevo movimiento bancario
+              <Wallet className="w-5 h-5 moon-panel-tone-green" /> Nuevo movimiento bancario
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Registra un ingreso o egreso por banco (Perú 🇵🇪 · España 🇪🇸).
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {/* Tipo */}
-            <div className="inline-flex bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 gap-0.5 w-full">
+            <div className="inline-flex moon-panel-surface border moon-panel-border rounded-lg p-0.5 gap-0.5 w-full">
               {(['ingreso', 'egreso'] as TipoTransaccion[]).map(t => (
                 <button key={t} type="button"
                   onClick={() => setLibroForm(f => ({ ...f, tipo: t }))}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-extralight transition-all ${
-                    libroForm.tipo === t ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    libroForm.tipo === t ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'
                   }`}>
                   {t === 'ingreso'
-                    ? <ArrowUpCircle className="w-3.5 h-3.5 text-emerald-400" />
-                    : <ArrowDownCircle className="w-3.5 h-3.5 text-red-400" />}
+                    ? <ArrowUpCircle className="w-3.5 h-3.5 moon-panel-tone-green" />
+                    : <ArrowDownCircle className="w-3.5 h-3.5 moon-panel-tone-red" />}
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
@@ -2585,20 +2579,20 @@ const Contador: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               {/* Fecha */}
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Fecha</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Fecha</Label>
                 <Input type="date" value={libroForm.date}
                   onChange={e => setLibroForm(f => ({ ...f, date: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
               {/* Moneda + Importe */}
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Importe</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Importe</Label>
                 <div className="flex gap-2">
                   <Select value={libroForm.currency} onValueChange={(v: any) => setLibroForm(f => ({ ...f, currency: v }))}>
-                    <SelectTrigger className="w-24 bg-zinc-900 border-zinc-800 text-white font-extralight shrink-0">
+                    <SelectTrigger className="w-24 moon-panel-surface moon-panel-border moon-panel-ink font-extralight shrink-0">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectContent className="moon-panel-surface moon-panel-border">
                       <SelectItem value="PEN" className="font-extralight">🇵🇪 S/</SelectItem>
                       <SelectItem value="EUR" className="font-extralight">🇪🇺 €</SelectItem>
                       <SelectItem value="USD" className="font-extralight">🇺🇸 $</SelectItem>
@@ -2608,28 +2602,28 @@ const Contador: React.FC = () => {
                     value={libroForm.amount}
                     onChange={e => setLibroForm(f => ({ ...f, amount: e.target.value }))}
                     placeholder="0.00"
-                    className="bg-zinc-900 border-zinc-800 text-white font-extralight flex-1" />
+                    className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight flex-1" />
                 </div>
               </div>
             </div>
 
             {/* Banco */}
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Banco / Medio de pago</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Banco / Medio de pago</Label>
               <Select value={libroForm.bankId} onValueChange={v => setLibroForm(f => ({ ...f, bankId: v }))}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue placeholder="Seleccionar banco..." />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
-                  <div className="px-2 py-1 text-zinc-600 text-[10px] font-extralight uppercase tracking-wider">🇵🇪 Perú</div>
+                <SelectContent className="moon-panel-surface moon-panel-border">
+                  <div className="px-2 py-1 moon-panel-muted text-[10px] font-extralight uppercase tracking-wider">🇵🇪 Perú</div>
                   {BANCOS.filter(b => b.country === 'PE').map(b => (
                     <SelectItem key={b.id} value={b.id} className="font-extralight">{b.name}</SelectItem>
                   ))}
-                  <div className="px-2 py-1 text-zinc-600 text-[10px] font-extralight uppercase tracking-wider mt-1">🇪🇸 España</div>
+                  <div className="px-2 py-1 moon-panel-muted text-[10px] font-extralight uppercase tracking-wider mt-1">🇪🇸 España</div>
                   {BANCOS.filter(b => b.country === 'ES').map(b => (
                     <SelectItem key={b.id} value={b.id} className="font-extralight">{b.name}</SelectItem>
                   ))}
-                  <div className="px-2 py-1 text-zinc-600 text-[10px] font-extralight uppercase tracking-wider mt-1">💼 Otros</div>
+                  <div className="px-2 py-1 moon-panel-muted text-[10px] font-extralight uppercase tracking-wider mt-1">💼 Otros</div>
                   {BANCOS.filter(b => b.country === 'custom').map(b => (
                     <SelectItem key={b.id} value={b.id} className="font-extralight">{b.name}</SelectItem>
                   ))}
@@ -2640,12 +2634,12 @@ const Contador: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               {/* Categoría */}
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Categoría</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Categoría</Label>
                 <Select value={libroForm.category} onValueChange={v => setLibroForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                  <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                  <SelectContent className="moon-panel-surface moon-panel-border">
                     {CATEGORIAS_BANCO.map(c => (
                       <SelectItem key={c} value={c} className="font-extralight">{c}</SelectItem>
                     ))}
@@ -2654,40 +2648,40 @@ const Contador: React.FC = () => {
               </div>
               {/* Referencia */}
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">N° referencia (opcional)</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">N° referencia (opcional)</Label>
                 <Input value={libroForm.reference}
                   onChange={e => setLibroForm(f => ({ ...f, reference: e.target.value }))}
                   placeholder="OP-00123"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
             </div>
 
             {/* Descripción */}
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Descripción *</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Descripción *</Label>
               <Input value={libroForm.description}
                 onChange={e => setLibroForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Ej: Pago cliente ABC · Factura F001-00123"
-                className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
             </div>
 
             {/* Notas */}
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Notas (opcional)</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Notas (opcional)</Label>
               <Textarea value={libroForm.notes}
                 onChange={e => setLibroForm(f => ({ ...f, notes: e.target.value }))}
                 rows={2} placeholder="Observaciones adicionales..."
-                className="bg-zinc-900 border-zinc-800 text-white font-extralight resize-none" />
+                className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight resize-none" />
             </div>
 
             {/* Preview importe */}
             {libroForm.amount && parseFloat(libroForm.amount) > 0 && (
               <div className="p-3 rounded-xl border flex items-center justify-between"
                 style={{ background: libroForm.tipo === 'ingreso' ? 'rgba(52,211,153,0.06)' : 'rgba(248,113,113,0.06)', borderColor: libroForm.tipo === 'ingreso' ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)' }}>
-                <span className="text-zinc-500 font-extralight text-sm">
+                <span className="moon-panel-muted font-extralight text-sm">
                   {libroForm.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} a registrar
                 </span>
-                <span className={`font-extralight text-lg ${libroForm.tipo === 'ingreso' ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`font-extralight text-lg ${libroForm.tipo === 'ingreso' ? 'moon-panel-tone-green' : 'moon-panel-tone-red'}`}>
                   {libroForm.tipo === 'ingreso' ? '+' : '-'} {formatBancoCurrency(parseFloat(libroForm.amount), libroForm.currency)}
                 </span>
               </div>
@@ -2696,10 +2690,10 @@ const Contador: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLibroModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">Cancelar</Button>
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">Cancelar</Button>
             <Button onClick={handleSaveLibroEntry}
               disabled={saving || !libroForm.bankId || !libroForm.description || !libroForm.amount || parseFloat(libroForm.amount) <= 0}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               Guardar
             </Button>
@@ -2707,27 +2701,27 @@ const Contador: React.FC = () => {
         </DialogContent>
       </Dialog>
       <Dialog open={showTxModal} onOpenChange={setShowTxModal}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-md">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <Wallet className="w-5 h-5" /> Nueva Transacción
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Registra un ingreso o egreso.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="inline-flex bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 gap-0.5">
+            <div className="inline-flex moon-panel-surface border moon-panel-border rounded-lg p-0.5 gap-0.5">
               {(['ingreso', 'egreso'] as TipoTransaccion[]).map(t => (
                 <button key={t} type="button"
                   onClick={() => setTxForm(f => ({ ...f, tipo: t, categoria: '' }))}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-extralight transition-all ${
-                    txForm.tipo === t ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    txForm.tipo === t ? 'moon-panel-raised moon-panel-ink' : 'moon-panel-muted moon-panel-hover'
                   }`}>
                   {t === 'ingreso'
-                    ? <ArrowUpCircle className="w-3.5 h-3.5 text-emerald-400" />
-                    : <ArrowDownCircle className="w-3.5 h-3.5 text-red-400" />
+                    ? <ArrowUpCircle className="w-3.5 h-3.5 moon-panel-tone-green" />
+                    : <ArrowDownCircle className="w-3.5 h-3.5 moon-panel-tone-red" />
                   }
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
@@ -2736,24 +2730,24 @@ const Contador: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Monto (S/)</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Monto (S/)</Label>
                 <Input type="number" value={txForm.monto} onChange={e => setTxForm(f => ({ ...f, monto: e.target.value }))}
-                  placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Fecha</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Fecha</Label>
                 <Input type="date" value={txForm.fecha} onChange={e => setTxForm(f => ({ ...f, fecha: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Categoría</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Categoría</Label>
               <Select value={txForm.categoria} onValueChange={v => setTxForm(f => ({ ...f, categoria: v }))}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue placeholder="Selecciona categoría" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   {(txForm.tipo === 'ingreso' ? CATEGORIAS_INGRESO : CATEGORIAS_EGRESO).map(c => (
                     <SelectItem key={c} value={c} className="font-extralight">{c}</SelectItem>
                   ))}
@@ -2762,20 +2756,20 @@ const Contador: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Descripción</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Descripción</Label>
               <Textarea value={txForm.descripcion} onChange={e => setTxForm(f => ({ ...f, descripcion: e.target.value }))}
                 placeholder="Detalle de la transacción..." rows={2}
-                className="bg-zinc-900 border-zinc-800 text-white font-extralight resize-none" />
+                className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight resize-none" />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTxModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">
               Cancelar
             </Button>
             <Button onClick={handleSaveTx} disabled={saving || !txForm.monto || !txForm.descripcion || !txForm.categoria}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               Guardar
             </Button>
@@ -2785,32 +2779,32 @@ const Contador: React.FC = () => {
 
       {/* ═══ MODAL: Nueva Factura ════════════════════════════════════════════════ */}
       <Dialog open={showFacModal} onOpenChange={setShowFacModal}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-md">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <FileText className="w-5 h-5" /> Nueva Factura
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Registra una factura de proveedor o cliente.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-lg">
-              <Hash className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="flex items-center gap-3 p-3 moon-panel-surface border moon-panel-border rounded-lg">
+              <Hash className="w-4 h-4 moon-panel-tone-green flex-shrink-0" />
               <div>
-                <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">N° generado automáticamente</p>
-                <p className="text-emerald-400 font-extralight text-sm mt-0.5">{generarNumeroFactura()}</p>
+                <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">N° generado automáticamente</p>
+                <p className="moon-panel-tone-green font-extralight text-sm mt-0.5">{generarNumeroFactura()}</p>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Tipo</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Tipo</Label>
               <Select value={facForm.tipoEntidad} onValueChange={(v: any) => setFacForm(f => ({ ...f, tipoEntidad: v }))}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="proveedor" className="font-extralight">Proveedor</SelectItem>
                   <SelectItem value="cliente"   className="font-extralight">Cliente</SelectItem>
                 </SelectContent>
@@ -2818,33 +2812,33 @@ const Contador: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">
+              <Label className="moon-panel-muted font-extralight text-xs">
                 {facForm.tipoEntidad === 'proveedor' ? 'Proveedor' : 'Cliente'}
               </Label>
               <Input value={facForm.entidad} onChange={e => setFacForm(f => ({ ...f, entidad: e.target.value }))}
-                placeholder="Nombre o razón social" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                placeholder="Nombre o razón social" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Monto (S/)</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Monto (S/)</Label>
                 <Input type="number" value={facForm.monto} onChange={e => setFacForm(f => ({ ...f, monto: e.target.value }))}
-                  placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Fecha</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Fecha</Label>
                 <Input type="date" value={facForm.fecha} onChange={e => setFacForm(f => ({ ...f, fecha: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Estado inicial</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Estado inicial</Label>
               <Select value={facForm.estado} onValueChange={(v: any) => setFacForm(f => ({ ...f, estado: v }))}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
+                <SelectContent className="moon-panel-surface moon-panel-border">
                   <SelectItem value="pendiente" className="font-extralight">Pendiente</SelectItem>
                   <SelectItem value="pagada"    className="font-extralight">Pagada</SelectItem>
                   <SelectItem value="vencida"   className="font-extralight">Vencida</SelectItem>
@@ -2853,36 +2847,36 @@ const Contador: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-  <Label className="text-zinc-400 font-extralight text-xs">Descripción / Concepto</Label>
+  <Label className="moon-panel-muted font-extralight text-xs">Descripción / Concepto</Label>
   <Input value={facForm.descripcion} onChange={e => setFacForm(f => ({ ...f, descripcion: e.target.value }))}
-    placeholder="Detalla el concepto de la factura..." className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+    placeholder="Detalla el concepto de la factura..." className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
 </div>
 
 {/* ← AQUÍ va Observaciones */}
 <div className="space-y-1.5">
-  <Label className="text-zinc-400 font-extralight text-xs">Observaciones</Label>
+  <Label className="moon-panel-muted font-extralight text-xs">Observaciones</Label>
   <Textarea
     value={facForm.observaciones}
     onChange={e => setFacForm(f => ({ ...f, observaciones: e.target.value }))}
     placeholder="Notas internas, condiciones de pago, vencimiento..."
     rows={2}
-    className="bg-zinc-900 border-zinc-800 text-white font-extralight resize-none"
+    className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight resize-none"
   />
 </div>
 
 {facForm.monto && parseFloat(facForm.monto) > 0 && (
-              <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg space-y-1">
+              <div className="p-3 moon-panel-surface border moon-panel-border rounded-lg space-y-1">
                 <div className="flex justify-between text-xs font-extralight">
-                  <span className="text-zinc-500">Subtotal (sin IGV):</span>
-                  <span className="text-zinc-300">{formatMoney(parseFloat(facForm.monto) / 1.18)}</span>
+                  <span className="moon-panel-muted">Subtotal (sin IGV):</span>
+                  <span className="moon-panel-muted">{formatMoney(parseFloat(facForm.monto) / 1.18)}</span>
                 </div>
                 <div className="flex justify-between text-xs font-extralight">
-                  <span className="text-zinc-500">IGV (18%):</span>
-                  <span className="text-zinc-300">{formatMoney(parseFloat(facForm.monto) - parseFloat(facForm.monto) / 1.18)}</span>
+                  <span className="moon-panel-muted">IGV (18%):</span>
+                  <span className="moon-panel-muted">{formatMoney(parseFloat(facForm.monto) - parseFloat(facForm.monto) / 1.18)}</span>
                 </div>
-                <div className="flex justify-between text-sm font-extralight border-t border-zinc-700 pt-1 mt-1">
-                  <span className="text-white">Total:</span>
-                  <span className="text-emerald-400">{formatMoney(parseFloat(facForm.monto))}</span>
+                <div className="flex justify-between text-sm font-extralight border-t moon-panel-border pt-1 mt-1">
+                  <span className="moon-panel-ink">Total:</span>
+                  <span className="moon-panel-tone-green">{formatMoney(parseFloat(facForm.monto))}</span>
                 </div>
               </div>
             )}
@@ -2890,11 +2884,11 @@ const Contador: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowFacModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">
               Cancelar
             </Button>
             <Button onClick={handleSaveFac} disabled={saving || !facForm.entidad || !facForm.monto}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               Guardar
             </Button>
@@ -2904,32 +2898,32 @@ const Contador: React.FC = () => {
 
       {/* ═══ MODAL: Presupuesto ══════════════════════════════════════════════════ */}
       <Dialog open={showPresModal} onOpenChange={v => { setShowPresModal(v); if (!v) setEditPresId(null); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-md">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <Target className="w-5 h-5" />
               {editPresId ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Define un límite de gasto por categoría y período.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Nombre</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Nombre</Label>
               <Input value={presForm.nombre} onChange={e => setPresForm(f => ({ ...f, nombre: e.target.value }))}
-                placeholder="Ej: Marketing Q1" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                placeholder="Ej: Marketing Q1" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Categoría</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Categoría</Label>
                 <Select value={presForm.categoria} onValueChange={v => setPresForm(f => ({ ...f, categoria: v }))}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight">
+                  <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight">
                     <SelectValue placeholder="Categoría" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                  <SelectContent className="moon-panel-surface moon-panel-border">
                     {CATEGORIAS_EGRESO.map(c => (
                       <SelectItem key={c} value={c} className="font-extralight">{c}</SelectItem>
                     ))}
@@ -2937,29 +2931,29 @@ const Contador: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Período</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Período</Label>
                 <Input type="month" value={presForm.periodo}
                   onChange={e => setPresForm(f => ({ ...f, periodo: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Monto asignado (S/)</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Monto asignado (S/)</Label>
               <Input type="number" value={presForm.montoAsignado}
                 onChange={e => setPresForm(f => ({ ...f, montoAsignado: e.target.value }))}
-                placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowPresModal(false); setEditPresId(null); }}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">
               Cancelar
             </Button>
             <Button onClick={handleSavePres}
               disabled={saving || !presForm.nombre || !presForm.montoAsignado || !presForm.categoria}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               {editPresId ? 'Actualizar' : 'Guardar'}
             </Button>
@@ -2969,20 +2963,20 @@ const Contador: React.FC = () => {
 
       {/* ══ MODAL: Detalle de sueldos del empleado ═══════════════════════════════ */}
       <Dialog open={showEmpDetail} onOpenChange={v => { setShowEmpDetail(v); if (!v) setSelectedEmp(null); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedEmp && (
             <>
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full moon-panel-raised border moon-panel-border overflow-hidden flex items-center justify-center flex-shrink-0">
                     {selectedEmp.avatar
                       ? <img src={selectedEmp.avatar} alt={selectedEmp.displayName} className="w-full h-full object-cover" />
-                      : <span className="text-white font-extralight">{selectedEmp.displayName?.[0]?.toUpperCase()}</span>
+                      : <span className="moon-panel-ink font-extralight">{selectedEmp.displayName?.[0]?.toUpperCase()}</span>
                     }
                   </div>
                   <div>
                     <DialogTitle className="font-extralight text-lg">{selectedEmp.displayName}</DialogTitle>
-                    <DialogDescription className="text-zinc-500 font-extralight text-sm">
+                    <DialogDescription className="moon-panel-muted font-extralight text-sm">
                       {selectedEmp.role} · {selectedEmp.email}
                     </DialogDescription>
                   </div>
@@ -2995,10 +2989,10 @@ const Contador: React.FC = () => {
                   { label: 'Pagados',    value: sueldosDelEmp.filter(s => s.estado === 'pagado').length },
                   { label: 'Pendientes', value: sueldosDelEmp.filter(s => s.estado === 'pendiente').length },
                 ].map(s => (
-                  <Card key={s.label} className="bg-zinc-900 border-zinc-800">
+                  <Card data-moon-reveal="card" key={s.label} className="moon-panel-surface moon-panel-border">
                     <CardContent className="p-3 text-center">
-                      <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">{s.label}</p>
-                      <p className="text-white text-xl font-extralight mt-0.5">{s.value}</p>
+                      <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">{s.label}</p>
+                      <p className="moon-panel-ink text-xl font-extralight mt-0.5">{s.value}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -3009,33 +3003,33 @@ const Contador: React.FC = () => {
                   setEditSueldoId(null);
                   setSueldoForm({ montoBase: '', bonificaciones: '0', descuentos: '0', periodo: format(new Date(), 'yyyy-MM'), estado: 'pendiente', observaciones: '' });
                   setShowSueldoModal(true);
-                }} className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2 w-full">
+                }} className="moon-panel-primary hover:opacity-90 font-extralight gap-2 w-full">
                   <Plus className="w-4 h-4" /> Registrar sueldo
                 </Button>
               )}
 
               <div className="space-y-2 mt-1">
                 {sueldosDelEmp.length === 0 ? (
-                  <p className="text-zinc-600 text-sm font-extralight text-center py-6">Sin registros de sueldo</p>
+                  <p className="moon-panel-muted text-sm font-extralight text-center py-6">Sin registros de sueldo</p>
                 ) : sueldosDelEmp.map(s => {
                   const neto = s.netoAPagar ?? (s.montoBase + s.bonificaciones - s.descuentos);
                   const cfg  = ESTADO_SUELDO_CONFIG[s.estado];
                   return (
-                    <div key={s.id} className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg">
+                    <div key={s.id} className="p-3 moon-panel-surface border moon-panel-border rounded-lg">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-extralight text-sm">{s.periodo}</span>
+                          <span className="moon-panel-ink font-extralight text-sm">{s.periodo}</span>
                           <Badge className={`${cfg.bg} ${cfg.color} ${cfg.border} border font-extralight text-[10px] px-1.5 py-0`}>{cfg.label}</Badge>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-emerald-400 font-extralight">{formatMoney(neto)}</span>
+                          <span className="moon-panel-tone-green font-extralight">{formatMoney(neto)}</span>
                           {canWrite && (
                             <>
                               <Select value={s.estado} onValueChange={(v: any) => handleEstadoSueldo(s.id, v)}>
-                                <SelectTrigger className="w-24 h-6 text-xs font-extralight bg-zinc-800 border-zinc-700 text-zinc-300"><SelectValue /></SelectTrigger>
-                                <SelectContent className="bg-zinc-900 border-zinc-800">
-                                  <SelectItem value="pendiente" className="font-extralight text-yellow-400 text-xs">Pendiente</SelectItem>
-                                  <SelectItem value="pagado"    className="font-extralight text-green-400 text-xs">Pagado</SelectItem>
+                                <SelectTrigger className="w-24 h-6 text-xs font-extralight moon-panel-raised moon-panel-border moon-panel-muted"><SelectValue /></SelectTrigger>
+                                <SelectContent className="moon-panel-surface moon-panel-border">
+                                  <SelectItem value="pendiente" className="font-extralight moon-panel-tone-amber text-xs">Pendiente</SelectItem>
+                                  <SelectItem value="pagado"    className="font-extralight moon-panel-tone-green text-xs">Pagado</SelectItem>
                                 </SelectContent>
                               </Select>
                               {/* El guardado ya sabía editar, pero nada abría el modal en modo edición. */}
@@ -3053,12 +3047,12 @@ const Contador: React.FC = () => {
                                   setShowSueldoModal(true);
                                 }}
                                 title="Editar sueldo"
-                                className="text-zinc-600 hover:text-white hover:bg-zinc-800 h-6 w-6 p-0">
+                                className="moon-panel-muted moon-panel-hover moon-panel-hover h-6 w-6 p-0">
                                 <Edit2 className="w-3 h-3" />
                               </Button>
                               <Button variant="ghost" size="sm"
                                 onClick={() => handleDelete('contabilidad_sueldos', s.id)}
-                                className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30 h-6 w-6 p-0">
+                                className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30 h-6 w-6 p-0">
                                 <Trash2 className="w-3 h-3" />
                               </Button>
                             </>
@@ -3066,12 +3060,12 @@ const Contador: React.FC = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-extralight">
-                        <div><span className="text-zinc-600">Base:</span><span className="text-zinc-300 ml-1">{formatMoney(s.montoBase)}</span></div>
-                        <div><span className="text-zinc-600">Bonif.:</span><span className="text-emerald-400 ml-1">+{formatMoney(s.bonificaciones)}</span></div>
-                        <div><span className="text-zinc-600">Desc.:</span><span className="text-red-400 ml-1">-{formatMoney(s.descuentos)}</span></div>
+                        <div><span className="moon-panel-muted">Base:</span><span className="moon-panel-muted ml-1">{formatMoney(s.montoBase)}</span></div>
+                        <div><span className="moon-panel-muted">Bonif.:</span><span className="moon-panel-tone-green ml-1">+{formatMoney(s.bonificaciones)}</span></div>
+                        <div><span className="moon-panel-muted">Desc.:</span><span className="moon-panel-tone-red ml-1">-{formatMoney(s.descuentos)}</span></div>
                       </div>
                       {s.observaciones && (
-                        <p className="text-zinc-600 text-xs font-extralight mt-2 border-t border-zinc-800 pt-2">{s.observaciones}</p>
+                        <p className="moon-panel-muted text-xs font-extralight mt-2 border-t moon-panel-border pt-2">{s.observaciones}</p>
                       )}
                     </div>
                   );
@@ -3079,7 +3073,7 @@ const Contador: React.FC = () => {
               </div>
 
               <DialogFooter>
-                <Button onClick={() => setShowEmpDetail(false)} className="bg-white text-black hover:bg-zinc-200 font-extralight">Cerrar</Button>
+                <Button onClick={() => setShowEmpDetail(false)} className="moon-panel-primary hover:opacity-90 font-extralight">Cerrar</Button>
               </DialogFooter>
             </>
           )}
@@ -3088,12 +3082,12 @@ const Contador: React.FC = () => {
 
       {/* ══ MODAL: Registrar sueldo ══════════════════════════════════════════════ */}
       <Dialog open={showSueldoModal} onOpenChange={v => { setShowSueldoModal(v); if (!v) setEditSueldoId(null); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-md">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <CreditCard className="w-5 h-5" /> {editSueldoId ? 'Editar Sueldo' : 'Registrar Sueldo'}
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               {selectedEmp?.displayName} · {selectedEmp?.role}
             </DialogDescription>
           </DialogHeader>
@@ -3101,16 +3095,16 @@ const Contador: React.FC = () => {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Período</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Período</Label>
                 <Input type="month" value={sueldoForm.periodo}
                   onChange={e => setSueldoForm(f => ({ ...f, periodo: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Estado</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Estado</Label>
                 <Select value={sueldoForm.estado} onValueChange={(v: any) => setSueldoForm(f => ({ ...f, estado: v }))}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white font-extralight"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                  <SelectTrigger className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"><SelectValue /></SelectTrigger>
+                  <SelectContent className="moon-panel-surface moon-panel-border">
                     <SelectItem value="pendiente" className="font-extralight">Pendiente</SelectItem>
                     <SelectItem value="pagado"    className="font-extralight">Pagado</SelectItem>
                   </SelectContent>
@@ -3119,31 +3113,31 @@ const Contador: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Sueldo base (S/)</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Sueldo base (S/)</Label>
               <Input type="number" value={sueldoForm.montoBase}
                 onChange={e => setSueldoForm(f => ({ ...f, montoBase: e.target.value }))}
-                placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Bonificaciones (S/)</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Bonificaciones (S/)</Label>
                 <Input type="number" value={sueldoForm.bonificaciones}
                   onChange={e => setSueldoForm(f => ({ ...f, bonificaciones: e.target.value }))}
-                  placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Descuentos (S/)</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Descuentos (S/)</Label>
                 <Input type="number" value={sueldoForm.descuentos}
                   onChange={e => setSueldoForm(f => ({ ...f, descuentos: e.target.value }))}
-                  placeholder="0.00" className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  placeholder="0.00" className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
             </div>
 
             {sueldoForm.montoBase && (
-              <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-between">
-                <span className="text-zinc-500 text-sm font-extralight">Neto a pagar</span>
-                <span className="text-emerald-400 font-extralight text-lg">
+              <div className="p-3 moon-panel-surface border moon-panel-border rounded-lg flex items-center justify-between">
+                <span className="moon-panel-muted text-sm font-extralight">Neto a pagar</span>
+                <span className="moon-panel-tone-green font-extralight text-lg">
                   {formatMoney(
                     parseFloat(sueldoForm.montoBase || '0')
                     + parseFloat(sueldoForm.bonificaciones || '0')
@@ -3154,19 +3148,19 @@ const Contador: React.FC = () => {
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-zinc-400 font-extralight text-xs">Observaciones (opcional)</Label>
+              <Label className="moon-panel-muted font-extralight text-xs">Observaciones (opcional)</Label>
               <Textarea value={sueldoForm.observaciones}
                 onChange={e => setSueldoForm(f => ({ ...f, observaciones: e.target.value }))}
                 placeholder="CTS, vacaciones, horas extra..." rows={2}
-                className="bg-zinc-900 border-zinc-800 text-white font-extralight resize-none" />
+                className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight resize-none" />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowSueldoModal(false); setEditSueldoId(null); }}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">Cancelar</Button>
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">Cancelar</Button>
             <Button onClick={handleSaveSueldo} disabled={saving || !sueldoForm.montoBase}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               {editSueldoId ? 'Actualizar' : 'Guardar'}
             </Button>
@@ -3183,87 +3177,87 @@ const Contador: React.FC = () => {
 
       {/* ══ MODAL: Configuración empresa ═════════════════════════════════════════ */}
       <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <Building2 className="w-5 h-5" /> Configuración Empresa
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Estos datos aparecerán en los PDFs de facturas.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="text-zinc-400 font-extralight text-xs flex items-center gap-2">
+              <Label className="moon-panel-muted font-extralight text-xs flex items-center gap-2">
                 <ImageIcon className="w-3.5 h-3.5" /> Logo de la empresa (URL)
               </Label>
               <Input
                 value={configForm.logoUrl}
                 onChange={e => setConfigForm(f => ({ ...f, logoUrl: e.target.value }))}
                 placeholder="https://tu-empresa.com/logo.png"
-                className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
               />
               {configForm.logoUrl && (
-                <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <div className="flex items-center gap-3 p-3 moon-panel-surface border moon-panel-border rounded-lg">
                   <img
                     src={configForm.logoUrl}
                     alt="preview"
                     className="h-12 w-auto object-contain rounded"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
-                  <p className="text-zinc-500 text-xs font-extralight">Vista previa del logo</p>
+                  <p className="moon-panel-muted text-xs font-extralight">Vista previa del logo</p>
                 </div>
               )}
-              <p className="text-zinc-600 text-xs font-extralight">
+              <p className="moon-panel-muted text-xs font-extralight">
                 Usa una URL pública. Para Supabase Storage copia el enlace público de tu bucket.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-zinc-400 font-extralight text-xs">Nombre de la empresa *</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Nombre de la empresa *</Label>
                 <Input
                   value={configForm.empresaNombre}
                   onChange={e => setConfigForm(f => ({ ...f, empresaNombre: e.target.value }))}
                   placeholder="Mi Empresa S.A.C."
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">RUC</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">RUC</Label>
                 <Input
                   value={configForm.ruc}
                   onChange={e => setConfigForm(f => ({ ...f, ruc: e.target.value }))}
                   placeholder="20123456789"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Teléfono</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Teléfono</Label>
                 <Input
                   value={configForm.telefono}
                   onChange={e => setConfigForm(f => ({ ...f, telefono: e.target.value }))}
                   placeholder="+51 999 888 777"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
                 />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-zinc-400 font-extralight text-xs">Dirección</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Dirección</Label>
                 <Input
                   value={configForm.direccion}
                   onChange={e => setConfigForm(f => ({ ...f, direccion: e.target.value }))}
                   placeholder="Av. Principal 123, Lima, Perú"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
                 />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-zinc-400 font-extralight text-xs">Correo electrónico</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Correo electrónico</Label>
                 <Input
                   value={configForm.email}
                   onChange={e => setConfigForm(f => ({ ...f, email: e.target.value }))}
                   placeholder="contacto@miempresa.com"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight"
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight"
                 />
               </div>
             </div>
@@ -3271,11 +3265,11 @@ const Contador: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfigModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">
               Cancelar
             </Button>
             <Button onClick={handleSaveConfig} disabled={savingConfig || !configForm.empresaNombre}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight">
+              className="moon-panel-primary hover:opacity-90 font-extralight">
               {savingConfig ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               Guardar configuración
             </Button>
@@ -3295,12 +3289,12 @@ const Contador: React.FC = () => {
           ]); 
         }
       }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
               <BookOpen className="w-5 h-5" /> Nuevo Asiento Contable
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Partida doble: el Debe debe ser igual al Haber para poder guardar.
             </DialogDescription>
           </DialogHeader>
@@ -3308,21 +3302,21 @@ const Contador: React.FC = () => {
           <div className="space-y-5 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Fecha</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Fecha</Label>
                 <Input type="date" value={asientoForm.fecha}
                   onChange={e => setAsientoForm(f => ({ ...f, fecha: e.target.value }))}
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight [color-scheme:dark]" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight [color-scheme:dark]" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-zinc-400 font-extralight text-xs">Glosa</Label>
+                <Label className="moon-panel-muted font-extralight text-xs">Glosa</Label>
                 <Input value={asientoForm.glosa}
                   onChange={e => setAsientoForm(f => ({ ...f, glosa: e.target.value }))}
                   placeholder="Ej: Pago planilla enero 2025"
-                  className="bg-zinc-900 border-zinc-800 text-white font-extralight" />
+                  className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight" />
               </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-2 px-1 text-xs font-extralight uppercase tracking-wider text-zinc-500">
+            <div className="enterprise-journal-head grid grid-cols-12 gap-2 px-1 text-xs font-extralight uppercase tracking-wider moon-panel-muted">
   <div className="col-span-4">Cuenta PCGE</div>
   <div className="col-span-3">Descripción</div>
   <div className="col-span-2 text-right">Debe (S/)</div>
@@ -3335,44 +3329,46 @@ const Contador: React.FC = () => {
                 const tipo      = PLAN_CONTABLE.find(p => p.codigo === linea.cuentaCodigo)?.tipo;
                 const busqueda  = cuentaSearch[idx] ?? '';
                 return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                  <div key={idx} className="enterprise-journal-line grid grid-cols-12 gap-2 items-start">
   {/* Cuenta PCGE */}
   {/* Cuenta PCGE — selector con categorías */}
 <div className="col-span-4 relative">
+  <span className="enterprise-journal-label">Cuenta PCGE · línea {idx + 1}</span>
   {linea.cuentaCodigo ? (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md">
+    <div className="flex items-center gap-1.5 px-2 py-1.5 moon-panel-surface border moon-panel-border rounded-md">
       <span className="text-xs flex-shrink-0">
         {PLAN_CONTABLE.find(p => p.codigo === linea.cuentaCodigo && p.country === (cuentaPais[idx] ?? 'PE'))?.country === 'ES' ? '🇪🇸' : '🇵🇪'}
       </span>
-      <span className={`font-mono text-xs flex-shrink-0 ${tipo ? TIPO_COLOR[tipo] : 'text-zinc-400'}`}>
+      <span className={`font-mono text-xs flex-shrink-0 ${tipo ? TIPO_COLOR[tipo] : 'moon-panel-muted'}`}>
         {linea.cuentaCodigo}
       </span>
-      <span className="text-zinc-300 font-extralight text-xs truncate">{linea.cuentaNombre}</span>
+      <span className="moon-panel-muted font-extralight text-xs truncate">{linea.cuentaNombre}</span>
       <button type="button"
         onClick={() => { handleLineaChange(idx,'cuentaCodigo',''); handleLineaChange(idx,'cuentaNombre',''); }}
-        className="ml-auto text-zinc-600 hover:text-red-400 flex-shrink-0 text-base leading-none">×</button>
+        className="ml-auto moon-panel-muted hover:text-red-400 flex-shrink-0 text-base leading-none">×</button>
     </div>
   ) : (
     <>
       {/* Buscador */}
       <Input value={busqueda}
+        aria-label={`Cuenta contable de la línea ${idx + 1}`}
         onChange={e => setCuentaSearch(p => ({ ...p, [idx]: e.target.value }))}
         placeholder="Buscar por nombre o código..."
-        className="bg-zinc-900 border-zinc-800 text-white font-extralight text-xs h-9" />
+        className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight text-xs h-9" />
 
       {/* Dropdown: búsqueda activa O navegación por categoría */}
-      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-zinc-950 border border-zinc-700 rounded-md shadow-xl overflow-hidden"
+      <div className="absolute z-50 left-0 right-0 top-full mt-1 moon-panel-surface border moon-panel-border rounded-md shadow-xl overflow-hidden"
            style={{ display: busqueda.length > 0 || cuentaSearch[`open_${idx}`] ? 'block' : 'none' }}>
 
         {/* Toggle país */}
-        <div className="flex border-b border-zinc-800">
+        <div className="flex border-b moon-panel-border">
           {(['PE', 'ES'] as const).map(pais => (
             <button key={pais} type="button"
               onClick={() => setCuentaPais(p => ({ ...p, [idx]: pais }))}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-extralight transition-colors ${
                 (cuentaPais[idx] ?? 'PE') === pais
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'moon-panel-raised moon-panel-ink'
+                  : 'moon-panel-muted moon-panel-hover'
               }`}>
               <span>{pais === 'PE' ? '🇵🇪' : '🇪🇸'}</span>
               <span>{pais === 'PE' ? 'Perú (PCGE)' : 'España (PGC)'}</span>
@@ -3389,16 +3385,16 @@ const Contador: React.FC = () => {
             ).slice(0, 12).map(c => (
               <button key={`${c.country}-${c.codigo}`} type="button"
                 onClick={() => handleSelectCuenta(idx, c)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800 text-left border-b border-zinc-900 last:border-0">
+                className="w-full flex items-center gap-2 px-3 py-2 moon-panel-hover text-left border-b moon-panel-border last:border-0">
                 <span className={`font-mono text-xs w-12 flex-shrink-0 ${TIPO_COLOR[c.tipo]}`}>{c.codigo}</span>
-                <span className="text-zinc-300 font-extralight text-xs flex-1">{c.nombre}</span>
+                <span className="moon-panel-muted font-extralight text-xs flex-1">{c.nombre}</span>
               </button>
             ))}
             {PLAN_CONTABLE.filter(p =>
               p.country === (cuentaPais[idx] ?? 'PE') &&
               (p.codigo.includes(busqueda) || p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
             ).length === 0 && (
-              <p className="text-zinc-600 text-xs font-extralight px-3 py-3 text-center">Sin resultados en el plan {cuentaPais[idx] ?? 'PE'}</p>
+              <p className="moon-panel-muted text-xs font-extralight px-3 py-3 text-center">Sin resultados en el plan {cuentaPais[idx] ?? 'PE'}</p>
             )}
           </div>
         ) : (
@@ -3411,7 +3407,7 @@ const Contador: React.FC = () => {
                     ...p,
                     [`grupo_${idx}`]: p[`grupo_${idx}`] === tipoCat ? '' : tipoCat
                   }))}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900 hover:bg-zinc-800 transition-colors">
+                  className="w-full flex items-center justify-between px-3 py-2 moon-panel-surface moon-panel-hover transition-colors">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full bg-current ${TIPO_COLOR[tipoCat]}`} />
                     <span className={`text-xs font-extralight uppercase tracking-wider ${TIPO_COLOR[tipoCat]}`}>
@@ -3422,21 +3418,21 @@ const Contador: React.FC = () => {
                                                  'Gastos — Sueldos, Servicios, Depreciación'      }
                     </span>
                   </div>
-                  <ChevronRight className={`w-3 h-3 text-zinc-600 transition-transform ${
+                  <ChevronRight className={`w-3 h-3 moon-panel-muted transition-transform ${
                     cuentaSearch[`grupo_${idx}`] === tipoCat ? 'rotate-90' : ''
                   }`} />
                 </button>
                 {cuentaSearch[`grupo_${idx}`] === tipoCat && (
-                  <div className="bg-zinc-950">
+                  <div className="moon-panel-surface">
                     {PLAN_CONTABLE.filter(p => p.tipo === tipoCat && p.country === (cuentaPais[idx] ?? 'PE')).map(c => (
                       <button key={`${c.country}-${c.codigo}`} type="button"
                         onClick={() => {
                           handleSelectCuenta(idx, c);
                           setCuentaSearch(p => ({ ...p, [`grupo_${idx}`]: '', [`open_${idx}`]: '' }));
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-zinc-800 text-left border-t border-zinc-900">
+                        className="w-full flex items-center gap-3 px-4 py-2 moon-panel-hover text-left border-t moon-panel-border">
                         <span className={`font-mono text-[10px] w-10 flex-shrink-0 ${TIPO_COLOR[c.tipo]}`}>{c.codigo}</span>
-                        <span className="text-zinc-300 font-extralight text-xs">{c.nombre}</span>
+                        <span className="moon-panel-muted font-extralight text-xs">{c.nombre}</span>
                       </button>
                     ))}
                   </div>
@@ -3454,7 +3450,8 @@ const Contador: React.FC = () => {
             ...p,
             [`open_${idx}`]: p[`open_${idx}`] ? '' : 'open'
           }))}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs font-extralight">
+          aria-label={`Mostrar cuentas de la línea ${idx + 1}`}
+          className="enterprise-journal-toggle absolute right-2 top-1/2 -translate-y-1/2 moon-panel-muted moon-panel-hover text-xs font-extralight">
           {cuentaSearch[`open_${idx}`] ? '▲' : '▼'}
         </button>
       )}
@@ -3464,37 +3461,43 @@ const Contador: React.FC = () => {
 
   {/* Descripción libre */}
   <div className="col-span-3">
+    <span className="enterprise-journal-label">Descripción</span>
     <Input
+      aria-label={`Descripción de la línea ${idx + 1}`}
       value={cuentaSearch[`desc_${idx}`] ?? ''}
       onChange={e => setCuentaSearch(p => ({ ...p, [`desc_${idx}`]: e.target.value }))}
       placeholder="Detalle..."
-      className="bg-zinc-900 border-zinc-800 text-zinc-300 font-extralight text-xs h-9"
+      className="moon-panel-surface moon-panel-border moon-panel-muted font-extralight text-xs h-9"
     />
   </div>
 
   {/* Debe */}
   <div className="col-span-2">
+    <span className="enterprise-journal-label">Debe (S/)</span>
     <Input type="number" min="0" step="0.01"
+      aria-label={`Debe de la línea ${idx + 1}`}
       value={linea.debe || ''}
       onChange={e => { handleLineaChange(idx,'debe',parseFloat(e.target.value)||0); if(parseFloat(e.target.value)>0) handleLineaChange(idx,'haber',0); }}
       placeholder="0.00"
-      className="bg-zinc-900 border-zinc-800 text-blue-400 font-extralight text-right h-9" />
+      className="moon-panel-surface moon-panel-border moon-panel-tone-blue font-extralight text-right h-9" />
   </div>
 
   {/* Haber */}
   <div className="col-span-2">
+    <span className="enterprise-journal-label">Haber (S/)</span>
     <Input type="number" min="0" step="0.01"
+      aria-label={`Haber de la línea ${idx + 1}`}
       value={linea.haber || ''}
       onChange={e => { handleLineaChange(idx,'haber',parseFloat(e.target.value)||0); if(parseFloat(e.target.value)>0) handleLineaChange(idx,'debe',0); }}
       placeholder="0.00"
-      className="bg-zinc-900 border-zinc-800 text-purple-400 font-extralight text-right h-9" />
+      className="moon-panel-surface moon-panel-border moon-panel-tone-purple font-extralight text-right h-9" />
   </div>
 
   {/* Eliminar */}
   <div className="col-span-1 flex items-center justify-center">
     {lineasForm.length > 2 && (
       <Button variant="ghost" size="sm" onClick={() => handleRemoveLinea(idx)}
-        className="text-zinc-600 hover:text-red-400 hover:bg-red-950/30 h-8 w-8 p-0">
+        className="moon-panel-muted hover:text-red-400 hover:bg-red-950/30 h-8 w-8 p-0">
         <Trash2 className="w-3.5 h-3.5" />
       </Button>
     )}
@@ -3505,25 +3508,25 @@ const Contador: React.FC = () => {
             </div>
 
             <Button type="button" variant="outline" onClick={handleAddLinea}
-              className="w-full border-dashed border-zinc-700 text-zinc-500 hover:text-white hover:border-zinc-500 font-extralight gap-2 h-9">
+              className="w-full border-dashed moon-panel-border moon-panel-muted moon-panel-hover hover:border-zinc-500 font-extralight gap-2 h-9">
               <Plus className="w-3.5 h-3.5" /> Agregar línea
             </Button>
 
-            <div className={`p-4 rounded-lg border ${asientoBalanceado ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-zinc-900 border-zinc-800'}`}>
+            <div className={`p-4 rounded-lg border ${asientoBalanceado ? 'moon-panel-fill-green border-emerald-800/40' : 'moon-panel-surface moon-panel-border'}`}>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider mb-1">Total Debe</p>
-                  <p className="text-blue-400 font-extralight text-lg">{formatMoney(totalDebeForm)}</p>
+                  <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider mb-1">Total Debe</p>
+                  <p className="moon-panel-tone-blue font-extralight text-lg">{formatMoney(totalDebeForm)}</p>
                 </div>
                 <div className="flex items-center justify-center">
                   {asientoBalanceado
-                    ? <div className="text-center"><CheckCircle className="w-6 h-6 text-emerald-400 mx-auto" /><p className="text-emerald-400 text-xs font-extralight mt-1">Cuadrado</p></div>
-                    : <div className="text-center"><AlertCircle className="w-6 h-6 text-yellow-400 mx-auto" /><p className="text-yellow-400 text-xs font-extralight mt-1">Diferencia: {formatMoney(Math.abs(totalDebeForm - totalHaberForm))}</p></div>
+                    ? <div className="text-center"><CheckCircle className="w-6 h-6 moon-panel-tone-green mx-auto" /><p className="moon-panel-tone-green text-xs font-extralight mt-1">Cuadrado</p></div>
+                    : <div className="text-center"><AlertCircle className="w-6 h-6 moon-panel-tone-amber mx-auto" /><p className="moon-panel-tone-amber text-xs font-extralight mt-1">Diferencia: {formatMoney(Math.abs(totalDebeForm - totalHaberForm))}</p></div>
                   }
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider mb-1">Total Haber</p>
-                  <p className="text-purple-400 font-extralight text-lg">{formatMoney(totalHaberForm)}</p>
+                  <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider mb-1">Total Haber</p>
+                  <p className="moon-panel-tone-purple font-extralight text-lg">{formatMoney(totalHaberForm)}</p>
                 </div>
               </div>
             </div>
@@ -3531,10 +3534,10 @@ const Contador: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAsientoModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">Cancelar</Button>
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">Cancelar</Button>
             <Button onClick={handleSaveAsiento}
               disabled={saving || !asientoBalanceado || !asientoForm.glosa}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+              className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               Registrar Asiento
             </Button>
@@ -3544,19 +3547,19 @@ const Contador: React.FC = () => {
 
       {/* ══ MODAL: Configuración Monetaria ═══════════════════════════════════════ */}
       <Dialog open={showMonedaModal} onOpenChange={setShowMonedaModal}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogContent className="moon-panel-surface moon-panel-border moon-panel-ink max-w-md">
           <DialogHeader>
             <DialogTitle className="font-extralight text-lg flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-emerald-400" /> Configuración Monetaria
+              <DollarSign className="w-5 h-5 moon-panel-tone-green" /> Configuración Monetaria
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 font-extralight text-sm">
+            <DialogDescription className="moon-panel-muted font-extralight text-sm">
               Selecciona la moneda de trabajo y configura los tipos de cambio respecto al Sol (PEN).
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 py-2">
             <div className="space-y-2">
-              <Label className="text-zinc-400 font-extralight text-xs uppercase tracking-wider">Moneda activa</Label>
+              <Label className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">Moneda activa</Label>
               <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(MONEDAS_CONFIG) as Moneda[]).map(m => {
                   const cfg     = MONEDAS_CONFIG[m];
@@ -3568,16 +3571,16 @@ const Contador: React.FC = () => {
                       onClick={() => setMonedaForm(f => ({ ...f, monedaActiva: m }))}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all ${
                         activa
-                          ? 'bg-zinc-800 border-emerald-700 text-white'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600'
+                          ? 'moon-panel-raised border-emerald-700 moon-panel-ink'
+                          : 'moon-panel-surface moon-panel-border moon-panel-muted hover:border-zinc-600'
                       }`}
                     >
                       <span className="text-xl">{cfg.flag}</span>
                       <div className="text-left">
                         <p className="font-extralight text-sm">{cfg.simbolo} {m}</p>
-                        <p className="text-zinc-500 text-xs font-extralight">{cfg.label}</p>
+                        <p className="moon-panel-muted text-xs font-extralight">{cfg.label}</p>
                       </div>
-                      {activa && <CheckCircle className="w-4 h-4 text-emerald-400 ml-auto" />}
+                      {activa && <CheckCircle className="w-4 h-4 moon-panel-tone-green ml-auto" />}
                     </button>
                   );
                 })}
@@ -3585,10 +3588,10 @@ const Contador: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 font-extralight text-xs uppercase tracking-wider">
+              <Label className="moon-panel-muted font-extralight text-xs uppercase tracking-wider">
                 Tipos de cambio (1 moneda extranjera = X soles)
               </Label>
-              <p className="text-zinc-600 text-xs font-extralight">
+              <p className="moon-panel-muted text-xs font-extralight">
                 Se usan para mostrar equivalencias. Los montos se guardan siempre en la moneda activa.
               </p>
 
@@ -3599,27 +3602,27 @@ const Contador: React.FC = () => {
               ].map(({ key, flag, label }) => (
                 <div key={key} className="flex items-center gap-3">
                   <span className="text-lg w-8">{flag}</span>
-                  <span className="text-zinc-400 font-extralight text-sm w-16">{label}</span>
+                  <span className="moon-panel-muted font-extralight text-sm w-16">{label}</span>
                   <Input
                     type="number"
                     min="0"
                     step="0.01"
                     value={monedaForm[key] as number}
                     onChange={e => setMonedaForm(f => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-                    className="bg-zinc-900 border-zinc-800 text-white font-extralight w-28 text-right"
+                    className="moon-panel-surface moon-panel-border moon-panel-ink font-extralight w-28 text-right"
                   />
-                  <span className="text-zinc-500 font-extralight text-sm">S/</span>
+                  <span className="moon-panel-muted font-extralight text-sm">S/</span>
                 </div>
               ))}
             </div>
 
-            <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg space-y-2">
-              <p className="text-zinc-500 text-xs font-extralight uppercase tracking-wider">Vista previa</p>
-              <p className="text-white font-extralight text-sm">
+            <div className="p-3 moon-panel-surface border moon-panel-border rounded-lg space-y-2">
+              <p className="moon-panel-muted text-xs font-extralight uppercase tracking-wider">Vista previa</p>
+              <p className="moon-panel-ink font-extralight text-sm">
                 Ejemplo: {formatMoney(1000)} → se mostrará así en todo el sistema
               </p>
               {monedaForm.monedaActiva !== 'PEN' && (
-                <p className="text-zinc-500 font-extralight text-xs">
+                <p className="moon-panel-muted font-extralight text-xs">
                   Equivale a S/ {(
                     1000 * (
                       monedaForm.monedaActiva === 'USD' ? monedaForm.tipoCambioUSD :
@@ -3634,11 +3637,11 @@ const Contador: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMonedaModal(false)}
-              className="border-zinc-800 text-white hover:bg-zinc-900 font-extralight">
+              className="moon-panel-border moon-panel-ink moon-panel-hover font-extralight">
               Cancelar
             </Button>
             <Button onClick={handleSaveMoneda} disabled={savingMoneda}
-              className="bg-white text-black hover:bg-zinc-200 font-extralight gap-2">
+              className="moon-panel-primary hover:opacity-90 font-extralight gap-2">
               {savingMoneda
                 ? <RefreshCw className="w-4 h-4 animate-spin" />
                 : <CheckCircle className="w-4 h-4" />

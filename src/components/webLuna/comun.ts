@@ -13,7 +13,7 @@ export const bd = 'hsl(var(--border))';
 export const sf = 'hsl(var(--card))';
 export const sc = 'hsl(var(--secondary))';
 export const mt = 'hsl(var(--muted-foreground))';
-export const tenue = 'rgba(255,255,255,0.25)';
+export const tenue = 'var(--moon-muted)';
 
 export const copia = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 export const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

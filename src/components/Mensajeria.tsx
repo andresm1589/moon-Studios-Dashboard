@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { panelInk } from '@/lib/panelColors';
+import { EnterpriseFocus } from '@/components/EnterpriseFocus';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   collection, doc, onSnapshot, updateDoc, deleteDoc, writeBatch, Timestamp,
 } from 'firebase/firestore';
 import {
   MessagesSquare, Mail, MailOpen, Search, RefreshCw, Trash2, ChevronDown,
-  Copy, CheckCheck, AlertCircle, Inbox, Headphones, Globe, Send, Loader2,
+  Copy, CheckCheck, AlertCircle, Headphones, Globe, Send, Loader2,
   BadgeCheck, X, Moon,
 } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
@@ -120,8 +124,8 @@ const CORREOS_COL = collection(db, 'correos_panel_moonstudios');
 // ═══════════════════════════════════════════════════════════════════
 const LoadingSpinner: React.FC<{ label?: string }> = ({ label }) => (
   <div className="flex flex-col items-center justify-center h-32 gap-3">
-    <div className="w-5 h-5 border border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
-    {label && <p className="text-xs font-light" style={{ color: mt }}>{label}</p>}
+    <div className="w-5 h-5 border moon-panel-border border-t-zinc-300 rounded-full animate-spin" />
+    {label && <p className="text-xs font-light" style={{ color: panelInk(mt) }}>{label}</p>}
   </div>
 );
 
@@ -131,13 +135,13 @@ const ErrorState: React.FC<{ message: string; onRetry: () => void }> = ({ messag
     style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}
   >
     <div className="flex items-center gap-2">
-      <AlertCircle className="w-4 h-4" style={{ color: '#f87171' }} strokeWidth={1.5} />
-      <p className="text-sm font-light" style={{ color: '#f87171' }}>{message}</p>
+      <AlertCircle className="w-4 h-4" style={{ color: panelInk('#f87171') }} strokeWidth={1.5} />
+      <p className="text-sm font-light" style={{ color: panelInk('#f87171') }}>{message}</p>
     </div>
     <button
       onClick={onRetry}
-      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-      style={{ border: `1px solid ${bd}`, color: mt }}
+      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
     >
       <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar
     </button>
@@ -151,7 +155,7 @@ const OrigenBadge: React.FC<{ origen: string; sitio?: string }> = ({ origen, sit
   return (
     <span
       className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}
+      style={{ background: `${color}18`, color: panelInk(color), border: `1px solid ${color}30` }}
     >
       <Icon className="w-2.5 h-2.5" strokeWidth={2} />
       {label}
@@ -169,6 +173,8 @@ const Mensajeria: React.FC = () => {
   const [searchQ,      setSearchQ]      = useState('');
   const [origenFilter, setOrigenFilter] = useState<OrigenFilter>('todos');
   const [leidoFilter,  setLeidoFilter]  = useState<LeidoFilter>('todos');
+  const [onlyUnanswered, setOnlyUnanswered] = useState(false);
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest'>('recent');
   const [expandedId,   setExpandedId]   = useState<string | null>(null);
   const [updatingId,   setUpdatingId]   = useState<string | null>(null);
   const [deletingId,   setDeletingId]   = useState<string | null>(null);
@@ -178,6 +184,7 @@ const Mensajeria: React.FC = () => {
   const [replyingId,   setReplyingId]   = useState<string | null>(null);
   const [replyText,    setReplyText]    = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const replyEmojiRef = useRef<HTMLTextAreaElement>(null);
 
   // En vivo: un mensaje nuevo desde las webs aparece sin tocar "Actualizar".
   // El botón vuelve a suscribirse, por si la escucha falló.
@@ -210,6 +217,7 @@ const Mensajeria: React.FC = () => {
   );
 
   const filtered = useMemo(() => correos.filter(c => {
+    if (onlyUnanswered && c.respondido) return false;
     if (origenFilter !== 'todos' && c.origen !== origenFilter) return false;
     if (leidoFilter === 'no_leidos' && c.leido) return false;
     if (leidoFilter === 'leidos' && !c.leido) return false;
@@ -220,7 +228,11 @@ const Mensajeria: React.FC = () => {
           !c.mensaje.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [correos, origenFilter, leidoFilter, searchQ]);
+  }).sort((a, b) => {
+    const time = a.fecha?.toMillis?.() || 0;
+    const otherTime = b.fecha?.toMillis?.() || 0;
+    return sortBy === 'recent' ? otherTime - time : time - otherTime;
+  }), [correos, origenFilter, leidoFilter, searchQ, onlyUnanswered, sortBy]);
 
   // ── Acciones ──────────────────────────────────────────────────────
   const handleToggleLeido = async (correo: Correo) => {
@@ -321,43 +333,21 @@ const Mensajeria: React.FC = () => {
   if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.25)' }}
-        >
-          <MessagesSquare className="w-4 h-4" style={{ color: '#818cf8' }} strokeWidth={1.5} />
-        </div>
-        <div>
-          <h1 className="text-xl font-light text-white tracking-tight">Mensajería</h1>
-          <p className="text-xs font-light" style={{ color: mt }}>Bandeja de entrada · Correos de contacto</p>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total',            value: stats.total,    color: 'rgba(255,255,255,0.7)', icon: <Inbox className="w-3.5 h-3.5" /> },
-          { label: 'Sin leer',         value: stats.noLeidos, color: '#f59e0b',                icon: <Mail className="w-3.5 h-3.5" /> },
-          { label: 'Sitio público',    value: stats.contacto, color: '#4ade80',                icon: <Globe className="w-3.5 h-3.5" /> },
-          { label: 'Soporte interno',  value: stats.soporte,  color: '#fb923c',                icon: <Headphones className="w-3.5 h-3.5" /> },
-        ].map((s, i) => (
-          <div key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>{s.label}</span>
-              <span style={{ color: mt }}>{s.icon}</span>
-            </div>
-            <p className="text-2xl font-light" style={{ color: s.color }}>{s.value}</p>
-          </div>
-        ))}
-      </div>
+    <div className="moon-module moon-module--mensajeria space-y-5">
+      <EnterpriseFocus eyebrow="Clientes · Atención" title="Mensajería"
+        description="Organiza las consultas recibidas desde tus sitios y prioriza los mensajes que esperan una respuesta."
+        metrics={[
+          { label: 'Recibidos', value: stats.total, detail: 'Todos los orígenes', onClick: () => { setOrigenFilter('todos'); setLeidoFilter('todos'); setOnlyUnanswered(false); setSearchQ(''); } },
+          { label: 'Sin leer', value: stats.noLeidos, detail: 'Abrir pendientes de lectura', onClick: () => { setOrigenFilter('todos'); setLeidoFilter('no_leidos'); setOnlyUnanswered(false); setSearchQ(''); } },
+          { label: 'Sin responder', value: correos.filter(c => !c.respondido).length, detail: 'Priorizar atención', onClick: () => { setOrigenFilter('todos'); setOnlyUnanswered(true); setLeidoFilter('todos'); setSearchQ(''); } },
+        ]}>
+        <button type="button" className="enterprise-action" onClick={loadData}><RefreshCw />Actualizar bandeja</button>
+      </EnterpriseFocus>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="enterprise-toolbar">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} strokeWidth={1.5} />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} strokeWidth={1.5} />
           <input
             value={searchQ}
             onChange={e => setSearchQ(e.target.value)}
@@ -372,15 +362,21 @@ const Mensajeria: React.FC = () => {
             value={origenFilter}
             onChange={e => setOrigenFilter(e.target.value as OrigenFilter)}
             className="pl-3 pr-8 py-2 rounded-xl text-xs font-light outline-none appearance-none cursor-pointer"
-            style={{ background: sf, border: `1px solid ${bd}`, color: origenFilter !== 'todos' ? 'white' : mt }}
+            style={{ background: sf, border: `1px solid ${bd}`, color: panelInk(origenFilter !== 'todos' ? "var(--moon-ink)" : mt) }}
           >
             <option value="todos">Origen: todos</option>
             {origenesPresentes.map(o => (
               <option key={o} value={o}>{origenMeta(o).label}</option>
             ))}
           </select>
-          <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} />
+          <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} />
         </div>
+
+        <select aria-label="Orden de consultas" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
+          <option value="recent">Más recientes primero</option><option value="oldest">Más antiguos primero</option>
+        </select>
+        <button type="button" className="enterprise-pill" aria-pressed={onlyUnanswered} onClick={() => setOnlyUnanswered(v => !v)}>Sin responder</button>
+        {(searchQ || origenFilter !== 'todos' || leidoFilter !== 'todos' || onlyUnanswered) && <button type="button" className="enterprise-action" onClick={() => { setSearchQ(''); setOrigenFilter('todos'); setLeidoFilter('todos'); setOnlyUnanswered(false); }}>Limpiar filtros</button>}
 
         <div className="flex gap-1 rounded-xl p-1" style={{ background: sc, border: `1px solid ${bd}` }}>
           {([
@@ -393,8 +389,8 @@ const Mensajeria: React.FC = () => {
               onClick={() => setLeidoFilter(key)}
               className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all"
               style={{
-                background: leidoFilter === key ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:      leidoFilter === key ? 'white' : mt,
+                background: leidoFilter === key ? "var(--moon-surface-raised)" : 'transparent',
+                color:      panelInk(leidoFilter === key ? "var(--moon-ink)" : mt),
               }}
             >
               {label}
@@ -406,8 +402,8 @@ const Mensajeria: React.FC = () => {
           <button
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5 disabled:opacity-50"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover disabled:opacity-50"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
           >
             <CheckCheck className="w-3.5 h-3.5" strokeWidth={1.5} />
             {markingAll ? 'Marcando...' : 'Marcar todo leído'}
@@ -416,8 +412,8 @@ const Mensajeria: React.FC = () => {
 
         <button
           onClick={loadData}
-          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5 flex-shrink-0"
-          style={{ border: `1px solid ${bd}`, color: mt }}
+          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover flex-shrink-0"
+          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
           aria-label="Refrescar"
         >
           <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -427,8 +423,8 @@ const Mensajeria: React.FC = () => {
       {/* Lista */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <MessagesSquare className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-          <p className="text-sm font-light" style={{ color: mt }}>
+          <MessagesSquare className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+          <p className="text-sm font-light" style={{ color: panelInk(mt) }}>
             {correos.length === 0 ? 'Todavía no llegó ningún mensaje.' : 'Ningún correo coincide con el filtro.'}
           </p>
         </div>
@@ -440,12 +436,12 @@ const Mensajeria: React.FC = () => {
             const isDeleting  = deletingId === correo.id;
             const isReplying  = replyingId === correo.id;
             return (
-              <div
+              <div data-moon-reveal="row"
                 key={correo.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
                   background: sf,
-                  border: `1px solid ${isExpanded ? 'rgba(255,255,255,0.14)' : !correo.leido ? 'rgba(129,140,248,0.25)' : bd}`,
+                  border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--moon-ink) 14%, transparent)' : !correo.leido ? 'rgba(129,140,248,0.25)' : bd}`,
                   opacity: isDeleting ? 0.4 : 1,
                 }}
               >
@@ -460,35 +456,35 @@ const Mensajeria: React.FC = () => {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`text-sm truncate ${correo.leido ? 'font-light' : 'font-medium'}`} style={{ color: correo.leido ? mt : 'white' }}>
+                      <p className={`text-sm truncate ${correo.leido ? 'font-light' : 'font-medium'}`} style={{ color: panelInk(correo.leido ? mt : "var(--moon-ink)") }}>
                         {correo.nombre}
                       </p>
                       <OrigenBadge origen={correo.origen} sitio={correo.sitio} />
                       {correo.asunto && (
-                        <span className="text-[10px] font-light px-2 py-0.5 rounded-full flex-shrink-0" style={{ border: `1px solid ${bd}`, color: mt }}>
+                        <span className="text-[10px] font-light px-2 py-0.5 rounded-full flex-shrink-0" style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}>
                           {ASUNTOS_LUNA[correo.asunto] ?? correo.asunto}{correo.idioma && correo.idioma !== 'es' ? ` · ${correo.idioma.toUpperCase()}` : ''}
                         </span>
                       )}
                       {correo.respondido && (
                         <span
                           className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                          style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
+                          style={{ background: 'rgba(74,222,128,0.12)', color: panelInk('#4ade80'), border: '1px solid rgba(74,222,128,0.25)' }}
                         >
                           <BadgeCheck className="w-2.5 h-2.5" strokeWidth={2} /> Respondido
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] font-light truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                      {truncate(correo.mensaje, 90)}
+                    <p className="text-[11px] font-light truncate mt-0.5" style={{ color: 'var(--moon-muted)' }}>
+                      <EmojiText text={truncate(correo.mensaje, 90)} size={16} />
                     </p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-[10px] font-light hidden sm:inline" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                    <span className="text-[10px] font-light hidden sm:inline" style={{ color: 'var(--moon-muted)' }}>
                       {formatDate(correo.fecha)}
                     </span>
                     <ChevronDown
                       className="w-3.5 h-3.5 transition-transform"
-                      style={{ color: mt, transform: isExpanded ? 'rotate(180deg)' : 'none' }}
+                      style={{ color: panelInk(mt), transform: isExpanded ? 'rotate(180deg)' : 'none' }}
                     />
                   </div>
                 </button>
@@ -499,42 +495,43 @@ const Mensajeria: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap pt-3">
                       <button
                         onClick={() => handleCopyEmail(correo.email)}
-                        className="flex items-center gap-1.5 text-xs font-light px-2.5 py-1 rounded-lg transition-all hover:bg-white/5"
+                        className="flex items-center gap-1.5 text-xs font-light px-2.5 py-1 rounded-lg transition-all moon-panel-hover"
                         style={{ color: 'hsl(var(--foreground))', border: `1px solid ${bd}` }}
                       >
-                        {correo.email} <Copy className="w-3 h-3" style={{ color: mt }} />
+                        {correo.email} <Copy className="w-3 h-3" style={{ color: panelInk(mt) }} />
                       </button>
-                      <span className="text-[10px] font-light" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                      <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                         {formatDate(correo.fecha)}
                       </span>
                       {correo.ip_aproximada && (
-                        <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                        <span className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>
                           IP: {correo.ip_aproximada}
                         </span>
                       )}
                     </div>
 
                     <p className="text-sm font-light leading-relaxed whitespace-pre-wrap" style={{ color: 'hsl(var(--foreground))' }}>
-                      {correo.mensaje}
+                      <EmojiText text={correo.mensaje} />
                     </p>
 
                     {/* Compositor de respuesta */}
                     {isReplying ? (
                       <div className="space-y-2.5 rounded-xl p-3.5" style={{ background: sc, border: `1px solid ${bd}` }}>
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>
+                          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>
                             Responder a {correo.nombre}
                           </p>
                           <button
                             onClick={closeReply}
                             disabled={sendingReply}
-                            className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/10 disabled:opacity-50"
-                            style={{ color: mt }}
+                            className="w-6 h-6 rounded-md flex items-center justify-center moon-panel-hover disabled:opacity-50"
+                            style={{ color: panelInk(mt) }}
                           >
                             <X className="w-3.5 h-3.5" strokeWidth={1.5} />
                           </button>
                         </div>
                         <textarea
+                          ref={replyEmojiRef}
                           value={replyText}
                           onChange={e => setReplyText(e.target.value)}
                           disabled={sendingReply}
@@ -545,14 +542,15 @@ const Mensajeria: React.FC = () => {
                           style={{ background: sf, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
                         />
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-light" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                          <div className="flex items-center gap-2 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
+                            <EmojiButton value={replyText} onChange={setReplyText} inputRef={replyEmojiRef} maxLength={5000} disabled={sendingReply} unicodeOnly label="Añadir emoji a la respuesta" />
                             {replyText.length}/5000
-                          </span>
+                          </div>
                           <button
                             onClick={() => handleSendReply(correo)}
                             disabled={sendingReply || replyText.trim().length < 2}
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                            style={{ background: 'white', color: 'black' }}
+                            className="moon-panel-primary flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                            style={{ background: "var(--moon-ink)", color: "var(--moon-bg)" }}
                           >
                             {sendingReply
                               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
@@ -564,7 +562,7 @@ const Mensajeria: React.FC = () => {
                       <div className="flex items-center gap-2 flex-wrap pt-1">
                         <button
                           onClick={() => openReply(correo.id)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
                           style={{ border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
                         >
                           <Send className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -573,8 +571,8 @@ const Mensajeria: React.FC = () => {
                         <button
                           onClick={() => handleToggleLeido(correo)}
                           disabled={isUpdating}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5 disabled:opacity-50"
-                          style={{ border: `1px solid ${bd}`, color: mt }}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover disabled:opacity-50"
+                          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                         >
                           {correo.leido
                             ? <><Mail className="w-3.5 h-3.5" strokeWidth={1.5} /> Marcar como no leído</>
@@ -584,7 +582,7 @@ const Mensajeria: React.FC = () => {
                           onClick={() => handleDelete(correo)}
                           disabled={isDeleting}
                           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-red-500/10 disabled:opacity-50 ml-auto"
-                          style={{ border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}
+                          style={{ border: '1px solid rgba(248,113,113,0.2)', color: panelInk('#f87171') }}
                         >
                           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Eliminar
                         </button>

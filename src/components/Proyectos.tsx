@@ -1,3 +1,6 @@
+import { panelInk } from '@/lib/panelColors';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
 /**
  * Proyectos.tsx — Panel de Proyectos de la empresa
  * ─────────────────────────────────────────────────────────────────
@@ -39,6 +42,8 @@ import {
   ArrowUpRight, Flag, Hash, Workflow,
 } from 'lucide-react';
 import { leerCamposComunes, escribirCamposComunes } from '@/lib/devProjects';
+import WorkViewToolbar from './work/WorkViewToolbar';
+import { exportWorkspaceCsv } from '@/lib/workspaceExport';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +85,7 @@ interface Project {
   liveUrl?: string;
   docsUrl?: string;
   leadName?: string;
+  lead?: string;
   members: string[];
   startDate?: string;
   endDate?: string;
@@ -185,7 +191,7 @@ const StatusBadge: React.FC<{ status: ProjectStatus; tiny?: boolean }> = ({ stat
       display: 'inline-flex', alignItems: 'center', gap: tiny ? 3 : 4,
       padding: tiny ? '1px 7px' : '3px 9px', borderRadius: 20,
       fontSize: tiny ? 9 : 10, fontWeight: 400,
-      background: `${color}18`, border: `1px solid ${color}28`, color,
+      background: `${color}18`, border: `1px solid ${color}28`, color: panelInk(color),
     }}>
       <Icon size={tiny ? 8 : 9} strokeWidth={2} />
       {label}
@@ -197,15 +203,15 @@ const PriorityPip: React.FC<{ priority: Priority }> = ({ priority }) => {
   // Un documento sin prioridad (o con una desconocida) rompía la tarjeta.
   const { color, label } = PRIORITY_CFG[priority] ?? PRIORITY_CFG.medium;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--content-tertiary)' }}>
-      <Flag size={9} style={{ color }} strokeWidth={2} />
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--moon-muted)' }}>
+      <Flag size={9} style={{ color: panelInk(color) }} strokeWidth={2} />
       {label}
     </span>
   );
 };
 
 const ProgressBar: React.FC<{ value: number; color: string; h?: number }> = ({ value, color, h = 3 }) => (
-  <div style={{ height: h, borderRadius: h, background: 'var(--overlay-bg)', overflow: 'hidden' }}>
+  <div style={{ height: h, borderRadius: h, background: 'var(--moon-surface-raised)', overflow: 'hidden' }}>
     <div style={{
       height: '100%', width: `${Math.max(0, Math.min(100, value))}%`,
       background: color, borderRadius: h,
@@ -219,9 +225,9 @@ const ProgressBar: React.FC<{ value: number; color: string; h?: number }> = ({ v
 const TreeNodeView: React.FC<{ node: TreeNode; depth?: number; accent: string }> = ({ node, depth = 0, accent }) => (
   <div style={{ marginLeft: depth * 16 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
-      {node.children.length > 0 && <ChevronRight size={10} style={{ color: accent, flexShrink: 0 }} />}
+      {node.children.length > 0 && <ChevronRight size={10} style={{ color: panelInk(accent), flexShrink: 0 }} />}
       {node.children.length === 0 && <div style={{ width: 10, height: 10, borderRadius: '50%', border: `1px solid ${accent}50`, flexShrink: 0 }} />}
-      <span style={{ fontSize: 12, color: 'var(--content-primary)' }}>{node.label}</span>
+      <span style={{ fontSize: 12, color: 'var(--moon-ink)' }}>{node.label}</span>
     </div>
     {node.children.map(child => (
       <TreeNodeView key={child.id} node={child} depth={depth + 1} accent={accent} />
@@ -261,12 +267,12 @@ const TreeEditor: React.FC<{
     return (
       <div style={{ marginLeft: depth * 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 0' }}>
-          <ChevronRight size={10} style={{ color: accent, flexShrink: 0, opacity: node.children.length ? 1 : 0.3 }} />
-          <span style={{ flex: 1, fontSize: 12, color: 'var(--content-primary)' }}>{node.label}</span>
-          <button onClick={() => setAddingChild(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', borderRadius: 4, color: accent, fontSize: 10, display: 'flex', alignItems: 'center' }}>
+          <ChevronRight size={10} style={{ color: panelInk(accent), flexShrink: 0, opacity: node.children.length ? 1 : 0.3 }} />
+          <span style={{ flex: 1, fontSize: 12, color: 'var(--moon-ink)' }}>{node.label}</span>
+          <button onClick={() => setAddingChild(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', borderRadius: 4, color: panelInk(accent), fontSize: 10, display: 'flex', alignItems: 'center' }}>
             <Plus size={10} />
           </button>
-          <button onClick={() => removeNode(node.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', borderRadius: 4, color: '#f87171', fontSize: 10 }}>
+          <button onClick={() => removeNode(node.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', borderRadius: 4, color: panelInk('#f87171'), fontSize: 10 }}>
             <X size={10} />
           </button>
         </div>
@@ -278,9 +284,9 @@ const TreeEditor: React.FC<{
               onKeyDown={e => { if (e.key === 'Enter') { addChild(node.id, childInput.trim()); setChildInput(''); setAddingChild(false); } }}
               placeholder="Hijo…"
               autoFocus
-              style={{ flex: 1, background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', borderRadius: 6, padding: '3px 7px', fontSize: 11, color: 'var(--content-primary)', outline: 'none', fontFamily: 'inherit' }}
+              style={{ flex: 1, background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', borderRadius: 6, padding: '3px 7px', fontSize: 11, color: 'var(--moon-ink)', outline: 'none', fontFamily: 'inherit' }}
             />
-            <button onClick={() => { addChild(node.id, childInput.trim()); setChildInput(''); setAddingChild(false); }} style={{ padding: '3px 7px', borderRadius: 6, fontSize: 10, background: `${accent}18`, border: `1px solid ${accent}30`, color: accent, cursor: 'pointer', fontFamily: 'inherit' }}>+</button>
+            <button onClick={() => { addChild(node.id, childInput.trim()); setChildInput(''); setAddingChild(false); }} style={{ padding: '3px 7px', borderRadius: 6, fontSize: 10, background: `${accent}18`, border: `1px solid ${accent}30`, color: panelInk(accent), cursor: 'pointer', fontFamily: 'inherit' }}>+</button>
           </div>
         )}
         {node.children.map(c => <NodeRow key={c.id} node={c} depth={depth + 1} />)}
@@ -297,9 +303,9 @@ const TreeEditor: React.FC<{
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addRoot()}
           placeholder="Nodo raíz…"
-          style={{ flex: 1, background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', borderRadius: 7, padding: '5px 9px', fontSize: 12, color: 'var(--content-primary)', outline: 'none', fontFamily: 'inherit' }}
+          style={{ flex: 1, background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', borderRadius: 7, padding: '5px 9px', fontSize: 12, color: 'var(--moon-ink)', outline: 'none', fontFamily: 'inherit' }}
         />
-        <button onClick={addRoot} style={{ padding: '5px 12px', borderRadius: 7, background: `${accent}14`, border: `1px solid ${accent}28`, color: accent, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <button onClick={addRoot} style={{ padding: '5px 12px', borderRadius: 7, background: `${accent}14`, border: `1px solid ${accent}28`, color: panelInk(accent), fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
           Añadir
         </button>
       </div>
@@ -310,7 +316,7 @@ const TreeEditor: React.FC<{
 // ─── Block renderers (view mode) ──────────────────────────────────────────────
 
 const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }) => {
-  const bd = 'var(--border-main)';
+  const bd = 'var(--moon-line)';
   const cfg = BLOCK_CFG[block.type];
 
   if (block.type === 'divider') return (
@@ -319,7 +325,7 @@ const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }
 
   return (
     <div style={{
-      background: 'var(--sidebar-card-bg)', border: `1px solid ${bd}`,
+      background: 'var(--moon-surface)', border: `1px solid ${bd}`,
       borderRadius: 12, overflow: 'hidden',
     }}>
       {/* Block header */}
@@ -330,9 +336,9 @@ const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }
         background: `${cfg.color}06`,
       }}>
         <div style={{ width: 22, height: 22, borderRadius: 6, background: `${cfg.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <cfg.icon size={11} style={{ color: cfg.color }} />
+          <cfg.icon size={11} style={{ color: panelInk(cfg.color) }} />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--content-secondary)', letterSpacing: '0.03em' }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--moon-muted)', letterSpacing: '0.03em' }}>
           {block.title || cfg.label}
         </span>
       </div>
@@ -340,29 +346,29 @@ const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }
       {/* Block content */}
       <div style={{ padding: '12px 14px' }}>
         {(block.type === 'text' || block.type === 'note') && (
-          <p style={{ fontSize: 13, color: 'var(--content-primary)', lineHeight: 1.65, margin: 0, whiteSpace: 'pre-wrap' }}>
-            {block.content}
+          <p style={{ fontSize: 13, color: 'var(--moon-ink)', lineHeight: 1.65, margin: 0, whiteSpace: 'pre-wrap' }}>
+            <EmojiText text={block.content || ''} />
           </p>
         )}
         {block.type === 'idea' && (
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ width: 28, height: 28, borderRadius: 8, background: '#fbbf2418', border: '1px solid #fbbf2428', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-              <Lightbulb size={13} style={{ color: '#fbbf24' }} />
+              <Lightbulb size={13} style={{ color: panelInk('#fbbf24') }} />
             </div>
-            <p style={{ fontSize: 13, color: 'var(--content-primary)', lineHeight: 1.65, margin: 0, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
-              {block.content}
+            <p style={{ fontSize: 13, color: 'var(--moon-ink)', lineHeight: 1.65, margin: 0, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
+              <EmojiText text={block.content || ''} />
             </p>
           </div>
         )}
         {block.type === 'code' && (
-          <pre style={{ fontSize: 12, color: '#a5b4fc', margin: 0, overflowX: 'auto', fontFamily: 'monospace', lineHeight: 1.6, background: 'rgba(99,102,241,0.06)', borderRadius: 8, padding: '10px 12px' }}>
+          <pre style={{ fontSize: 12, color: panelInk('#a5b4fc'), margin: 0, overflowX: 'auto', fontFamily: 'monospace', lineHeight: 1.6, background: 'rgba(99,102,241,0.06)', borderRadius: 8, padding: '10px 12px' }}>
             {block.content}
           </pre>
         )}
         {block.type === 'list' && (block.items || []).length > 0 && (
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
             {(block.items || []).map((item, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--content-primary)' }}>
+              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--moon-ink)' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent, flexShrink: 0, marginTop: 6 }} />
                 {item}
               </li>
@@ -379,16 +385,16 @@ const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }
         {block.type === 'schema' && (
           <div>
             {block.content && (
-              <p style={{ fontSize: 12, color: 'var(--content-secondary)', lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{block.content}</p>
+              <p style={{ fontSize: 12, color: 'var(--moon-muted)', lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{block.content}</p>
             )}
             {(block.items || []).length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {(block.items || []).map((item, i) => (
                   <Fragment key={i}>
-                    <div style={{ padding: '5px 10px', borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}0a`, fontSize: 12, color: accent }}>{item}</div>
+                    <div style={{ padding: '5px 10px', borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}0a`, fontSize: 12, color: panelInk(accent) }}>{item}</div>
                     {i < (block.items || []).length - 1 && (
                       <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <ArrowUpRight size={12} style={{ color: 'var(--content-quaternary)' }} />
+                        <ArrowUpRight size={12} style={{ color: 'var(--moon-muted)' }} />
                       </div>
                     )}
                   </Fragment>
@@ -401,7 +407,7 @@ const BlockView: React.FC<{ block: Block; accent: string }> = ({ block, accent }
           <img src={block.url} alt={block.title || 'image'} style={{ width: '100%', borderRadius: 8, maxHeight: 320, objectFit: 'cover' }} />
         )}
         {block.type === 'link' && block.url && (
-          <a href={block.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: accent, textDecoration: 'none' }}>
+          <a href={block.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: panelInk(accent), textDecoration: 'none' }}>
             <Link2 size={13} />
             {block.linkLabel || block.url}
             <ExternalLink size={10} style={{ opacity: 0.6 }} />
@@ -425,6 +431,7 @@ const BlockEditor: React.FC<{
 }> = ({ block, onChange, onDelete, onMoveUp, onMoveDown, accent, inputStyle }) => {
   const cfg = BLOCK_CFG[block.type];
   const [listInput, setListInput] = useState('');
+  const contentEmojiRef = useRef<HTMLTextAreaElement>(null);
   const [itemEdit, setItemEdit] = useState<{ idx: number; val: string } | null>(null);
 
   const addListItem = () => {
@@ -435,29 +442,29 @@ const BlockEditor: React.FC<{
 
   return (
     <div style={{
-      background: 'var(--sidebar-card-bg)', border: `1px solid var(--border-main)`,
+      background: 'var(--moon-surface)', border: `1px solid var(--moon-line)`,
       borderRadius: 12, overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', alignItems: 'center', gap: 7, background: `${cfg.color}06` }}>
-        <GripVertical size={12} style={{ color: 'var(--content-quaternary)', cursor: 'grab' }} />
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--moon-line)', display: 'flex', alignItems: 'center', gap: 7, background: `${cfg.color}06` }}>
+        <GripVertical size={12} style={{ color: 'var(--moon-muted)', cursor: 'grab' }} />
         <div style={{ width: 20, height: 20, borderRadius: 5, background: `${cfg.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <cfg.icon size={10} style={{ color: cfg.color }} />
+          <cfg.icon size={10} style={{ color: panelInk(cfg.color) }} />
         </div>
         <input
           value={block.title || ''}
           onChange={e => onChange({ ...block, title: e.target.value })}
           placeholder={cfg.label}
-          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 500, color: 'var(--content-secondary)', fontFamily: 'inherit', letterSpacing: '0.03em' }}
+          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 500, color: 'var(--moon-muted)', fontFamily: 'inherit', letterSpacing: '0.03em' }}
         />
         {/* Flechas además del arrastre: el drag de HTML5 no funciona con el dedo. */}
-        <button onClick={onMoveUp} disabled={!onMoveUp} title="Subir bloque" aria-label="Subir bloque" style={{ background: 'none', border: 'none', cursor: onMoveUp ? 'pointer' : 'default', padding: 2, color: 'var(--content-tertiary)', display: 'flex', opacity: onMoveUp ? 1 : 0.3 }}>
+        <button onClick={onMoveUp} disabled={!onMoveUp} title="Subir bloque" aria-label="Subir bloque" style={{ background: 'none', border: 'none', cursor: onMoveUp ? 'pointer' : 'default', padding: 2, color: 'var(--moon-muted)', display: 'flex', opacity: onMoveUp ? 1 : 0.3 }}>
           <ChevronUp size={12} />
         </button>
-        <button onClick={onMoveDown} disabled={!onMoveDown} title="Bajar bloque" aria-label="Bajar bloque" style={{ background: 'none', border: 'none', cursor: onMoveDown ? 'pointer' : 'default', padding: 2, color: 'var(--content-tertiary)', display: 'flex', opacity: onMoveDown ? 1 : 0.3 }}>
+        <button onClick={onMoveDown} disabled={!onMoveDown} title="Bajar bloque" aria-label="Bajar bloque" style={{ background: 'none', border: 'none', cursor: onMoveDown ? 'pointer' : 'default', padding: 2, color: 'var(--moon-muted)', display: 'flex', opacity: onMoveDown ? 1 : 0.3 }}>
           <ChevronDown size={12} />
         </button>
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#f87171', display: 'flex' }}>
+        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: panelInk('#f87171'), display: 'flex' }}>
           <Trash2 size={12} />
         </button>
       </div>
@@ -465,17 +472,21 @@ const BlockEditor: React.FC<{
       {/* Body */}
       <div style={{ padding: 12 }}>
         {block.type === 'divider' && (
-          <p style={{ fontSize: 11, color: 'var(--content-quaternary)', margin: 0, textAlign: 'center' }}>— Separador —</p>
+          <p style={{ fontSize: 11, color: 'var(--moon-muted)', margin: 0, textAlign: 'center' }}>— Separador —</p>
         )}
 
         {(block.type === 'text' || block.type === 'note' || block.type === 'idea') && (
-          <textarea
-            value={block.content || ''}
-            onChange={e => onChange({ ...block, content: e.target.value })}
-            placeholder={block.type === 'idea' ? 'Escribe tu idea aquí…' : block.type === 'note' ? 'Nota o comentario…' : 'Escribe el contenido…'}
-            rows={4}
-            style={{ ...inputStyle, resize: 'vertical', fontSize: 13 }}
-          />
+          <>
+            <textarea
+              ref={contentEmojiRef}
+              value={block.content || ''}
+              onChange={e => onChange({ ...block, content: e.target.value })}
+              placeholder={block.type === 'idea' ? 'Escribe tu idea aquí…' : block.type === 'note' ? 'Nota o comentario…' : 'Escribe el contenido…'}
+              rows={4}
+              style={{ ...inputStyle, resize: 'vertical', fontSize: 13 }}
+            />
+            <EmojiButton value={block.content || ''} onChange={content => onChange({ ...block, content })} inputRef={contentEmojiRef} label="Añadir emoji a la nota del proyecto" />
+          </>
         )}
 
         {block.type === 'code' && (
@@ -505,17 +516,17 @@ const BlockEditor: React.FC<{
                     }}
                     onKeyDown={e => { if (e.key === 'Enter') { const items = [...(block.items || [])]; items[i] = itemEdit!.val; onChange({ ...block, items }); setItemEdit(null); } }}
                     autoFocus
-                    style={{ flex: 1, background: 'var(--overlay-bg)', border: `1px solid ${accent}40`, borderRadius: 5, padding: '2px 7px', fontSize: 12, color: 'var(--content-primary)', outline: 'none', fontFamily: 'inherit' }}
+                    style={{ flex: 1, background: 'var(--moon-surface-raised)', border: `1px solid ${accent}40`, borderRadius: 5, padding: '2px 7px', fontSize: 12, color: 'var(--moon-ink)', outline: 'none', fontFamily: 'inherit' }}
                   />
                 ) : (
-                  <span onClick={() => setItemEdit({ idx: i, val: item })} style={{ flex: 1, fontSize: 12, color: 'var(--content-primary)', cursor: 'text' }}>{item}</span>
+                  <span onClick={() => setItemEdit({ idx: i, val: item })} style={{ flex: 1, fontSize: 12, color: 'var(--moon-ink)', cursor: 'text' }}>{item}</span>
                 )}
-                <button onClick={() => onChange({ ...block, items: (block.items || []).filter((_, j) => j !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, display: 'flex' }}><X size={10} /></button>
+                <button onClick={() => onChange({ ...block, items: (block.items || []).filter((_, j) => j !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: panelInk('#f87171'), padding: 2, display: 'flex' }}><X size={10} /></button>
               </div>
             ))}
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               <input value={listInput} onChange={e => setListInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addListItem()} placeholder="Nuevo ítem…" style={{ ...inputStyle, fontSize: 12 }} />
-              <button onClick={addListItem} style={{ padding: '0 12px', borderRadius: 8, background: `${accent}14`, border: `1px solid ${accent}28`, color: accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }}>+</button>
+              <button onClick={addListItem} style={{ padding: '0 12px', borderRadius: 8, background: `${accent}14`, border: `1px solid ${accent}28`, color: panelInk(accent), cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }}>+</button>
             </div>
           </div>
         )}
@@ -534,12 +545,12 @@ const BlockEditor: React.FC<{
               style={{ ...inputStyle, resize: 'vertical', fontSize: 12 }}
             />
             <div>
-              <p style={{ fontSize: 10, color: 'var(--content-quaternary)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nodos del esquema</p>
+              <p style={{ fontSize: 10, color: 'var(--moon-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nodos del esquema</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
                 {(block.items || []).map((item, i) => (
-                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 7, fontSize: 11, background: `${accent}10`, border: `1px solid ${accent}25`, color: accent }}>
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 7, fontSize: 11, background: `${accent}10`, border: `1px solid ${accent}25`, color: panelInk(accent) }}>
                     {item}
-                    <button onClick={() => onChange({ ...block, items: (block.items || []).filter((_, j) => j !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: accent, display: 'flex', padding: 0 }}><X size={8} /></button>
+                    <button onClick={() => onChange({ ...block, items: (block.items || []).filter((_, j) => j !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: panelInk(accent), display: 'flex', padding: 0 }}><X size={8} /></button>
                   </span>
                 ))}
               </div>
@@ -550,7 +561,7 @@ const BlockEditor: React.FC<{
                 return (
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input value={ni} onChange={e => setNi(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && ni.trim()) { onChange({ ...block, items: [...(block.items || []), ni.trim()] }); setNi(''); } }} placeholder="Nodo…" style={{ ...inputStyle, fontSize: 12 }} />
-                    <button onClick={() => { if (ni.trim()) { onChange({ ...block, items: [...(block.items || []), ni.trim()] }); setNi(''); } }} style={{ padding: '0 12px', borderRadius: 8, background: `${accent}14`, border: `1px solid ${accent}28`, color: accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }}>+</button>
+                    <button onClick={() => { if (ni.trim()) { onChange({ ...block, items: [...(block.items || []), ni.trim()] }); setNi(''); } }} style={{ padding: '0 12px', borderRadius: 8, background: `${accent}14`, border: `1px solid ${accent}28`, color: panelInk(accent), cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }}>+</button>
                   </div>
                 );
               })()}
@@ -596,6 +607,8 @@ const Proyectos: React.FC = () => {
   const [users,         setUsers]         = useState<UsuarioLite[]>([]);
   const [search,        setSearch]        = useState('');
   const [filterStatus,  setFilterStatus]  = useState<ProjectStatus | 'all'>('all');
+  const [projectFocus, setProjectFocus] = useState<'all' | 'mine' | 'priority' | 'deadline'>('all');
+  const [projectOrder, setProjectOrder] = useState<'recent' | 'name' | 'progress' | 'deadline'>('recent');
   const [viewMode,      setViewMode]      = useState<'grid' | 'list'>('grid');
   const [toast,         setToast]         = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -650,7 +663,18 @@ const Proyectos: React.FC = () => {
       p.description?.toLowerCase().includes(q) ||
       (p.tags || []).some(t => t.toLowerCase().includes(q));
     const matchS = filterStatus === 'all' || p.status === filterStatus;
-    return matchQ && matchS;
+    const open = !['completed', 'archived', 'cancelled'].includes(p.status);
+    const limit = p.endDate ? new Date(`${p.endDate}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+    const inFocus = projectFocus === 'all'
+      || (projectFocus === 'mine' && ((p.members || []).includes(userProfile?.uid ?? '') || p.lead === userProfile?.uid))
+      || (projectFocus === 'priority' && open && ['high', 'critical'].includes(p.priority))
+      || (projectFocus === 'deadline' && open && limit <= Date.now() + 7 * 86_400_000);
+    return matchQ && matchS && inFocus;
+  }).sort((a, b) => {
+    if (projectOrder === 'name') return a.name.localeCompare(b.name, 'es');
+    if (projectOrder === 'progress') return (b.progress || 0) - (a.progress || 0);
+    if (projectOrder === 'deadline') return (a.endDate || '9999').localeCompare(b.endDate || '9999');
+    return 0; // Firestore already supplies the latest created projects first.
   });
 
   const pinned   = filtered.filter(p => p.pinned);
@@ -853,21 +877,21 @@ const Proyectos: React.FC = () => {
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'var(--sidebar-card-bg)',
-    border: '1px solid var(--border-main)', borderRadius: 10,
+    width: '100%', background: 'var(--moon-surface)',
+    border: '1px solid var(--moon-line)', borderRadius: 10,
     padding: '9px 12px', fontSize: 13,
-    color: 'var(--content-primary)', outline: 'none',
+    color: 'var(--moon-ink)', outline: 'none',
     fontFamily: 'inherit', boxSizing: 'border-box',
   };
   const labelStyle: React.CSSProperties = {
     fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em',
-    color: 'var(--content-quaternary)', marginBottom: 5, display: 'block', fontWeight: 500,
+    color: 'var(--moon-muted)', marginBottom: 5, display: 'block', fontWeight: 500,
   };
-  const bd = 'var(--border-main)';
+  const bd = 'var(--moon-line)';
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="moon-module moon-module--proyectos" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
       {/* Toast */}
       {toast && (
@@ -876,7 +900,7 @@ const Proyectos: React.FC = () => {
           padding: '10px 16px', borderRadius: 12, fontSize: 13,
           background: toast.type === 'success' ? `${accent}18` : 'rgba(239,68,68,0.12)',
           border: `1px solid ${toast.type === 'success' ? accent + '40' : 'rgba(239,68,68,0.3)'}`,
-          color: toast.type === 'success' ? accent : '#f87171',
+          color: panelInk(toast.type === 'success' ? accent : '#f87171'),
           backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', gap: 8,
           boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         }}>
@@ -886,26 +910,27 @@ const Proyectos: React.FC = () => {
       )}
 
       {/* ── Page header ──────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 22 }}>
+      <div data-moon-reveal="heading" className="moon-module-heading moon-work-page-heading" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: 11, background: `${accent}18`, border: `1px solid ${accent}28`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FolderKanban size={16} style={{ color: accent }} />
+            <FolderKanban size={16} style={{ color: panelInk(accent) }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 300, color: 'var(--content-primary)', margin: 0, letterSpacing: '-0.01em' }}>Proyectos</h1>
-            <p style={{ fontSize: 11, color: 'var(--content-quaternary)', margin: 0 }}>
-              {projects.length} proyecto{projects.length !== 1 ? 's' : ''} en total
+            <span className="moon-work-kicker">VISIÓN DE LA EMPRESA</span>
+            <h1 className="moon-page-title" style={{ fontSize: 'clamp(24px, 2.6vw, 34px)', fontWeight: 600, color: 'var(--moon-ink)', margin: 0, letterSpacing: '-0.01em' }}>Proyectos</h1>
+            <p style={{ fontSize: 11, color: 'var(--moon-muted)', margin: 0 }}>
+              Iniciativas, responsables y entregas · {projects.length} proyecto{projects.length !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* View toggle */}
-          <div style={{ display: 'flex', background: 'var(--sidebar-card-bg)', border: `1px solid ${bd}`, borderRadius: 9, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', background: 'var(--moon-surface)', border: `1px solid ${bd}`, borderRadius: 9, overflow: 'hidden' }}>
             {(['grid', 'list'] as const).map(v => (
               <button key={v} onClick={() => setViewMode(v)} style={{
                 padding: '6px 10px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                background: viewMode === v ? 'var(--overlay-bg)' : 'transparent',
-                color: viewMode === v ? 'var(--content-primary)' : 'var(--content-quaternary)',
+                background: viewMode === v ? 'var(--moon-surface-raised)' : 'transparent',
+                color: panelInk(viewMode === v ? 'var(--moon-ink)' : 'var(--moon-muted)'),
                 display: 'flex', alignItems: 'center',
               }}>
                 {v === 'grid' ? <LayoutGrid size={13} /> : <LayoutList size={13} />}
@@ -913,10 +938,10 @@ const Proyectos: React.FC = () => {
             ))}
           </div>
           {canEdit && (
-            <button onClick={openCreate} style={{
+            <button className="moon-panel-action" onClick={openCreate} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
               borderRadius: 10, fontSize: 13, cursor: 'pointer',
-              background: accent, border: 'none', color: '#fff', fontFamily: 'inherit',
+              background: accent, border: 'none', color: 'var(--accent-on-user, var(--moon-accent-ink))', fontFamily: 'inherit',
             }}>
               <Plus size={13} /> Nuevo proyecto
             </button>
@@ -931,30 +956,39 @@ const Proyectos: React.FC = () => {
           const Icon  = cfg.icon;
           const active = filterStatus === key;
           return (
-            <button key={key} onClick={() => setFilterStatus(active ? 'all' : key)} style={{
+            <button data-moon-reveal="metric" key={key} onClick={() => setFilterStatus(active ? 'all' : key)} style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 10,
               border: active ? `1px solid ${cfg.color}35` : `1px solid ${bd}`,
-              background: active ? `${cfg.color}10` : 'var(--sidebar-card-bg)',
+              background: active ? `${cfg.color}10` : 'var(--moon-surface)',
               cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
             }}>
-              <Icon size={11} style={{ color: cfg.color }} />
-              <span style={{ fontSize: 11, color: active ? cfg.color : 'var(--content-secondary)' }}>{cfg.label}</span>
-              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: `${cfg.color}18`, color: cfg.color }}>{count}</span>
+              <Icon size={11} style={{ color: panelInk(cfg.color) }} />
+              <span style={{ fontSize: 11, color: panelInk(active ? cfg.color : 'var(--moon-muted)') }}>{cfg.label}</span>
+              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: `${cfg.color}18`, color: panelInk(cfg.color) }}>{count}</span>
             </button>
           );
         })}
       </div>
 
+      <WorkViewToolbar label="Cartera de proyectos" description="Prioriza entregas, revisa tu participación y comparte la vista con el equipo."
+        count={filtered.length} total={projects.length} loading={loading}
+        onReset={search || filterStatus !== 'all' || projectFocus !== 'all' || projectOrder !== 'recent' ? () => { setSearch(''); setFilterStatus('all'); setProjectFocus('all'); setProjectOrder('recent'); } : undefined}
+        onExport={() => exportWorkspaceCsv('moon-proyectos', ['Proyecto', 'Estado', 'Prioridad', 'Avance %', 'Fecha límite', 'Etiquetas'], filtered.map(p => [p.name, STATUS_CFG[p.status]?.label || p.status, PRIORITY_CFG[p.priority]?.label || p.priority, p.progress || 0, p.endDate, (p.tags || []).join(', ')]))}>
+        <label>Enfoque<select value={projectFocus} onChange={e => setProjectFocus(e.target.value as typeof projectFocus)}><option value="all">Toda la cartera</option><option value="mine">Donde participo</option><option value="priority">Prioridad alta o crítica</option><option value="deadline">Vencidos y próximos 7 días</option></select></label>
+        <label>Ordenar por<select value={projectOrder} onChange={e => setProjectOrder(e.target.value as typeof projectOrder)}><option value="recent">Más recientes</option><option value="name">Nombre A–Z</option><option value="progress">Mayor avance</option><option value="deadline">Fecha límite</option></select></label>
+      </WorkViewToolbar>
+
       {/* ── Search ───────────────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', marginBottom: 20, maxWidth: 380 }}>
-        <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--content-quaternary)', pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', marginBottom: 20, width: '100%' }}>
+        <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--moon-muted)', pointerEvents: 'none' }} />
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por nombre, descripción, etiqueta…"
+          aria-label="Buscar proyectos"
           style={{ ...inputStyle, paddingLeft: 32, fontSize: 12 }}
         />
         {search && (
-          <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-quaternary)', display: 'flex' }}>
+          <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--moon-muted)', display: 'flex' }}>
             <X size={12} />
           </button>
         )}
@@ -963,21 +997,21 @@ const Proyectos: React.FC = () => {
       {/* ── Projects ─────────────────────────────────────────────────────────── */}
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80 }}>
-          <Loader2 size={24} style={{ color: accent }} className="animate-spin" />
+          <Loader2 size={24} style={{ color: panelInk(accent) }} className="animate-spin" />
         </div>
       ) : loadError ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', border: '1px dashed rgba(239,68,68,0.3)', borderRadius: 18, gap: 12, textAlign: 'center' }}>
-          <AlertCircle size={32} style={{ color: '#f87171' }} />
-          <p style={{ fontSize: 14, color: '#f87171', margin: 0 }}>{loadError}</p>
+          <AlertCircle size={32} style={{ color: panelInk('#f87171') }} />
+          <p style={{ fontSize: 14, color: panelInk('#f87171'), margin: 0 }}>{loadError}</p>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', border: `1px dashed ${bd}`, borderRadius: 18, gap: 12 }}>
-          <Package size={32} style={{ color: 'var(--content-quaternary)' }} />
-          <p style={{ fontSize: 14, color: 'var(--content-tertiary)', margin: 0 }}>
-            {search || filterStatus !== 'all' ? 'Sin resultados con ese filtro' : 'Aún no hay proyectos'}
+          <Package size={32} style={{ color: 'var(--moon-muted)' }} />
+          <p style={{ fontSize: 14, color: 'var(--moon-muted)', margin: 0 }}>
+            {search || filterStatus !== 'all' || projectFocus !== 'all' ? 'Sin resultados con ese filtro' : 'Aún no hay proyectos'}
           </p>
-          {canEdit && !search && filterStatus === 'all' && (
-            <button onClick={openCreate} style={{ padding: '7px 16px', borderRadius: 10, fontSize: 12, cursor: 'pointer', background: `${accent}14`, border: `1px solid ${accent}28`, color: accent, fontFamily: 'inherit' }}>
+          {canEdit && !search && filterStatus === 'all' && projectFocus === 'all' && (
+            <button onClick={openCreate} style={{ padding: '7px 16px', borderRadius: 10, fontSize: 12, cursor: 'pointer', background: `${accent}14`, border: `1px solid ${accent}28`, color: panelInk(accent), fontFamily: 'inherit' }}>
               Crear el primer proyecto
             </button>
           )}
@@ -988,8 +1022,8 @@ const Proyectos: React.FC = () => {
           {pinned.length > 0 && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Star size={11} style={{ color: '#fbbf24' }} />
-                <span style={{ fontSize: 10, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Destacados</span>
+                <Star size={11} style={{ color: panelInk('#fbbf24') }} />
+                <span style={{ fontSize: 10, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Destacados</span>
               </div>
               <ProjectGrid
                 projects={pinned} viewMode={viewMode} accent={accent}
@@ -1009,8 +1043,8 @@ const Proyectos: React.FC = () => {
             <div>
               {pinned.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <Hash size={11} style={{ color: 'var(--content-quaternary)' }} />
-                  <span style={{ fontSize: 10, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Todos los proyectos</span>
+                  <Hash size={11} style={{ color: 'var(--moon-muted)' }} />
+                  <span style={{ fontSize: 10, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Todos los proyectos</span>
                 </div>
               )}
               <ProjectGrid
@@ -1120,15 +1154,15 @@ const ProjectCard: React.FC<{
   onDelCancel: () => void;
 }> = ({ project, viewMode, canEdit, canDelete, onOpen, onEdit, onDelete, delConfirm, onDelConfirm, onDelCancel }) => {
   const color = project.color || '#6366f1';
-  const bd    = 'var(--border-main)';
+  const bd    = 'var(--moon-line)';
   const [hov, setHov] = useState(false);
 
   if (viewMode === 'list') return (
-    <div
+    <div data-moon-reveal="row" className="moon-project-row"
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', flexWrap: 'wrap',
-        background: 'var(--sidebar-card-bg)',
+        background: 'var(--moon-surface)',
         border: `1px solid ${hov ? color + '30' : bd}`,
         borderRadius: 12, cursor: 'pointer', transition: 'border-color 0.2s',
       }}
@@ -1138,15 +1172,15 @@ const ProjectCard: React.FC<{
       <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         {project.coverUrl
           ? <img src={project.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 9 }} />
-          : <FolderKanban size={15} style={{ color }} />
+          : <FolderKanban size={15} style={{ color: panelInk(color) }} />
         }
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--content-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
-          {project.pinned && <Star size={9} style={{ color: '#fbbf24', flexShrink: 0 }} />}
+          <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--moon-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+          {project.pinned && <Star size={9} style={{ color: panelInk('#fbbf24'), flexShrink: 0 }} />}
         </div>
-        <p style={{ fontSize: 11, color: 'var(--content-tertiary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.description}</p>
+        <p style={{ fontSize: 11, color: 'var(--moon-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><EmojiText text={project.description || ''} /></p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <StatusBadge status={project.status} tiny />
@@ -1154,17 +1188,17 @@ const ProjectCard: React.FC<{
         <div style={{ width: 80 }}>
           <ProgressBar value={project.progress} color={color} />
         </div>
-        <span style={{ fontSize: 10, color, minWidth: 28, textAlign: 'right' }}>{project.progress}%</span>
+        <span style={{ fontSize: 10, color: panelInk(color), minWidth: 28, textAlign: 'right' }}>{project.progress}%</span>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => onEdit(project)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', fontFamily: 'inherit', display: 'flex' }}><Pencil size={11} /></button>
+            <button onClick={() => onEdit(project)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', fontFamily: 'inherit', display: 'flex' }}><Pencil size={11} /></button>
             {!canDelete ? null : delConfirm === project.id ? (
               <>
-                <button onClick={() => onDelConfirm(project.id)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', fontFamily: 'inherit' }}>Sí</button>
-                <button onClick={onDelCancel} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', fontFamily: 'inherit' }}>No</button>
+                <button onClick={() => onDelConfirm(project.id)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: panelInk('#f87171'), fontFamily: 'inherit' }}>Sí</button>
+                <button onClick={onDelCancel} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', fontFamily: 'inherit' }}>No</button>
               </>
             ) : (
-              <button onClick={() => onDelete(project.id)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: '#f87171', fontFamily: 'inherit', display: 'flex' }}><Trash2 size={11} /></button>
+              <button onClick={() => onDelete(project.id)} style={{ padding: '4px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: panelInk('#f87171'), fontFamily: 'inherit', display: 'flex' }}><Trash2 size={11} /></button>
             )}
           </div>
         )}
@@ -1174,10 +1208,10 @@ const ProjectCard: React.FC<{
 
   // Grid card
   return (
-    <div
+    <div data-moon-reveal="card" className="moon-project-card"
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        background: 'var(--sidebar-card-bg)',
+        background: 'var(--moon-surface)',
         border: `1px solid ${hov ? color + '30' : bd}`,
         borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
         transition: 'border-color 0.2s, box-shadow 0.2s',
@@ -1185,13 +1219,13 @@ const ProjectCard: React.FC<{
       }}
     >
       {/* Cover / color header */}
-      <div style={{ height: 110, position: 'relative', overflow: 'hidden', background: `${color}14` }}
+      <div className="moon-project-cover" style={{ height: 148, position: 'relative', overflow: 'hidden', background: `${color}14` }}
         onClick={() => onOpen(project.id)}>
         {project.coverUrl
           ? <img src={project.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FolderKanban size={28} style={{ color: `${color}50` }} />
+              <FolderKanban size={28} style={{ color: panelInk(`${color}50`) }} />
             </div>
           )
         }
@@ -1199,60 +1233,60 @@ const ProjectCard: React.FC<{
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, transparent 40%, ${color}10)` }} />
         {/* status badge */}
         <div style={{ position: 'absolute', top: 9, right: 9 }}><StatusBadge status={project.status} tiny /></div>
-        {project.pinned && <Star size={11} style={{ color: '#fbbf24', position: 'absolute', top: 10, left: 10 }} />}
+        {project.pinned && <Star size={11} style={{ color: panelInk('#fbbf24'), position: 'absolute', top: 10, left: 10 }} />}
       </div>
 
       {/* Body */}
-      <div style={{ padding: '13px 15px' }} onClick={() => onOpen(project.id)}>
+      <div className="moon-project-body" style={{ padding: 20 }} onClick={() => onOpen(project.id)}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 400, color: 'var(--content-primary)', margin: 0, lineHeight: 1.3 }}>{project.name}</h3>
+          <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--moon-ink)', margin: 0, lineHeight: 1.35, letterSpacing: '-.025em' }}>{project.name}</h3>
           <PriorityPip priority={project.priority} />
         </div>
         {project.description && (
-          <p style={{ fontSize: 11, color: 'var(--content-tertiary)', margin: '0 0 9px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {project.description}
+          <p style={{ fontSize: 12, color: 'var(--moon-muted)', margin: '7px 0 16px', lineHeight: 1.7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <EmojiText text={project.description || ''} />
           </p>
         )}
         {/* Tags */}
         {(project.tags ?? []).length > 0 && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
             {project.tags.slice(0, 3).map(t => (
-              <span key={t} style={{ padding: '1px 7px', borderRadius: 6, fontSize: 9, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-tertiary)' }}>{t}</span>
+              <span key={t} style={{ padding: '1px 7px', borderRadius: 6, fontSize: 9, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)' }}>{t}</span>
             ))}
-            {project.tags.length > 3 && <span style={{ fontSize: 9, color: 'var(--content-quaternary)', padding: '1px 3px' }}>+{project.tags.length - 3}</span>}
+            {project.tags.length > 3 && <span style={{ fontSize: 9, color: 'var(--moon-muted)', padding: '1px 3px' }}>+{project.tags.length - 3}</span>}
           </div>
         )}
         {/* Progress */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 9, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progreso</span>
-            <span style={{ fontSize: 10, color }}>{project.progress}%</span>
+            <span style={{ fontSize: 9, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progreso</span>
+            <span style={{ fontSize: 10, color: panelInk(color) }}>{project.progress}%</span>
           </div>
           <ProgressBar value={project.progress} color={color} h={3} />
         </div>
         {/* Blocks count */}
         {(project.blocks ?? []).length > 0 && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Layers size={9} style={{ color: 'var(--content-quaternary)' }} />
-            <span style={{ fontSize: 9, color: 'var(--content-quaternary)' }}>{project.blocks.length} bloque{project.blocks.length !== 1 ? 's' : ''}</span>
+            <Layers size={9} style={{ color: 'var(--moon-muted)' }} />
+            <span style={{ fontSize: 9, color: 'var(--moon-muted)' }}>{project.blocks.length} bloque{project.blocks.length !== 1 ? 's' : ''}</span>
           </div>
         )}
       </div>
 
       {/* Footer */}
       {canEdit && (
-        <div style={{ padding: '8px 15px', borderTop: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '12px 20px', borderTop: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }} onClick={e => e.stopPropagation()}>
           {delConfirm === project.id ? (
             <>
-              <span style={{ fontSize: 11, color: 'var(--content-tertiary)', flex: 1 }}>¿Eliminar?</span>
-              <button onClick={() => onDelConfirm(project.id)} style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', fontFamily: 'inherit' }}>Sí</button>
-              <button onClick={onDelCancel} style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', fontFamily: 'inherit' }}>No</button>
+              <span style={{ fontSize: 11, color: 'var(--moon-muted)', flex: 1 }}>¿Eliminar?</span>
+              <button onClick={() => onDelConfirm(project.id)} style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: panelInk('#f87171'), fontFamily: 'inherit' }}>Sí</button>
+              <button onClick={onDelCancel} style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', fontFamily: 'inherit' }}>No</button>
             </>
           ) : (
             <>
-              <button onClick={() => onEdit(project)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 9px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', fontFamily: 'inherit' }}><Pencil size={10} /> Editar</button>
+              <button onClick={() => onEdit(project)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 9px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', fontFamily: 'inherit' }}><Pencil size={10} /> Editar</button>
               {/* Las reglas solo dejan borrar a CEO/Administración. */}
-              {canDelete && <button onClick={() => onDelete(project.id)} style={{ padding: '5px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: '#f87171', fontFamily: 'inherit', display: 'flex' }}><Trash2 size={10} /></button>}
+              {canDelete && <button onClick={() => onDelete(project.id)} style={{ padding: '5px 8px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: panelInk('#f87171'), fontFamily: 'inherit', display: 'flex' }}><Trash2 size={10} /></button>}
             </>
           )}
         </div>
@@ -1269,7 +1303,7 @@ const DetailPanel: React.FC<{
   onClose: () => void; onEdit: (p: Project) => void;
 }> = ({ project, accent, canEdit, users, onClose, onEdit }) => {
   const color = project.color || accent;
-  const bd    = 'var(--border-main)';
+  const bd    = 'var(--moon-line)';
 
   return (
     <div style={{ position: 'fixed', top: 'var(--titlebar-offset, 0px)', right: 0, bottom: 0, left: 0, zIndex: 400, display: 'flex', justifyContent: 'flex-end' }}
@@ -1280,7 +1314,7 @@ const DetailPanel: React.FC<{
       {/* Panel */}
       <div style={{
         position: 'relative', width: '100%', maxWidth: 580, height: '100%',
-        background: 'var(--bg-sidebar)', borderLeft: `1px solid ${bd}`,
+        background: 'var(--moon-surface)', borderLeft: `1px solid ${bd}`,
         display: 'flex', flexDirection: 'column', overflowY: 'auto',
         animation: 'notifDrawerIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards',
       }} onClick={e => e.stopPropagation()}>
@@ -1288,15 +1322,15 @@ const DetailPanel: React.FC<{
         {/* Cover */}
         <div style={{ position: 'relative', height: project.coverUrl ? 180 : 90, flexShrink: 0, overflow: 'hidden', background: `${color}14` }}>
           {project.coverUrl && <img src={project.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, transparent 30%, var(--bg-sidebar))` }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, transparent 30%, var(--moon-surface))` }} />
           {/* close + edit */}
           <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
             {canEdit && (
-              <button onClick={() => onEdit(project)} style={{ height: 30, padding: '0 10px', borderRadius: 8, background: `${color}20`, border: `1px solid ${color}30`, color, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              <button onClick={() => onEdit(project)} style={{ height: 30, padding: '0 10px', borderRadius: 8, background: `${color}20`, border: `1px solid ${color}30`, color: panelInk(color), fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
                 <Pencil size={11} /> Editar
               </button>
             )}
-            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-card)', border: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--content-secondary)' }}>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--moon-surface)', border: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--moon-muted)' }}>
               <X size={13} />
             </button>
           </div>
@@ -1308,8 +1342,8 @@ const DetailPanel: React.FC<{
           {/* Title */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 300, color: 'var(--content-primary)', margin: 0, letterSpacing: '-0.01em' }}>{project.name}</h2>
-              {project.pinned && <Star size={13} style={{ color: '#fbbf24' }} />}
+              <h2 style={{ fontSize: 22, fontWeight: 300, color: 'var(--moon-ink)', margin: 0, letterSpacing: '-0.01em' }}>{project.name}</h2>
+              {project.pinned && <Star size={13} style={{ color: panelInk('#fbbf24') }} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <StatusBadge status={project.status} />
@@ -1318,14 +1352,14 @@ const DetailPanel: React.FC<{
           </div>
 
           {project.description && (
-            <p style={{ fontSize: 13, color: 'var(--content-secondary)', lineHeight: 1.65, margin: 0 }}>{project.description}</p>
+            <p style={{ fontSize: 13, color: 'var(--moon-muted)', lineHeight: 1.65, margin: 0 }}><EmojiText text={project.description || ''} /></p>
           )}
 
           {/* Progress */}
-          <div style={{ background: 'var(--overlay-bg)', border: `1px solid ${bd}`, borderRadius: 12, padding: 14 }}>
+          <div style={{ background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--content-tertiary)' }}>Progreso</span>
-              <span style={{ fontSize: 14, fontWeight: 300, color }}>{project.progress}%</span>
+              <span style={{ fontSize: 11, color: 'var(--moon-muted)' }}>Progreso</span>
+              <span style={{ fontSize: 14, fontWeight: 300, color: panelInk(color) }}>{project.progress}%</span>
             </div>
             <ProgressBar value={project.progress} color={color} h={5} />
           </div>
@@ -1338,12 +1372,12 @@ const DetailPanel: React.FC<{
               { label: 'Fin est.',    value: project.endDate   || '—', icon: CalendarDays },
               { label: 'Stack',       value: (project.tech || []).join(', ') || '—', icon: Layers },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} style={{ background: 'var(--sidebar-card-bg)', border: `1px solid ${bd}`, borderRadius: 10, padding: '10px 12px' }}>
+              <div key={label} style={{ background: 'var(--moon-surface)', border: `1px solid ${bd}`, borderRadius: 10, padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                  <Icon size={10} style={{ color }} />
-                  <span style={{ fontSize: 9, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+                  <Icon size={10} style={{ color: panelInk(color) }} />
+                  <span style={{ fontSize: 9, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--content-primary)' }}>{value}</span>
+                <span style={{ fontSize: 12, color: 'var(--moon-ink)' }}>{value}</span>
               </div>
             ))}
           </div>
@@ -1351,10 +1385,10 @@ const DetailPanel: React.FC<{
           {/* Miembros */}
           {(project.members ?? []).length > 0 && (
             <div>
-              <span style={{ fontSize: 9, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Miembros</span>
+              <span style={{ fontSize: 9, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Miembros</span>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {project.members.map(uid => (
-                  <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)' }}>
+                  <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)' }}>
                     <Users2 size={10} /> {nombreDe(users, uid)}
                   </span>
                 ))}
@@ -1365,10 +1399,10 @@ const DetailPanel: React.FC<{
           {/* Tags */}
           {(project.tags ?? []).length > 0 && (
             <div>
-              <span style={{ fontSize: 9, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Etiquetas</span>
+              <span style={{ fontSize: 9, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Etiquetas</span>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {project.tags.map(t => (
-                  <span key={t} style={{ padding: '3px 9px', borderRadius: 8, fontSize: 11, background: `${color}12`, border: `1px solid ${color}25`, color }}>{t}</span>
+                  <span key={t} style={{ padding: '3px 9px', borderRadius: 8, fontSize: 11, background: `${color}12`, border: `1px solid ${color}25`, color: panelInk(color) }}>{t}</span>
                 ))}
               </div>
             </div>
@@ -1386,7 +1420,7 @@ const DetailPanel: React.FC<{
           {/* Blocks */}
           {(project.blocks ?? []).length > 0 && (
             <div>
-              <span style={{ fontSize: 9, color: 'var(--content-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 10 }}>
+              <span style={{ fontSize: 9, color: 'var(--moon-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 10 }}>
                 Contenido — {project.blocks.length} bloque{project.blocks.length !== 1 ? 's' : ''}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1406,7 +1440,7 @@ const ExternalLinkBtn: React.FC<{ href: string; icon: React.FC<any>; label: stri
   <a href={href} target="_blank" rel="noreferrer" style={{
     display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px',
     borderRadius: 9, fontSize: 12, textDecoration: 'none',
-    background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--content-secondary)',
+    background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-muted)',
   }}>
     <Icon size={12} /> {label} <ExternalLink size={9} style={{ opacity: 0.5 }} />
   </a>
@@ -1452,7 +1486,7 @@ const CustomSelect: React.FC<{
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find(o => o.value === value);
-  const bd = 'var(--border-main)';
+  const bd = 'var(--moon-line)';
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1481,9 +1515,9 @@ const CustomSelect: React.FC<{
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '9px 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-          background: 'var(--sidebar-card-bg)',
+          background: 'var(--moon-surface)',
           border: `1px solid ${open ? accent + '50' : bd}`,
-          color: 'var(--content-primary)', fontSize: 13,
+          color: 'var(--moon-ink)', fontSize: 13,
           transition: 'border-color 0.2s, box-shadow 0.2s',
           boxShadow: open ? `0 0 0 3px ${accent}12` : 'none',
           outline: 'none',
@@ -1492,7 +1526,7 @@ const CustomSelect: React.FC<{
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           {selected?.icon && (
             <span style={{ width: 18, height: 18, borderRadius: 5, background: `${selected.color || accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <selected.icon size={10} style={{ color: selected.color || accent }} />
+              <selected.icon size={10} style={{ color: panelInk(selected.color || accent) }} />
             </span>
           )}
           {selected?.color && !selected?.icon && (
@@ -1503,7 +1537,7 @@ const CustomSelect: React.FC<{
         <ChevronRight
           size={12}
           style={{
-            color: 'var(--content-quaternary)',
+            color: 'var(--moon-muted)',
             transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
             transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
             flexShrink: 0,
@@ -1515,7 +1549,7 @@ const CustomSelect: React.FC<{
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 600,
-          background: 'var(--bg-sidebar)',
+          background: 'var(--moon-surface)',
           border: `1px solid ${bd}`,
           borderRadius: 12, overflow: 'hidden',
           boxShadow: '0 12px 40px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
@@ -1533,13 +1567,13 @@ const CustomSelect: React.FC<{
                   padding: '9px 12px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                   fontSize: 13, textAlign: 'left',
                   background: isActive ? `${opt.color || accent}12` : 'transparent',
-                  color: isActive ? (opt.color || accent) : 'var(--content-primary)',
+                  color: panelInk(isActive ? (opt.color || accent) : 'var(--moon-ink)'),
                   transition: 'background 0.15s',
                   animation: `optionIn 0.18s ease ${i * 0.03}s both`,
-                  borderBottom: i < options.length - 1 ? `1px solid var(--border-main)` : 'none',
+                  borderBottom: i < options.length - 1 ? `1px solid var(--moon-line)` : 'none',
                 }}
                 onMouseEnter={e => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--overlay-bg)';
+                  if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--moon-surface-raised)';
                 }}
                 onMouseLeave={e => {
                   if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -1547,7 +1581,7 @@ const CustomSelect: React.FC<{
               >
                 {Icon && (
                   <span style={{ width: 20, height: 20, borderRadius: 6, background: `${opt.color || accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={11} style={{ color: opt.color || accent }} />
+                    <Icon size={11} style={{ color: panelInk(opt.color || accent) }} />
                   </span>
                 )}
                 {opt.color && !Icon && (
@@ -1555,7 +1589,7 @@ const CustomSelect: React.FC<{
                 )}
                 <span style={{ flex: 1 }}>{opt.label}</span>
                 {isActive && (
-                  <CheckCircle2 size={12} style={{ color: opt.color || accent, flexShrink: 0 }} />
+                  <CheckCircle2 size={12} style={{ color: panelInk(opt.color || accent), flexShrink: 0 }} />
                 )}
               </button>
             );
@@ -1586,8 +1620,8 @@ const CustomDateInput: React.FC<{
       <div
         style={{
           display: 'flex', alignItems: 'center',
-          background: 'var(--sidebar-card-bg)',
-          border: `1px solid ${focused ? accent + '50' : 'var(--border-main)'}`,
+          background: 'var(--moon-surface)',
+          border: `1px solid ${focused ? accent + '50' : 'var(--moon-line)'}`,
           borderRadius: 10, overflow: 'hidden',
           transition: 'border-color 0.2s, box-shadow 0.2s',
           boxShadow: focused ? `0 0 0 3px ${accent}12` : 'none',
@@ -1597,7 +1631,7 @@ const CustomDateInput: React.FC<{
       >
         <CalendarDays
           size={13}
-          style={{ color: focused ? accent : 'var(--content-quaternary)', margin: '0 10px', flexShrink: 0, transition: 'color 0.2s' }}
+          style={{ color: panelInk(focused ? accent : 'var(--moon-muted)'), margin: '0 10px', flexShrink: 0, transition: 'color 0.2s' }}
         />
         <input
           ref={inputRef}
@@ -1634,7 +1668,8 @@ const ProjectModal: React.FC<ModalProps> = ({
   users, inputStyle, labelStyle,
 }) => {
   const isEdit = !!form.id;
-  const bd = 'var(--border-main)';
+  const descriptionEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const bd = 'var(--moon-line)';
   const color = form.color || accent;
   const [showBlockPicker, setShowBlockPicker] = useState(false);
   const dragItem = useRef<number | null>(null);
@@ -1644,20 +1679,20 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   return (
     <div style={{ position: 'fixed', top: 'var(--titlebar-offset, 0px)', right: 0, bottom: 0, left: 0, zIndex: 500, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
       onClick={onClose}>
-      <div style={{ width: '100%', maxWidth: 780, maxHeight: '96vh', background: 'var(--bg-sidebar)', border: `1px solid ${bd}`, borderRadius: 22, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.45)' }}
+      <div style={{ width: '100%', maxWidth: 780, maxHeight: '96vh', background: 'var(--moon-surface)', border: `1px solid ${bd}`, borderRadius: 22, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.45)' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Modal header */}
         <div style={{ padding: '14px 20px', borderBottom: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 28, height: 28, borderRadius: 8, background: `${color}18`, border: `1px solid ${color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {isEdit ? <Pencil size={13} style={{ color }} /> : <Plus size={13} style={{ color }} />}
+              {isEdit ? <Pencil size={13} style={{ color: panelInk(color) }} /> : <Plus size={13} style={{ color: panelInk(color) }} />}
             </div>
-            <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--content-primary)' }}>
+            <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--moon-ink)' }}>
               {isEdit ? 'Editar proyecto' : 'Nuevo proyecto'}
             </span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-tertiary)', display: 'flex' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--moon-muted)', display: 'flex' }}>
             <X size={15} />
           </button>
         </div>
@@ -1668,7 +1703,7 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
             <button key={t} onClick={() => setFormTab(t)} style={{
               flex: 1, padding: '11px 0', fontSize: 12, fontWeight: 400, cursor: 'pointer',
               background: 'none', border: 'none', fontFamily: 'inherit',
-              color: formTab === t ? color : 'var(--content-tertiary)',
+              color: panelInk(formTab === t ? color : 'var(--moon-muted)'),
               borderBottom: `2px solid ${formTab === t ? color : 'transparent'}`,
               transition: 'all 0.2s',
             }}>
@@ -1691,40 +1726,40 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
     <img src={coverPreview} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }} />
     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5))' }} />
     {uploadingCover && (
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-        <Loader2 size={22} style={{ color: '#fff', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--moon-media-shade)', backdropFilter: 'blur(4px)' }}>
+        <Loader2 size={22} style={{ color: 'var(--moon-media-ink)', animation: 'spin 0.8s linear infinite' }} />
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.08em' }}>Subiendo imagen…</span>
         <div style={{ width: 120, height: 2, borderRadius: 2, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
           <div style={{ height: '100%', background: color, borderRadius: 2, animation: 'uploadBar 1.4s ease-in-out infinite' }} />
         </div>
       </div>
     )}
-    <button onClick={onRemoveCover} style={{ position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(4px)', transition: 'all 0.15s ease' }}>
+    <button onClick={onRemoveCover} style={{ position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 8, background: 'var(--moon-media-shade)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--moon-media-ink)', backdropFilter: 'blur(4px)', transition: 'all 0.15s ease' }}>
       <X size={13} />
     </button>
-    <button onClick={onCoverClick} style={{ position: 'absolute', bottom: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', fontSize: 11, backdropFilter: 'blur(4px)' }}>
+    <button onClick={onCoverClick} style={{ position: 'absolute', bottom: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'var(--moon-media-shade)', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', fontSize: 11, backdropFilter: 'blur(4px)' }}>
       <Upload size={11} /> Cambiar
     </button>
   </div>
 ) : (
-  <button onClick={onCoverClick} style={{ width: '100%', height: 120, borderRadius: 14, border: `2px dashed ${uploadingCover ? color : bd}`, background: uploadingCover ? `${color}08` : 'var(--surface-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', color: 'var(--content-tertiary)', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden' }}>
+  <button onClick={onCoverClick} style={{ width: '100%', height: 120, borderRadius: 14, border: `2px dashed ${uploadingCover ? color : bd}`, background: uploadingCover ? `${color}08` : 'var(--moon-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', color: 'var(--moon-muted)', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden' }}>
     {uploadingCover ? (
       <>
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, transparent, ${color}15, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite' }} />
-        <Loader2 size={20} style={{ color, animation: 'spin 0.8s linear infinite' }} />
-        <span style={{ fontSize: 11, color, letterSpacing: '0.06em' }}>Subiendo imagen…</span>
+        <Loader2 size={20} style={{ color: panelInk(color), animation: 'spin 0.8s linear infinite' }} />
+        <span style={{ fontSize: 11, color: panelInk(color), letterSpacing: '0.06em' }}>Subiendo imagen…</span>
         <div style={{ width: 100, height: 2, borderRadius: 2, background: `${color}25`, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: color, borderRadius: 2, animation: 'uploadBar 1.4s ease-in-out infinite' }} />
         </div>
       </>
     ) : (
       <>
-        <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Upload size={16} style={{ color: 'var(--content-tertiary)' }} />
+        <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Upload size={16} style={{ color: 'var(--moon-muted)' }} />
         </div>
         <div style={{ textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--content-secondary)', display: 'block' }}>Subir imagen de portada</span>
-          <span style={{ fontSize: 10, color: 'var(--content-quaternary)' }}>JPG, PNG, WEBP · Máx. 5MB</span>
+          <span style={{ fontSize: 12, color: 'var(--moon-muted)', display: 'block' }}>Subir imagen de portada</span>
+          <span style={{ fontSize: 10, color: 'var(--moon-muted)' }}>JPG, PNG, WEBP · Máx. 5MB</span>
         </div>
       </>
     )}
@@ -1755,7 +1790,8 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
               {/* Description */}
               <div>
                 <label style={labelStyle}>Descripción</label>
-                <textarea value={form.description || ''} onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))} placeholder="Descripción breve del proyecto…" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                <textarea ref={descriptionEmojiRef} value={form.description || ''} onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))} placeholder="Descripción breve del proyecto…" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                <EmojiButton value={form.description || ''} onChange={description => setForm((f: any) => ({ ...f, description }))} inputRef={descriptionEmojiRef} disabled={saving} label="Añadir emoji a la descripción del proyecto" />
               </div>
 
               {/* Status + Priority */}
@@ -1829,13 +1865,13 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                 <label style={labelStyle}>Miembros</label>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {users.length === 0 && (form.members ?? []).length === 0 && (
-                    <span style={{ fontSize: 11, color: 'var(--content-quaternary)' }}>No hay usuarios para mostrar</span>
+                    <span style={{ fontSize: 11, color: 'var(--moon-muted)' }}>No hay usuarios para mostrar</span>
                   )}
                   {/* Miembros guardados que ya no están en la lista: se pueden quitar */}
                   {(form.members ?? []).filter(uid => !users.some(u => u.uid === uid)).map(uid => (
                     <button key={uid} type="button"
                       onClick={() => setForm((f: Partial<Project>) => ({ ...f, members: (f.members ?? []).filter(m => m !== uid) }))}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', background: `${color}12`, border: `1px solid ${color}25`, color }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', background: `${color}12`, border: `1px solid ${color}25`, color: panelInk(color) }}>
                       {nombreDe(users, uid)} <X size={9} />
                     </button>
                   ))}
@@ -1850,9 +1886,9 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11,
                           cursor: 'pointer', fontFamily: 'inherit',
-                          background: sel ? `${color}12` : 'var(--overlay-bg)',
+                          background: sel ? `${color}12` : 'var(--moon-surface-raised)',
                           border: `1px solid ${sel ? color + '25' : bd}`,
-                          color: sel ? color : 'var(--content-secondary)',
+                          color: panelInk(sel ? color : 'var(--moon-muted)'),
                         }}>
                         {sel && <CheckCircle2 size={9} />}
                         {u.displayName || u.email || u.uid}
@@ -1867,12 +1903,12 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                 <label style={labelStyle}>Etiquetas</label>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
                   <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), onAddTag())} placeholder="Añadir etiqueta…" style={{ ...inputStyle, flex: 1 }} />
-                  <button onClick={onAddTag} style={{ padding: '0 13px', borderRadius: 9, background: `${color}14`, border: `1px solid ${color}28`, color, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>+</button>
+                  <button onClick={onAddTag} style={{ padding: '0 13px', borderRadius: 9, background: `${color}14`, border: `1px solid ${color}28`, color: panelInk(color), cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>+</button>
                 </div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {(form.tags ?? []).map((t: string) => (
-                    <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: `${color}12`, border: `1px solid ${color}25`, color }}>
-                      {t}<button onClick={() => onRemoveTag(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color, display: 'flex', padding: 0 }}><X size={9} /></button>
+                    <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: `${color}12`, border: `1px solid ${color}25`, color: panelInk(color) }}>
+                      {t}<button onClick={() => onRemoveTag(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: panelInk(color), display: 'flex', padding: 0 }}><X size={9} /></button>
                     </span>
                   ))}
                 </div>
@@ -1883,12 +1919,12 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                 <label style={labelStyle}>Tecnologías / Stack</label>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
                   <input value={techInput} onChange={e => setTechInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), onAddTech())} placeholder="React, Node, Figma…" style={{ ...inputStyle, flex: 1 }} />
-                  <button onClick={onAddTech} style={{ padding: '0 13px', borderRadius: 9, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>+</button>
+                  <button onClick={onAddTech} style={{ padding: '0 13px', borderRadius: 9, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>+</button>
                 </div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {(form.tech ?? []).map((t: string) => (
-                    <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)' }}>
-                      {t}<button onClick={() => onRemoveTech(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-tertiary)', display: 'flex', padding: 0 }}><X size={9} /></button>
+                    <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 8, fontSize: 11, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)' }}>
+                      {t}<button onClick={() => onRemoveTech(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--moon-muted)', display: 'flex', padding: 0 }}><X size={9} /></button>
                     </span>
                   ))}
                 </div>
@@ -1904,7 +1940,7 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                     { key: 'docsUrl', icon: BookOpen, ph: 'URL de documentación' },
                   ].map(({ key, icon: Icon, ph }) => (
                     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Icon size={13} style={{ color: 'var(--content-tertiary)', flexShrink: 0 }} />
+                      <Icon size={13} style={{ color: 'var(--moon-muted)', flexShrink: 0 }} />
                       <input
                         value={(form as any)[key] || ''}
                         onChange={e => setForm((f: any) => ({ ...f, [key]: e.target.value }))}
@@ -1919,7 +1955,7 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button onClick={() => setForm((f: any) => ({ ...f, pinned: !f.pinned }))} style={{
                   width: 36, height: 20, borderRadius: 20, border: 'none', cursor: 'pointer',
-                  background: form.pinned ? color : 'var(--overlay-bg)',
+                  background: form.pinned ? color : 'var(--moon-surface-raised)',
                   transition: 'background 0.2s', position: 'relative', flexShrink: 0,
                 }}>
                   <div style={{
@@ -1928,8 +1964,8 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
                     transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                   }} />
                 </button>
-                <span style={{ fontSize: 12, color: 'var(--content-secondary)' }}>Destacar proyecto</span>
-                <Star size={11} style={{ color: form.pinned ? '#fbbf24' : 'var(--content-quaternary)' }} />
+                <span style={{ fontSize: 12, color: 'var(--moon-muted)' }}>Destacar proyecto</span>
+                <Star size={11} style={{ color: panelInk(form.pinned ? '#fbbf24' : 'var(--moon-muted)') }} />
               </div>
             </div>
           )}
@@ -1940,31 +1976,31 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
               {/* Block picker */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span style={{ fontSize: 11, color: 'var(--content-tertiary)' }}>
+                  <span style={{ fontSize: 11, color: 'var(--moon-muted)' }}>
                     {(form.blocks ?? []).length} bloque{(form.blocks ?? []).length !== 1 ? 's' : ''} — arrastra o usa las flechas para reordenar
                   </span>
                   <button onClick={() => setShowBlockPicker(v => !v)} style={{
                     display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9,
                     fontSize: 12, cursor: 'pointer', background: `${color}14`,
-                    border: `1px solid ${color}28`, color, fontFamily: 'inherit',
+                    border: `1px solid ${color}28`, color: panelInk(color), fontFamily: 'inherit',
                   }}>
                     <PlusCircle size={12} /> Añadir bloque
                   </button>
                 </div>
 
                 {showBlockPicker && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 7, padding: 14, background: 'var(--overlay-bg)', border: `1px solid ${bd}`, borderRadius: 12, marginBottom: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 7, padding: 14, background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, borderRadius: 12, marginBottom: 12 }}>
                     {(Object.entries(BLOCK_CFG) as [BlockType, typeof BLOCK_CFG[BlockType]][]).map(([type, cfg]) => (
                       <button key={type} onClick={() => { onAddBlock(type); setShowBlockPicker(false); }} style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
                         padding: '10px 8px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-                        background: 'var(--sidebar-card-bg)', border: `1px solid ${bd}`,
-                        color: 'var(--content-secondary)', transition: 'all 0.15s',
+                        background: 'var(--moon-surface)', border: `1px solid ${bd}`,
+                        color: 'var(--moon-muted)', transition: 'all 0.15s',
                       }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${cfg.color}40`; (e.currentTarget as HTMLElement).style.background = `${cfg.color}08`; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = bd; (e.currentTarget as HTMLElement).style.background = 'var(--sidebar-card-bg)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = bd; (e.currentTarget as HTMLElement).style.background = 'var(--moon-surface)'; }}
                       >
-                        <cfg.icon size={16} style={{ color: cfg.color }} />
+                        <cfg.icon size={16} style={{ color: panelInk(cfg.color) }} />
                         <span style={{ fontSize: 10, textAlign: 'center' }}>{cfg.label}</span>
                       </button>
                     ))}
@@ -1974,8 +2010,8 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
               {(form.blocks ?? []).length === 0 ? (
   <div style={{ padding: '32px 20px', border: `1px dashed ${bd}`, borderRadius: 12, textAlign: 'center' }}>
-    <Layers size={22} style={{ color: 'var(--content-quaternary)', marginBottom: 8 }} />
-    <p style={{ fontSize: 12, color: 'var(--content-quaternary)', margin: 0 }}>
+    <Layers size={22} style={{ color: 'var(--moon-muted)', marginBottom: 8 }} />
+    <p style={{ fontSize: 12, color: 'var(--moon-muted)', margin: 0 }}>
       Añade bloques de contenido — texto, ideas, árboles, esquemas y más
     </p>
   </div>
@@ -2036,10 +2072,10 @@ const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
         {/* Modal footer */}
         <div style={{ padding: '12px 20px', borderTop: `1px solid ${bd}`, display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: 'var(--overlay-bg)', border: `1px solid ${bd}`, color: 'var(--content-secondary)', fontFamily: 'inherit' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: 'var(--moon-surface-raised)', border: `1px solid ${bd}`, color: 'var(--moon-muted)', fontFamily: 'inherit' }}>
             Cancelar
           </button>
-          <button onClick={onSave} disabled={saving} style={{ padding: '8px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: accent, border: 'none', color: '#fff', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button className="moon-panel-action" onClick={onSave} disabled={saving} style={{ padding: '8px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: accent, border: 'none', color: 'var(--accent-on-user, var(--moon-accent-ink))', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             {isEdit ? 'Guardar cambios' : 'Crear proyecto'}
           </button>

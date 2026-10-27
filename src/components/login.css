@@ -1,0 +1,72 @@
+.moon-login { height:100%; display:grid; grid-template-columns:.94fr 1.06fr; background:var(--moon-bg); color:var(--moon-ink); overflow:auto; }
+.moon-login-story { background:#101112; color:#f7f7f2; padding:40px 46px 24px; display:flex; flex-direction:column; position:relative; overflow:hidden; min-height:700px; }
+.moon-login-brand { width:170px; position:relative; z-index:1; }
+.moon-login-art { position:relative; flex:1; min-height:240px; max-height:460px; margin:26px -10px 0; display:grid; place-items:center; }
+.moon-login-orbit { position:absolute; width:260px; height:260px; border:1px solid #303234; border-radius:50%; }
+.moon-login-orbit-two { width:370px; height:370px; border-style:dashed; opacity:.5; }
+.moon-login-orbit-three { width:480px; height:480px; opacity:.3; }
+.moon-login-moon { width:176px; height:176px; border-radius:50%; display:grid; place-items:center; background:radial-gradient(circle at 28% 22%,#525456,#242627 53%,#111213 80%); box-shadow:inset 0 0 0 1px #464849; position:relative; transform:rotate(-12deg); animation:moon-login-in .8s ease both; }
+.moon-login-moon img { width:88px; opacity:.9; transform:rotate(12deg); }
+.moon-login-coordinate { position:absolute; left:0; top:27%; font-size:10px; letter-spacing:.16em; color:#9b9d9e; }
+.moon-login-art-caption { position:absolute; right:0; bottom:20%; font-size:9px; letter-spacing:.17em; color:#9b9d9e; line-height:1.7; text-align:right; }
+.moon-login-story-copy { position:relative; z-index:1; padding-bottom:36px; }
+.moon-eyebrow { font-size:10px; font-weight:600; letter-spacing:.18em; }
+.moon-login-story-copy .moon-eyebrow { color:#a3a5a6; }
+.moon-login-story h2 { font-family:'Space Grotesk',sans-serif; font-size:clamp(28px,3.3vw,49px); line-height:1.07; letter-spacing:-.045em; font-weight:500; margin:19px 0; }
+.moon-login-story h2 span { color:#9b9d9e; }
+.moon-login-story-copy p { color:#b3b5b6; font-size:13px; line-height:1.7; max-width:340px; }
+.moon-login-story-footer { display:flex; justify-content:space-between; gap:16px; border-top:1px solid #303234; padding-top:21px; color:#a3a5a6; font-size:9px; letter-spacing:.11em; }
+.moon-login-story-footer span:last-child { display:flex; align-items:center; gap:8px; }
+.moon-login-main { padding:30px 40px 24px; display:flex; flex-direction:column; min-width:0; }
+.moon-login-top { display:flex; justify-content:flex-end; align-items:center; min-height:30px; }
+.moon-login-top a { color:var(--moon-muted); font-size:12px; display:flex; align-items:center; gap:8px; }
+.moon-login-top a:hover { color:var(--moon-ink); }
+.moon-login-mobile-brand { display:none; width:130px; }
+.moon-login-form-wrap { width:100%; max-width:386px; margin:auto; padding:44px 0; animation:moon-login-in .5s ease both; }
+.moon-login-access { font-size:9px; letter-spacing:.16em; font-weight:600; color:var(--moon-muted); display:flex; align-items:center; gap:9px; margin-bottom:26px; }
+.moon-login-access > span { width:6px; height:6px; border-radius:50%; background:var(--moon-ink); }
+.moon-login h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(40px,4.5vw,60px); font-weight:500; line-height:1.04; letter-spacing:-.055em; margin:0 0 19px; }
+.moon-login h1 span { color:var(--moon-muted); }
+.moon-login-intro { color:var(--moon-muted); line-height:1.7; font-size:13px; margin:0 0 30px; overflow-wrap:anywhere; }
+.moon-login-form { display:flex; flex-direction:column; }
+.moon-login-form label { font-size:12px; font-weight:500; margin-bottom:9px; display:block; }
+.moon-login-form input { width:100%; min-height:49px; border:1px solid var(--moon-line); background:var(--moon-surface); border-radius:9px; padding:13px 15px; color:var(--moon-ink); font:inherit; font-size:13px; transition:border-color .15s,box-shadow .15s; outline:none; }
+.moon-login-form input:focus { border-color:var(--moon-ink); box-shadow:0 0 0 3px color-mix(in srgb,var(--moon-ink) 10%,transparent); }
+.moon-login-form input::placeholder { color:var(--moon-muted); opacity:.75; }
+.moon-login-form input:autofill { box-shadow:0 0 0 1000px var(--moon-surface) inset; -webkit-text-fill-color:var(--moon-ink); }
+.moon-login-label-row { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-top:22px; }
+.moon-login-label-row button { color:var(--moon-muted); font-size:11px; }
+.moon-login-label-row button:hover { color:var(--moon-ink); text-decoration:underline; }
+.moon-login-password { position:relative; }
+.moon-login-password input { padding-right:48px; }
+.moon-login-password > button { position:absolute; right:8px; top:6px; height:37px; width:37px; border-radius:6px; display:grid; place-items:center; color:var(--moon-muted); }
+.moon-login-password > button:hover { color:var(--moon-ink); background:var(--moon-surface-raised); }
+.moon-login-submit { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; background:var(--moon-accent); color:var(--moon-accent-ink); padding:15px 18px; border:1px solid transparent; border-radius:9px; min-height:49px; font-size:13px; font-weight:600; margin-top:25px; transition:opacity .15s,transform .15s; }
+.moon-login-submit:hover:not(:disabled) { opacity:.88; transform:translateY(-1px); }
+.moon-login-submit:disabled { opacity:.6; cursor:wait; }
+.moon-login-trust { display:flex; gap:10px; border-top:1px solid var(--moon-line); padding-top:23px; margin-top:29px; color:var(--moon-muted); align-items:center; }
+.moon-login-trust svg { flex-shrink:0; }
+.moon-login-trust p { font-size:11px; line-height:1.7; }
+.moon-login-trust p span { font-size:10px; }
+.moon-login-footer { display:flex; justify-content:space-between; gap:10px; color:var(--moon-muted); font-size:9px; letter-spacing:.12em; }
+.moon-login-error { border:1px solid color-mix(in srgb,#ef4444 35%,transparent); border-radius:9px; padding:12px 14px; background:color-mix(in srgb,#ef4444 8%,transparent); color:var(--moon-danger); font-size:12px; line-height:1.6; margin:0 0 20px; }
+.moon-login-back { display:flex; gap:8px; align-items:center; color:var(--moon-muted); font-size:12px; margin:0 0 24px; }
+.moon-login-back:hover { color:var(--moon-ink); }
+.moon-login-reset-success > svg { margin-bottom:24px; }
+.moon-login-reset-success .moon-login-back { margin-top:20px; }
+@keyframes moon-login-in { from { opacity:0; translate:0 12px; } to { opacity:1; translate:0 0; } }
+.moon-login-orbit { animation:moon-login-orbit 38s linear infinite; }
+.moon-login-orbit::after { content:''; position:absolute; width:6px; height:6px; border-radius:50%; top:13%; left:13%; background:#b5b7b9; box-shadow:0 0 0 5px #b5b7b90a; }
+.moon-login-orbit-two { animation-duration:54s; animation-direction:reverse; }
+.moon-login-orbit-three { animation-duration:72s; }
+.moon-login-moon { animation:moon-login-in .8s ease both,moon-login-float 6s ease-in-out 1s infinite; }
+.moon-login-submit:active:not(:disabled) { scale:.98; }
+.moon-login-error button { margin-top:10px; text-decoration:underline; text-underline-offset:3px; font-size:12px; }
+.moon-login.is-verifying .moon-login-story * { animation-play-state:paused; }
+@keyframes moon-login-orbit { to { rotate:360deg; } }
+@keyframes moon-login-float { 0%,100% { translate:0 0; } 50% { translate:0 -5px; } }
+html.ajustes-sin-movimiento .moon-login * { animation:none!important; transition:none!important; }
+@media(min-width:1600px) { .moon-login-story { padding:48px 64px 28px; } .moon-login-main { padding:38px 56px 28px; } }
+@media(max-width:1000px) { .moon-login-story { padding:32px; } .moon-login-story h2 { font-size:35px; } .moon-login-art-caption { display:none; } .moon-login-orbit-three { width:380px; height:380px; } .moon-login-orbit-two { width:310px; height:310px; } .moon-login-art { margin:0 -20px; } .moon-login-story-footer span:last-child { display:none; } }
+@media(max-width:760px) { .moon-login { display:block; } .moon-login-story { display:none; } .moon-login-main { min-height:100%; padding:24px; } .moon-login-top { justify-content:space-between; } .moon-login-mobile-brand { display:block; } .moon-login-top a { font-size:11px; } .moon-login-form-wrap { padding:58px 0; } .moon-login h1 { font-size:51px; } .moon-login-footer { font-size:8px; } }
+@media(prefers-reduced-motion:reduce) { .moon-login * { animation:none!important; transition:none!important; } }

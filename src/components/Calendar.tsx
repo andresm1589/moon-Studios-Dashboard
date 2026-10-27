@@ -1,3 +1,5 @@
+import { panelInk } from '@/lib/panelColors';
+import { calendarTaskDate, createCalendarExport } from '@/lib/calendarExport';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,17 +11,19 @@ import {
   CheckCircle2, Flag, Calendar as CalendarIcon,
   AlignLeft, ChevronLeft, ChevronRight, Lock,
   UserCheck, UsersRound, Eye, Ban, ListTodo, X, ShieldCheck,
-  Filter, LayoutGrid, List, Search, AlertCircle, PartyPopper
+  Filter, LayoutGrid, List, Search, AlertCircle, PartyPopper, Download, Plus, ArrowUpDown, Target, CalendarDays
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isSameDay, addMonths, subMonths,
   startOfWeek, endOfWeek, isPast, isToday, startOfDay,
-  differenceInDays, parseISO,
+  differenceInDays, parseISO, addDays,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import type { Task, UserProfile, UserRole } from '@/types';
+import { eventosDeCalendario, estaConectado, type EventoCalendario } from '@/lib/integraciones';
+import { abrirExterno } from '@/lib/escritorio';
 
 // ── Hex to RGB helper ─────────────────────────────────────────────────────────
 function hexToRgb(hex: string) {
@@ -43,22 +47,26 @@ const injectThemeVars = (isDark: boolean, accentColor: string) => {
   const dark = isDark;
   style.textContent = `
     :root {
-      --cal-accent: ${accentColor};
+      --cal-accent: var(--accent-user-ink, ${panelInk(accentColor)});
       --cal-accent-rgb: ${aRgb};
-      --cal-bg:               ${dark ? '#0c0c0e'              : '#f8fafc'};
-      --cal-card-bg:          ${dark ? '#141416'              : '#ffffff'};
-      --cal-overlay:          ${dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
-      --cal-border:           ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'};
-      --cal-text-primary:     ${dark ? '#f1f5f9'              : '#0f172a'};
-      --cal-text-secondary:   ${dark ? '#cbd5e1'              : '#334155'};
-      --cal-text-muted:       ${dark ? '#64748b'              : '#64748b'};
-      --cal-text-quaternary:  ${dark ? '#5b6679'              : '#8391a7'};
+      --cal-bg: var(--moon-bg);
+      --cal-card-bg: var(--moon-surface);
+      --cal-overlay: var(--moon-surface-raised);
+      --cal-border: var(--moon-line);
+      --cal-text-primary: var(--moon-ink);
+      --cal-text-secondary: var(--moon-muted);
+      --cal-text-muted: var(--moon-muted);
+      --cal-text-quaternary: var(--moon-muted);
       --cal-holiday-bg:       ${dark ? 'rgba(251,191,36,0.10)' : 'rgba(251,146,60,0.10)'};
       --cal-holiday-border:   ${dark ? 'rgba(251,191,36,0.22)' : 'rgba(251,146,60,0.22)'};
       --cal-holiday-color:    ${dark ? '#fbbf24'              : '#ea580c'};
-      --cal-dialog-bg:        ${dark ? '#141416'              : '#ffffff'};
-      --cal-dialog-border:    ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'};
-      --cal-dialog-text:      ${dark ? '#f1f5f9'              : '#0f172a'};
+      /* Google, en azul, para no confundirlo con un feriado ni con una tarea. */
+      --cal-gcal-bg:          ${dark ? 'rgba(66,133,244,0.12)' : 'rgba(66,133,244,0.10)'};
+      --cal-gcal-border:      ${dark ? 'rgba(66,133,244,0.28)' : 'rgba(66,133,244,0.24)'};
+      --cal-gcal-color:       ${dark ? '#8ab4f8'               : '#1a73e8'};
+      --cal-dialog-bg: var(--moon-surface);
+      --cal-dialog-border: var(--moon-line);
+      --cal-dialog-text: var(--moon-ink);
     }
   `;
 };
@@ -71,28 +79,28 @@ const CAL_STYLES = `
   @keyframes cal-spin     { to{transform:rotate(360deg)} }
   @keyframes cal-stagger  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 
-  .cal-root { display:flex;flex-direction:column;gap:16px;animation:cal-fade-in 0.28s cubic-bezier(0.16,1,0.3,1); }
+  .cal-root { display:flex;flex-direction:column;gap:20px; }
 
   .cal-card { border-radius:16px;padding:16px;border:1px solid var(--cal-border);background:var(--cal-card-bg); }
 
   .cal-grid-wrap { border-radius:16px;overflow:hidden;background:var(--cal-card-bg);border:1px solid var(--cal-border); }
-  .cal-weekday { text-align:center;font-size:9px;font-weight:300;letter-spacing:0.1em;text-transform:uppercase;padding:8px 0;color:var(--cal-text-muted); }
+  .cal-weekday { text-align:center;font-size:max(11px,.79rem);font-weight:500;letter-spacing:0.08em;text-transform:uppercase;padding:12px 0;color:var(--cal-text-muted); }
 
-  .cal-day { min-height:72px;padding:6px 5px;border-radius:10px;background:var(--cal-card-bg);border:1px solid var(--cal-border);transition:background 0.15s,border-color 0.15s,box-shadow 0.15s;position:relative; }
+  .cal-day { min-height:102px;padding:10px 6px;border-radius:10px;background:var(--cal-card-bg);border:1px solid var(--cal-border);transition:background 0.15s,border-color 0.15s,box-shadow 0.15s;position:relative; }
   .cal-day.other-month { background:transparent;border-color:transparent;opacity:0.2; }
   .cal-day.selected   { background:rgba(var(--cal-accent-rgb),0.08);border-color:rgba(var(--cal-accent-rgb),0.35);box-shadow:0 0 0 1px rgba(var(--cal-accent-rgb),0.15); }
   .cal-day.clickable  { cursor:pointer; }
   .cal-day.clickable:hover { background:var(--cal-overlay); }
   .cal-day.is-holiday { border-color:var(--cal-holiday-border) !important; }
 
-  .cal-day-num { font-size:11px;text-align:center;width:22px;height:22px;border-radius:50%;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;color:var(--cal-text-muted);border:1px solid transparent;font-weight:300;transition:background 0.15s; }
+  .cal-day-num { font-size:max(13px,.93rem);text-align:center;width:28px;height:28px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;color:var(--cal-text-primary);border:1px solid transparent;font-weight:400;transition:background 0.15s; }
   .cal-day-num.today { background:rgba(var(--cal-accent-rgb),0.15);border-color:rgba(var(--cal-accent-rgb),0.35);color:var(--cal-accent);font-weight:500; }
   .cal-day-num.past  { color:var(--cal-text-quaternary); }
 
   .cal-holiday-dot { width:5px;height:5px;border-radius:50%;background:var(--cal-holiday-color);margin:0 auto 2px;display:block; }
   .cal-holiday-label { font-size:8px;font-weight:300;color:var(--cal-holiday-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;line-height:1.2;padding:0 2px; }
 
-  .cal-panel { flex-shrink:0;display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:var(--cal-card-bg);border:1px solid var(--cal-border);animation:cal-panel-in 0.22s cubic-bezier(0.22,1,0.36,1); }
+  .cal-panel { flex-shrink:0;display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:var(--cal-card-bg);border:1px solid var(--cal-border); }
   .cal-panel-header { display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--cal-border);flex-shrink:0; }
   .cal-panel-body { flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:120px; }
   .cal-panel-body::-webkit-scrollbar { width:3px; }
@@ -130,19 +138,23 @@ const CAL_STYLES = `
 
   .cal-desc-box { font-size:13px;font-weight:300;line-height:1.7;padding:12px 14px;border-radius:10px;white-space:pre-wrap;background:var(--cal-overlay);border:1px solid var(--cal-border);color:var(--cal-text-secondary); }
   .cal-assignee-card { display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:var(--cal-overlay);border:1px solid var(--cal-border); }
-  .cal-assignee-av { width:28px;height:28px;border-radius:8px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.22);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:#a78bfa; }
+  .cal-assignee-av { width:28px;height:28px;border-radius:8px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.22);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--moon-tone-purple); }
 
   .cal-lock-notice,.cal-no-interact { display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--cal-overlay);border:1px solid var(--cal-border); }
 
+  .cal-gcal-chip { display:flex;align-items:center;gap:3px;font-size:9px;line-height:1.3;padding:1px 4px;border-radius:4px;
+    background:var(--cal-gcal-bg);border:1px solid var(--cal-gcal-border);color:var(--cal-gcal-color);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px; }
+  .cal-gcal-chip.rechazado { opacity:.5;text-decoration:line-through; }
+  .cal-gcal-panel-item { display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:10px;
+    background:var(--cal-gcal-bg);border:1px solid var(--cal-gcal-border);width:100%;text-align:left;
+    cursor:pointer;font:inherit; }
+  .cal-gcal-panel-item:disabled { cursor:default; }
   .cal-holiday-panel-item { display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:10px;background:var(--cal-holiday-bg);border:1px solid var(--cal-holiday-border); }
 
-  .cal-stats-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:10px; }
-  @media (max-width:400px) { .cal-stats-grid { grid-template-columns:1fr 1fr; } }
+  .cal-stats-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
 
-  .cal-stat-card { padding:14px 10px;border-radius:12px;background:var(--cal-card-bg);border:1px solid var(--cal-border);text-align:center;animation:cal-stagger 0.25s ease forwards;animation-fill-mode:both;opacity:0; }
-  .cal-stat-card:nth-child(1){animation-delay:0.02s}
-  .cal-stat-card:nth-child(2){animation-delay:0.06s}
-  .cal-stat-card:nth-child(3){animation-delay:0.10s}
+  .cal-stat-card { padding:20px;border-radius:14px;background:var(--cal-card-bg);border:1px solid var(--cal-border);text-align:left;display:grid;grid-template-columns:1fr auto;gap:12px; }
 
   .cal-filter-dropdown { position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:var(--cal-card-bg);border:1px solid var(--cal-border);border-radius:12px;overflow:hidden;z-index:100;animation:cal-scale-in 0.18s cubic-bezier(0.34,1.56,0.64,1); }
 
@@ -150,20 +162,20 @@ const CAL_STYLES = `
   .cal-filter-btn:hover { background:var(--cal-overlay);color:var(--cal-text-primary); }
   .cal-filter-btn.active-filter { background:rgba(var(--cal-accent-rgb),0.12);border-color:rgba(var(--cal-accent-rgb),0.35);color:var(--cal-accent); }
 
-  .cal-search-wrap { display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:var(--cal-card-bg);border:1px solid var(--cal-border);transition:border-color 0.15s,box-shadow 0.15s; }
+  .cal-search-wrap { display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:12px;background:var(--cal-card-bg);border:1px solid var(--cal-border);transition:border-color 0.15s,box-shadow 0.15s;flex:1;min-width:min(100%,240px); }
   .cal-search-wrap:focus-within { border-color:rgba(var(--cal-accent-rgb),0.4);box-shadow:0 0 0 3px rgba(var(--cal-accent-rgb),0.1); }
-  .cal-search-wrap input { background:none;border:none;outline:none;font-size:13px;font-weight:300;color:var(--cal-text-primary);font-family:inherit;flex:1;min-width:0; }
+  .cal-search-wrap input { background:none;border:none;outline:none;font-size:max(14px,1rem);font-weight:400;color:var(--cal-text-primary);font-family:inherit;flex:1;min-width:0; }
   .cal-search-wrap input::placeholder { color:var(--cal-text-muted); }
 
   .cal-badge-today { font-size:9px;font-weight:500;letter-spacing:0.06em;padding:2px 7px;border-radius:999px;background:rgba(var(--cal-accent-rgb),0.15);color:var(--cal-accent);border:1px solid rgba(var(--cal-accent-rgb),0.25); }
   .cal-badge-past  { font-size:9px;font-weight:300;padding:2px 7px;border-radius:999px;color:var(--cal-text-muted);background:var(--cal-overlay);display:flex;align-items:center;gap:3px; }
-  .cal-badge-overdue { font-size:10px;font-weight:300;padding:2px 7px;border-radius:999px;background:rgba(248,113,113,0.1);color:#f87171;flex-shrink:0; }
+  .cal-badge-overdue { font-size:10px;font-weight:300;padding:2px 7px;border-radius:999px;background:rgba(248,113,113,0.1);color:var(--moon-tone-red);flex-shrink:0; }
 
   .cal-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px; }
 
   .cal-spinner { width:26px;height:26px;border-radius:50%;border:2px solid var(--cal-border);border-top-color:var(--cal-accent);animation:cal-spin 0.8s linear infinite; }
 
-  .cal-progress-bar { height:4px;border-radius:4px;background:var(--cal-border);overflow:hidden;margin-top:8px; }
+  .cal-progress-bar { grid-column:1 / -1;height:4px;border-radius:4px;background:var(--cal-border);overflow:hidden;margin-top:8px; }
   .cal-progress-fill { height:100%;border-radius:4px;transition:width 0.6s ease; }
 
   .cal-mobile-panel { display:none; }
@@ -172,27 +184,49 @@ const CAL_STYLES = `
   @media (min-width:1024px) { .cal-desktop-layout{display:flex!important;gap:16px;align-items:flex-start} .cal-panel{width:300px} }
 
   .cal-grid-inner { display:grid;grid-template-columns:repeat(7,1fr);gap:3px; }
-  @media (max-width:480px) { .cal-day{min-height:52px;padding:4px 3px} .cal-day-num{font-size:10px;width:20px;height:20px} }
+  @media (max-width:480px) { .cal-day{min-height:76px;padding:6px 2px} .cal-day-num{font-size:12px;width:25px;height:25px} }
 
   .cal-list-assignee { display:block; }
   @media (max-width:420px) { .cal-list-assignee{display:none} }
 
-  .cal-list-rows>* { animation:cal-stagger 0.2s ease forwards;animation-fill-mode:both;opacity:0; }
-  .cal-list-rows>*:nth-child(1){animation-delay:0.02s}
-  .cal-list-rows>*:nth-child(2){animation-delay:0.05s}
-  .cal-list-rows>*:nth-child(3){animation-delay:0.08s}
-  .cal-list-rows>*:nth-child(4){animation-delay:0.11s}
-  .cal-list-rows>*:nth-child(5){animation-delay:0.14s}
-  .cal-list-rows>*:nth-child(6){animation-delay:0.17s}
-  .cal-list-rows>*:nth-child(7){animation-delay:0.20s}
-  .cal-list-rows>*:nth-child(8){animation-delay:0.23s}
+  .cal-month-title { color:var(--cal-text-primary);font-weight:500;font-size:max(17px,1.2rem);min-width:160px;text-align:center;text-transform:capitalize; }
 
-  .cal-month-title { color:var(--cal-text-primary);font-weight:300;font-size:13px;min-width:120px;text-align:center;text-transform:capitalize; }
-
-  .cal-task-chip { font-size:9px;padding:2px 4px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:300;line-height:1.3;display:block; }
+  .cal-task-chip { font-size:max(10px,.72rem);padding:4px 5px;border-radius:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;line-height:1.4;display:block; }
 
   .cal-accent-btn { font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer;background:rgba(var(--cal-accent-rgb),0.1);border:1px solid rgba(var(--cal-accent-rgb),0.25);color:var(--cal-accent);font-family:inherit;transition:all 0.15s; }
   .cal-accent-btn:hover { background:rgba(var(--cal-accent-rgb),0.18); }
+  .cal-head { display:flex;justify-content:space-between;gap:20px;align-items:flex-start;flex-wrap:wrap; }
+  .cal-eyebrow { display:flex;gap:7px;align-items:center;color:var(--cal-text-muted);font-size:max(11px,.79rem);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px; }
+  .cal-subtitle { color:var(--cal-text-muted);font-size:max(14px,1rem);margin-top:9px;line-height:1.6;max-width:560px; }
+  .cal-head-actions,.cal-toolbar,.cal-period-nav,.cal-focusbar { display:flex;gap:10px;align-items:center;flex-wrap:wrap; }
+  .cal-toolbar { padding:16px;border:1px solid var(--cal-border);border-radius:16px;background:var(--cal-card-bg); }
+  .cal-period-nav { margin-right:auto;gap:6px; }
+  .cal-action { min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--cal-card-bg);border:1px solid var(--cal-border);color:var(--cal-text-primary);font-size:max(13px,.93rem);font-weight:500;transition:background .15s; }
+  .cal-action:hover { background:var(--cal-overlay); }
+  .cal-action:disabled { opacity:.45;cursor:not-allowed; }
+  .cal-action.primary { background:var(--moon-accent);color:var(--moon-accent-ink);border-color:var(--moon-accent); }
+  .cal-segment { display:inline-flex;border:1px solid var(--cal-border);background:var(--cal-overlay);padding:4px;border-radius:12px; }
+  .cal-segment button { border:0;background:transparent;min-height:38px;padding:8px 12px;display:flex;gap:7px;align-items:center;justify-content:center;border-radius:8px;font-size:max(13px,.93rem);font-weight:500;color:var(--cal-text-muted); }
+  .cal-segment button[aria-pressed=true] { background:var(--cal-card-bg);color:var(--cal-text-primary);box-shadow:0 1px 4px #0002; }
+  .cal-focusbar { gap:8px; }
+  .cal-focusbar > span { font-size:max(12px,.86rem);color:var(--cal-text-muted);margin-right:4px; }
+  .cal-focus-btn { min-height:40px;border:1px solid var(--cal-border);border-radius:999px;padding:8px 13px;display:inline-flex;gap:7px;align-items:center;background:var(--cal-card-bg);color:var(--cal-text-secondary);font-size:max(13px,.93rem); }
+  .cal-focus-btn[aria-pressed=true] { background:var(--moon-accent);color:var(--moon-accent-ink);border-color:var(--moon-accent); }
+  .cal-search-toolbar { display:flex;gap:12px;flex-wrap:wrap;align-items:center; }
+  .cal-search-toolbar select { min-width:190px;background:var(--cal-card-bg);border:1px solid var(--cal-border);border-radius:10px;padding:10px 12px; }
+  .cal-filter-dropdown { min-width:280px;max-width:calc(100vw - 40px);padding:18px!important;box-shadow:0 18px 40px #0003; }
+  .cal-filter-btn,.cal-view-btn,.cal-accent-btn { min-height:40px;font-size:max(13px,.93rem);padding:8px 12px;font-weight:400; }
+  .cal-nav-btn,.cal-icon-btn { min-width:44px;min-height:44px; }
+  .cal-close-btn { min-width:34px;min-height:34px; }
+  .cal-list-row { padding:16px 12px;gap:12px; }
+  .cal-list-row + .cal-list-row { border-top:1px solid var(--cal-border);border-radius:0; }
+  .cal-status-btn { min-width:34px;min-height:34px;display:grid;place-items:center; }
+  .cal-day:focus-visible { outline:2px solid var(--cal-accent);outline-offset:2px; }
+  .cal-export-note { font-size:max(12px,.86rem);color:var(--cal-text-muted);line-height:1.6; }
+  .cal-stat-label { font-size:max(13px,.93rem);color:var(--cal-text-muted); }
+  .cal-stat-value { font-size:clamp(28px,3vw,38px);line-height:1.15;font-weight:500;letter-spacing:-.04em;color:var(--cal-text-primary);font-variant-numeric:tabular-nums;margin-top:10px; }
+  .cal-stat-icon { width:36px;height:36px;border:1px solid var(--cal-border);border-radius:10px;display:grid;place-items:center;background:var(--cal-overlay); }
+  @media (max-width:640px) { .cal-toolbar{padding:12px}.cal-period-nav{width:100%;justify-content:space-between}.cal-month-title{min-width:0;flex:1}.cal-stats-grid{gap:8px}.cal-stat-card{padding:14px;display:block}.cal-stat-icon{display:none}.cal-stat-label{font-size:12px}.cal-head-actions{width:100%}.cal-head-actions>*{flex:1}.cal-search-toolbar select{flex:1}.cal-search-wrap{width:100%;flex-basis:100%}.cal-stat-value{font-size:28px}.cal-list-row{padding:14px 4px;align-items:flex-start}.cal-task-chip{font-size:10px}.cal-holiday-label{font-size:9px} }
 `;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -223,6 +257,7 @@ const ROLE_CFG: Record<string, { label: string; color: string }> = {
 type FilterStatus   = 'all' | 'pending' | 'in-progress' | 'completed';
 type FilterPriority = 'all' | 'high' | 'medium' | 'low';
 type ViewMode       = 'grid' | 'list';
+type AgendaFocus    = 'month' | 'upcoming' | 'overdue' | 'mine';
 
 // ── Nager.Date Holiday API ────────────────────────────────────────────────────
 interface NagerHoliday {
@@ -296,6 +331,23 @@ const fetchHolidays = async (countryCode: string, year: number): Promise<NagerHo
 // el feriado caía el día anterior. parseISO lo toma como fecha local.
 const fechaFeriado = (h: NagerHoliday) => parseISO(h.date);
 
+// ── Google Calendar ─────────────────────────────────────────────────────────
+
+/* La fecha de un evento. Los de todo el día llegan como "2026-10-26" y hay
+   que leerlos como fecha local: `new Date("2026-10-26")` los interpreta en
+   UTC y en Perú (UTC-5) caerían el día anterior. */
+const fechaEvento = (e: EventoCalendario): Date =>
+  e.todoElDia ? parseISO((e.inicio ?? "").slice(0, 10)) : new Date(e.inicio ?? 0);
+
+/* La hora, con la zona del navegador. Las de Google ya vienen con su propia
+   zona dentro, así que no se tocan a mano. */
+const horaEvento = (e: EventoCalendario): string =>
+  e.todoElDia ? "Todo el día"
+    : new Date(e.inicio ?? 0).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+
+const CLAVE_VER_GCAL = "cal-ver-google";
+
+
 // ── Extended Task shape (adds optional assignment fields beyond base Task) ─────
 interface ExtTask extends Task {
   assignedTo?: string;
@@ -329,22 +381,22 @@ const ReadOnlyTaskView: React.FC<{ task: ExtTask; users: UserProfile[]; isCEO: b
       {!isCEO && (
         <div className="cal-lock-notice">
           <Lock style={{ width: 14, height: 14, flexShrink: 0, color: 'var(--cal-text-muted)' }} strokeWidth={1.5} />
-          <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--cal-text-muted)' }}>Solo el CEO puede modificar tareas.</p>
+          <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>Solo el CEO puede modificar tareas.</p>
         </div>
       )}
 
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: pri.dot, flexShrink: 0 }} />
-          <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 20, color: sta.color, background: sta.bg, fontWeight: 300 }}>{sta.label}</span>
+          <span style={{ fontSize: 'max(11px,0.79rem)', padding: '2px 7px', borderRadius: 20, color: panelInk(sta.color), background: sta.bg, fontWeight: 400 }}>{sta.label}</span>
           {isOverdue && <span className="cal-badge-overdue">Vencida</span>}
         </div>
-        <p style={{ fontWeight: 300, fontSize: 16, lineHeight: 1.4, color: 'var(--cal-text-primary)' }}>{task.title}</p>
+        <p style={{ fontWeight: 400, fontSize: 16, lineHeight: 1.4, color: 'var(--cal-text-primary)' }}>{task.title}</p>
       </div>
 
       {task.description && (
         <div>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 'max(12px,0.86rem)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <AlignLeft style={{ width: 12, height: 12 }} strokeWidth={1.5} /> Descripción
           </p>
           <p className="cal-desc-box">{task.description}</p>
@@ -353,23 +405,23 @@ const ReadOnlyTaskView: React.FC<{ task: ExtTask; users: UserProfile[]; isCEO: b
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 'max(12px,0.86rem)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Flag style={{ width: 12, height: 12 }} strokeWidth={1.5} /> Prioridad
           </p>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 300, padding: '5px 10px', borderRadius: 8, background: pri.bg, color: pri.color }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'max(14px,1.00rem)', fontWeight: 400, padding: '5px 10px', borderRadius: 8, background: pri.bg, color: panelInk(pri.color) }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: pri.color }} />
             {pri.label}
           </span>
         </div>
         <div>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 'max(12px,0.86rem)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <CalendarIcon style={{ width: 12, height: 12 }} strokeWidth={1.5} /> Fecha límite
           </p>
-          <p style={{ fontSize: 13, fontWeight: 300, color: isOverdue ? '#f87171' : 'var(--cal-text-secondary)' }}>
+          <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: panelInk(isOverdue ? '#f87171' : 'var(--cal-text-secondary)') }}>
             {format(dueDate, "d 'de' MMMM yyyy", { locale: es })}
           </p>
           {!isOverdue && task.status !== 'completed' && daysLeft >= 0 && (
-            <p style={{ fontSize: 11, fontWeight: 300, color: daysLeft <= 2 ? '#fbbf24' : 'var(--cal-text-muted)', marginTop: 2 }}>
+            <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: panelInk(daysLeft <= 2 ? '#fbbf24' : 'var(--cal-text-muted)'), marginTop: 2 }}>
               {daysLeft === 0 ? 'Vence hoy' : `${daysLeft} día${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`}
             </p>
           )}
@@ -378,14 +430,14 @@ const ReadOnlyTaskView: React.FC<{ task: ExtTask; users: UserProfile[]; isCEO: b
 
       {assignedUser && (
         <div>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 'max(12px,0.86rem)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <UserCheck style={{ width: 12, height: 12 }} strokeWidth={1.5} /> Asignado a
           </p>
           <div className="cal-assignee-card">
             <div className="cal-assignee-av">{assignedUser.displayName?.[0]?.toUpperCase() ?? '?'}</div>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--cal-text-primary)' }}>{assignedUser.displayName}</p>
-              <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)' }}>{assignedUser.email}</p>
+              <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-primary)' }}>{assignedUser.displayName}</p>
+              <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>{assignedUser.email}</p>
             </div>
           </div>
         </div>
@@ -393,10 +445,10 @@ const ReadOnlyTaskView: React.FC<{ task: ExtTask; users: UserProfile[]; isCEO: b
 
       {!assignedUser && assignedRole && roleCfg && (
         <div>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 'max(12px,0.86rem)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cal-text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <UsersRound style={{ width: 12, height: 12 }} strokeWidth={1.5} /> Rol asignado
           </p>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 300, padding: '5px 10px', borderRadius: 8, background: `${roleCfg.color}18`, color: roleCfg.color }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'max(14px,1.00rem)', fontWeight: 400, padding: '5px 10px', borderRadius: 8, background: `${roleCfg.color}18`, color: panelInk(roleCfg.color) }}>
             <UsersRound style={{ width: 12, height: 12 }} strokeWidth={1.5} />
             {roleCfg.label}
           </span>
@@ -409,37 +461,39 @@ const ReadOnlyTaskView: React.FC<{ task: ExtTask; users: UserProfile[]; isCEO: b
 // ── DayPanel ──────────────────────────────────────────────────────────────────
 const DayPanel: React.FC<{
   day: Date; tasks: ExtTask[]; users: UserProfile[]; holidays: NagerHoliday[];
+  eventosGoogle: EventoCalendario[];
   onTaskClick: (task: ExtTask) => void; onClose: () => void;
   /** Solo para el CEO: abre el Panel CEO con una tarea nueva para este día. */
   onCrearTarea?: () => void;
-}> = ({ day, tasks, users, holidays, onTaskClick, onClose, onCrearTarea }) => {
+}> = ({ day, tasks, users, holidays, eventosGoogle, onTaskClick, onClose, onCrearTarea }) => {
   const past  = isDayPast(day);
   const today = isToday(day);
   const dayHolidays = holidays.filter(h => isSameDay(fechaFeriado(h), day));
+  const dayGoogle = eventosGoogle.filter(e => isSameDay(fechaEvento(e), day));
 
   return (
-    <div className="cal-panel">
+    <div data-moon-reveal="card" className="cal-panel">
       <div className="cal-panel-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <p style={{ fontWeight: 300, fontSize: 13, color: 'var(--cal-text-primary)', textTransform: 'capitalize' }}>
+            <p style={{ fontWeight: 400, fontSize: 'max(14px,1.00rem)', color: 'var(--cal-text-primary)', textTransform: 'capitalize' }}>
               {today ? 'Hoy' : format(day, "EEEE d MMM", { locale: es })}
             </p>
             {today && <span className="cal-badge-today">HOY</span>}
             {past  && <span className="cal-badge-past"><Ban style={{ width: 9, height: 9 }} strokeWidth={1.5} /> Pasado</span>}
             {dayHolidays.length > 0 && (
-              <span style={{ fontSize: 9, fontWeight: 500, padding: '2px 7px', borderRadius: 999, background: 'var(--cal-holiday-bg)', color: 'var(--cal-holiday-color)', border: '1px solid var(--cal-holiday-border)' }}>
+              <span style={{ fontSize: 'max(11px,0.79rem)', fontWeight: 500, padding: '2px 7px', borderRadius: 999, background: 'var(--cal-holiday-bg)', color: 'var(--cal-holiday-color)', border: '1px solid var(--cal-holiday-border)' }}>
                 🎉 Feriado
               </span>
             )}
           </div>
-          <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)', marginTop: 2 }}>
-            {tasks.length === 0 && dayHolidays.length === 0
+          <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)', marginTop: 2 }}>
+            {tasks.length === 0 && dayHolidays.length === 0 && dayGoogle.length === 0
               ? 'Sin eventos'
               : `${tasks.length > 0 ? `${tasks.length} tarea${tasks.length !== 1 ? 's' : ''}` : ''}${tasks.length > 0 && dayHolidays.length > 0 ? ' · ' : ''}${dayHolidays.length > 0 ? `${dayHolidays.length} feriado${dayHolidays.length !== 1 ? 's' : ''}` : ''}`}
           </p>
         </div>
-        <button className="cal-close-btn" onClick={onClose}>
+        <button type="button" className="cal-close-btn" aria-label="Cerrar detalle del día" onClick={onClose}>
           <X style={{ width: 13, height: 13 }} strokeWidth={1.5} />
         </button>
       </div>
@@ -449,7 +503,7 @@ const DayPanel: React.FC<{
           <button type="button" onClick={onCrearTarea}
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', marginBottom: 8,
                      borderRadius: 10, border: '1px dashed var(--cal-border, rgba(255,255,255,0.15))', background: 'transparent',
-                     color: 'var(--cal-text-secondary, var(--cal-text-muted))', fontSize: 12, fontWeight: 300, cursor: 'pointer' }}>
+                     color: 'var(--cal-text-secondary, var(--cal-text-muted))', fontSize: 'max(14px,1.00rem)', fontWeight: 400, cursor: 'pointer' }}>
             + Crear tarea este día
           </button>
         )}
@@ -458,19 +512,38 @@ const DayPanel: React.FC<{
           <div key={i} className="cal-holiday-panel-item">
             <PartyPopper style={{ width: 14, height: 14, color: 'var(--cal-holiday-color)', flexShrink: 0, marginTop: 1 }} strokeWidth={1.5} />
             <div>
-              <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--cal-holiday-color)' }}>{h.localName}</p>
+              <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-holiday-color)' }}>{h.localName}</p>
               {h.localName !== h.name && (
-                <p style={{ fontSize: 10, fontWeight: 300, color: 'var(--cal-text-muted)' }}>{h.name}</p>
+                <p style={{ fontSize: 'max(12px,0.86rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>{h.name}</p>
               )}
             </div>
           </div>
         ))}
 
         {/* Tasks */}
-        {tasks.length === 0 && dayHolidays.length === 0 ? (
+        {/* Google Calendar: se abre en el navegador, no se edita acá. */}
+        {dayGoogle.map(e => (
+          <button key={e.id} type="button" className="cal-gcal-panel-item"
+                  disabled={!e.meet && !e.url}
+                  onClick={() => { const u = e.meet || e.url; if (u) abrirExterno(u); }}>
+            <CalendarDays style={{ width: 14, height: 14, color: 'var(--cal-gcal-color)', flexShrink: 0, marginTop: 1 }} strokeWidth={1.5} />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-gcal-color)',
+                             textDecoration: e.respuesta === 'declined' ? 'line-through' : undefined }}>
+                {e.titulo}
+              </span>
+              <span style={{ display: 'block', fontSize: 'max(11px,0.79rem)', opacity: 0.8, color: 'var(--cal-gcal-color)' }}>
+                {[horaEvento(e), e.lugar, e.meet ? 'Meet' : null,
+                  e.respuesta === 'declined' ? 'rechazado' : null].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+          </button>
+        ))}
+
+        {tasks.length === 0 && dayHolidays.length === 0 && dayGoogle.length === 0 ? (
           <div className="cal-empty" style={{ height: 90 }}>
             <ListTodo style={{ width: 20, height: 20, color: 'var(--cal-text-quaternary)' }} strokeWidth={1} />
-            <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)' }}>
+            <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>
               {past ? 'No hubo tareas' : 'Ninguna tarea'}
             </p>
           </div>
@@ -482,16 +555,16 @@ const DayPanel: React.FC<{
             : task.assignedTo ? users.find(u => u.uid === task.assignedTo)?.displayName : null;
 
           return (
-            <button key={task.id} type="button" className="cal-task-btn" onClick={() => onTaskClick(task)}>
+            <button data-moon-reveal="row" key={task.id} type="button" className="cal-task-btn" onClick={() => onTaskClick(task)}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', marginTop: 4, flexShrink: 0, background: pri.dot, opacity: task.status === 'completed' ? 0.3 : 1 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--cal-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.5 : 1 }}>
+                  <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.5 : 1 }}>
                     {task.title}
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 300, padding: '2px 6px', borderRadius: 5, color: sta.color, background: sta.bg }}>{sta.label}</span>
-                    {assignee && <span style={{ fontSize: 10, fontWeight: 300, color: 'var(--cal-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{assignee}</span>}
+                    <span style={{ fontSize: 'max(12px,0.86rem)', fontWeight: 400, padding: '2px 6px', borderRadius: 5, color: panelInk(sta.color), background: sta.bg }}>{sta.label}</span>
+                    {assignee && <span style={{ fontSize: 'max(12px,0.86rem)', fontWeight: 400, color: 'var(--cal-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{assignee}</span>}
                   </div>
                 </div>
                 <Eye style={{ width: 11, height: 11, color: 'var(--cal-text-muted)', flexShrink: 0, marginTop: 2 }} strokeWidth={1.5} />
@@ -512,20 +585,29 @@ const FilterDropdown: React.FC<{
 }> = ({ filterStatus, filterPriority, onStatusChange, onPriorityChange, onClose }) => {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const handler = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('[data-cal-filter-trigger]')) return;
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      onClose();
+      document.querySelector<HTMLButtonElement>('[data-cal-filter-trigger]')?.focus();
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', escape); };
   }, [onClose]);
 
   return (
-    <div ref={ref} className="cal-filter-dropdown" style={{ padding: 14 }}>
-      <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cal-text-muted)', marginBottom: 8, fontWeight: 400 }}>Estado</p>
+    <div ref={ref} id="cal-filters" className="cal-filter-dropdown" role="region" aria-label="Filtros de tareas" style={{ padding: 14 }}>
+      <p style={{ fontSize: 'max(11px,0.79rem)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cal-text-muted)', marginBottom: 8, fontWeight: 400 }}>Estado</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 12 }}>
         {([['all','Todos'], ['pending','Pendiente'], ['in-progress','En progreso'], ['completed','Completada']] as [FilterStatus,string][]).map(([v, l]) => (
-          <button key={v} className={`cal-filter-btn ${filterStatus === v ? 'active-filter' : ''}`} onClick={() => onStatusChange(v)}>{l}</button>
+          <button type="button" key={v} aria-pressed={filterStatus === v} className={`cal-filter-btn ${filterStatus === v ? 'active-filter' : ''}`} onClick={() => onStatusChange(v)}>{l}</button>
         ))}
       </div>
-      <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cal-text-muted)', marginBottom: 8, fontWeight: 400 }}>Prioridad</p>
+      <p style={{ fontSize: 'max(11px,0.79rem)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cal-text-muted)', marginBottom: 8, fontWeight: 400 }}>Prioridad</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         {([
           ['all','Todas', undefined],
@@ -533,9 +615,9 @@ const FilterDropdown: React.FC<{
           ['medium','Media','#fbbf24'],
           ['low','Baja','#4ade80'],
         ] as [FilterPriority, string, string|undefined][]).map(([v, l, c]) => (
-          <button key={v}
+          <button type="button" key={v} aria-pressed={filterPriority === v}
             className={`cal-filter-btn ${filterPriority === v ? 'active-filter' : ''}`}
-            style={filterPriority === v && c ? { color: c, borderColor: `${c}55`, background: `${c}14` } : undefined}
+            style={filterPriority === v && c ? { color: panelInk(c), borderColor: `${c}55`, background: `${c}14` } : undefined}
             onClick={() => onPriorityChange(v)}>
             {l}
           </button>
@@ -570,6 +652,8 @@ const CalendarPage: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<FilterPriority>('all');
   const [showFilter,     setShowFilter]     = useState(false);
   const [mobilePanelOpen,setMobilePanelOpen]= useState(false);
+  const [agendaFocus,    setAgendaFocus]    = useState<AgendaFocus>('month');
+  const [sortOrder,      setSortOrder]      = useState<'date' | 'priority'>('date');
 
   // ── Holidays state ──
   // ── Detect country once (synchronous, no effect needed) ──
@@ -577,6 +661,15 @@ const CalendarPage: React.FC = () => {
   const [holidays,    setHolidays]    = useState<NagerHoliday[]>([]);
   const [loadedYear,  setLoadedYear]  = useState<number | null>(null);
   const [holidaysError, setHolidaysError] = useState(false);
+
+  // ── Google Calendar ──
+  // Solo aparece si la cuenta está conectada desde Configuración.
+  const [googleConectado, setGoogleConectado] = useState(false);
+  const [eventosGoogle, setEventosGoogle] = useState<EventoCalendario[]>([]);
+  const [errorGoogle, setErrorGoogle] = useState<string | null>(null);
+  const [verGoogle, setVerGoogle] = useState<boolean>(() => {
+    try { return localStorage.getItem(CLAVE_VER_GCAL) !== 'no'; } catch { return true; }
+  });
 
   // ── Inject :root CSS vars whenever theme/accent changes ──
   useEffect(() => {
@@ -594,10 +687,10 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     const unsubTasks = subscribeToTasks(raw => {
-      const mapped = raw.map((t: Record<string, unknown>) => ({
-        ...t,
-        date: (t.date as { toDate?: () => Date } | null)?.toDate?.() ?? new Date(),
-      })) as ExtTask[];
+      const mapped = raw.flatMap((t: Record<string, unknown>) => {
+        const date = calendarTaskDate(t.date ?? t.dueDate);
+        return date ? [{ ...t, date } as ExtTask] : [];
+      });
       setAllTasks(mapped);
       setLoading(false);
     }, e => { console.error(e); setLoading(false); });
@@ -620,15 +713,53 @@ const CalendarPage: React.FC = () => {
     return () => { vigente = false; };
   }, [currentMonth, countryCode, loadedYear]);
 
+  // ── ¿Hay cuenta de Google conectada? Se pregunta una vez. ──
+  useEffect(() => {
+    let vigente = true;
+    estaConectado('google').then(v => { if (vigente) setGoogleConectado(v); });
+    return () => { vigente = false; };
+  }, []);
+
+  // ── Los eventos del RANGO VISIBLE, no del mes ──
+  // La rejilla enseña días del mes anterior y del siguiente para completar
+  // las semanas; pidiendo solo el mes, esos días saldrían vacíos sin motivo.
+  const desdeVisible = startOfWeek(startOfMonth(currentMonth)).getTime();
+  const hastaVisible = endOfWeek(endOfMonth(currentMonth)).getTime();
+
+  useEffect(() => {
+    // Sin salida temprana que limpie el estado: hacerlo acá sería un setState
+    // síncrono dentro del efecto y encadenaría renders. Lo que se enseña se
+    // deriva más abajo, en eventosVisibles.
+    if (!googleConectado || !verGoogle) return;
+    let vigente = true;
+    eventosDeCalendario(new Date(desdeVisible), new Date(hastaVisible + 86400000))
+      .then(r => { if (!vigente) return; setEventosGoogle(r.eventos); setErrorGoogle(null); })
+      .catch((e: unknown) => {
+        if (!vigente) return;
+        setEventosGoogle([]);
+        setErrorGoogle(e instanceof Error ? e.message : 'No se pudo leer tu calendario de Google.');
+      });
+    return () => { vigente = false; };
+  }, [googleConectado, verGoogle, desdeVisible, hastaVisible]);
+
+  const alternarGoogle = (v: boolean) => {
+    setVerGoogle(v);
+    try { localStorage.setItem(CLAVE_VER_GCAL, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
+  };
+
   const visibleTasks = allTasks.filter(t => canUserSeeTask(t, userProfile));
 
   const filteredTasks = visibleTasks.filter(t => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false;
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.trim().toLocaleLowerCase();
       if (!t.title.toLowerCase().includes(q) && !(t.description ?? '').toLowerCase().includes(q)) return false;
     }
+    const date = startOfDay(new Date(t.date));
+    if (agendaFocus === 'overdue' && (t.status === 'completed' || !isDayPast(date))) return false;
+    if (agendaFocus === 'upcoming' && (t.status === 'completed' || date < startOfDay(new Date()) || date >= addDays(startOfDay(new Date()), 7))) return false;
+    if (agendaFocus === 'mine' && (t.assignedTo ? t.assignedTo !== userProfile?.uid : !t.assignedToRole || t.assignedToRole !== userProfile?.role)) return false;
     return true;
   });
 
@@ -674,14 +805,31 @@ const CalendarPage: React.FC = () => {
   const isSearching = searchQuery.trim().length > 0;
 
   const monthTasks = filteredTasks
-    .filter(t => isSearching ? true : isSameMonth(new Date(t.date), currentMonth))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter(t => isSearching || agendaFocus === 'upcoming' || agendaFocus === 'overdue' || isSameMonth(new Date(t.date), currentMonth))
+    .sort((a, b) => {
+      const priority = { high: 0, medium: 1, low: 2 };
+      return (sortOrder === 'priority' ? (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1) : 0) || new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
 
   const totalMonth     = visibleTasks.filter(t => isSameMonth(new Date(t.date), currentMonth)).length;
   const completedCount = visibleTasks.filter(t => isSameMonth(new Date(t.date), currentMonth) && t.status === 'completed').length;
   const overdueCount   = visibleTasks.filter(t => isSameMonth(new Date(t.date), currentMonth) && isDayPast(new Date(t.date)) && t.status !== 'completed').length;
   const completionPct  = totalMonth > 0 ? Math.round((completedCount / totalMonth) * 100) : 0;
-  const activeFilters  = (filterStatus !== 'all' ? 1 : 0) + (filterPriority !== 'all' ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
+  const activeFilters  = (filterStatus !== 'all' ? 1 : 0) + (filterPriority !== 'all' ? 1 : 0) + (searchQuery.trim() ? 1 : 0) + (agendaFocus !== 'month' ? 1 : 0);
+  const resetFilters = () => { setFilterStatus('all'); setFilterPriority('all'); setSearchQuery(''); setAgendaFocus('month'); };
+  const changeMonth = (date: Date) => { setCurrentMonth(date); setPanelDay(null); setMobilePanelOpen(false); setAgendaFocus('month'); };
+  const exportAgenda = () => {
+    const contents = createCalendarExport(monthTasks);
+    const url = URL.createObjectURL(new Blob([contents], { type: 'text/calendar;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `moon-agenda-${agendaFocus}-${format(currentMonth, 'yyyy-MM')}.ics`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success(`${monthTasks.length} tarea${monthTasks.length !== 1 ? 's' : ''} exportada${monthTasks.length !== 1 ? 's' : ''}`);
+  };
 
   const userCanInteract = selectedTask ? canUserInteract(selectedTask, userProfile) : false;
   const monthHolidays   = holidays.filter(h => isSameMonth(fechaFeriado(h), currentMonth));
@@ -702,86 +850,75 @@ const CalendarPage: React.FC = () => {
 
   const panelTasks    = panelDay ? getTasksForDay(panelDay) : [];
   const panelHolidays = panelDay ? getHolidaysForDay(panelDay) : [];
+  // Lo traído sigue en memoria aunque se apague el interruptor: volver a
+  // encenderlo no cuesta otra llamada.
+  const eventosVisibles = googleConectado && verGoogle ? eventosGoogle : [];
+  const eventosDelDia = (d: Date) => eventosVisibles.filter(e => isSameDay(fechaEvento(e), d));
 
   return (
-    <>
+    <section className="moon-module moon-module--calendar">
       <style>{CAL_STYLES}</style>
       <div className="cal-root">
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(var(--cal-accent-rgb),0.12)', border: '1px solid rgba(var(--cal-accent-rgb),0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CalendarIcon style={{ width: 16, height: 16, color: 'var(--cal-accent)' }} strokeWidth={1.5} />
-            </div>
-            <div>
-              <h1 style={{ color: 'var(--cal-text-primary)', fontWeight: 300, fontSize: 20, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Calendario</h1>
-              <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                {!isCEO && <><Lock style={{ width: 10, height: 10 }} strokeWidth={1.5} /> Tus tareas asignadas · </>}
-                <span title={`País detectado: ${countryCode}`}>{countryFlag(countryCode)} Feriados {countryCode}</span>
-              </p>
-            </div>
+        <header data-moon-reveal="heading" className="cal-head moon-module-heading">
+          <div>
+            <span className="cal-eyebrow"><CalendarDays size={15} /> Planificación del equipo</span>
+            <h1 className="moon-page-title">Calendario</h1>
+            <p className="cal-subtitle">Organiza las entregas, identifica prioridades y consulta la agenda de tu empresa en un solo lugar.</p>
           </div>
+          <div className="cal-head-actions">
+            <button type="button" className="cal-action" disabled={monthTasks.length === 0} onClick={exportAgenda} title="Descargar las tareas de la lista como archivo de calendario">
+              <Download size={16} /> Exportar agenda
+            </button>
+            {isCEO && <button type="button" className="cal-action primary" onClick={() => crearTareaEn(new Date())}><Plus size={17} /> Nueva tarea</button>}
+          </div>
+        </header>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* View toggle */}
-            <div style={{ display: 'flex', gap: 3 }}>
-              <button className={`cal-icon-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>
-                <LayoutGrid style={{ width: 14, height: 14 }} strokeWidth={1.5} />
-              </button>
-              <button className={`cal-icon-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>
-                <List style={{ width: 14, height: 14 }} strokeWidth={1.5} />
-              </button>
-            </div>
-
-            {/* Filter */}
-            <div style={{ position: 'relative' }}>
-              <button className={`cal-icon-btn ${activeFilters > 0 ? 'active' : ''}`} onClick={() => setShowFilter(v => !v)} style={{ position: 'relative' }}>
-                <Filter style={{ width: 13, height: 13 }} strokeWidth={1.5} />
-                {activeFilters > 0 && (
-                  <span style={{ position: 'absolute', top: -3, right: -3, width: 14, height: 14, borderRadius: '50%', background: 'var(--cal-accent)', fontSize: 9, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
-                    {activeFilters}
-                  </span>
-                )}
-              </button>
-              {showFilter && (
-                <FilterDropdown
-                  filterStatus={filterStatus} filterPriority={filterPriority}
-                  onStatusChange={v => setFilterStatus(v)}
-                  onPriorityChange={v => setFilterPriority(v)}
-                  onClose={() => setShowFilter(false)}
-                />
-              )}
-            </div>
-
-            {/* Month nav */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button className="cal-nav-btn" onClick={() => { setCurrentMonth(subMonths(currentMonth, 1)); setPanelDay(null); }}>
-                <ChevronLeft style={{ width: 14, height: 14 }} strokeWidth={1.5} />
-              </button>
-              <span className="cal-month-title">
-                {format(currentMonth, 'MMMM yyyy', { locale: es })}
-              </span>
-              <button className="cal-nav-btn" onClick={() => { setCurrentMonth(addMonths(currentMonth, 1)); setPanelDay(null); }}>
-                <ChevronRight style={{ width: 14, height: 14 }} strokeWidth={1.5} />
-              </button>
-            </div>
+        <div className="cal-toolbar">
+          <div className="cal-period-nav">
+            <button type="button" aria-label="Mes anterior" className="cal-nav-btn" onClick={() => changeMonth(subMonths(currentMonth, 1))}><ChevronLeft size={18} /></button>
+            <h2 className="cal-month-title">{format(currentMonth, 'MMMM yyyy', { locale: es })}</h2>
+            <button type="button" aria-label="Mes siguiente" className="cal-nav-btn" onClick={() => changeMonth(addMonths(currentMonth, 1))}><ChevronRight size={18} /></button>
+            <button type="button" className="cal-action" onClick={() => { changeMonth(new Date()); setPanelDay(new Date()); setMobilePanelOpen(true); }}>Hoy</button>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cal-text-muted)', fontSize: 'max(14px,1.00rem)' }}>
+            <span>Ir al mes</span>
+            <input aria-label="Ir al mes" type="month" value={format(currentMonth, 'yyyy-MM')} onChange={e => { if (e.target.value) { const date = parseISO(e.target.value + '-01'); if (Number.isFinite(date.getTime())) changeMonth(date); } }} style={{ width: 170, paddingInline: 12 }} />
+          </label>
+          <div className="cal-segment" role="group" aria-label="Vista de la agenda">
+            <button type="button" aria-pressed={viewMode === 'grid'} onClick={() => { setViewMode('grid'); setAgendaFocus('month'); }}><LayoutGrid size={16} /> Mes</button>
+            <button type="button" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}><List size={16} /> Agenda</button>
           </div>
         </div>
 
-        {/* ── Search ── */}
-        <div className="cal-search-wrap">
-          <Search style={{ width: 13, height: 13, color: 'var(--cal-text-muted)', flexShrink: 0 }} strokeWidth={1.5} />
-          <input
-            placeholder="Buscar tareas por título o descripción…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--cal-text-muted)' }}>
-              <X style={{ width: 12, height: 12 }} strokeWidth={1.5} />
-            </button>
+        <div className="cal-search-toolbar">
+          <div className="cal-search-wrap" data-moon-field-frame>
+            <Search size={18} style={{ color: 'var(--cal-text-muted)' }} aria-hidden="true" />
+            <input placeholder="Buscar tareas por título o descripción…" aria-label="Buscar tareas en el calendario" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            {searchQuery && <button type="button" className="cal-icon-btn" aria-label="Limpiar búsqueda" onClick={() => setSearchQuery('')} style={{ border: 0, background: 'transparent' }}><X size={16} /></button>}
+          </div>
+          {/* Solo si hay cuenta conectada: si no, ni interruptor ni hueco. */}
+          {googleConectado && (
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--cal-gcal-color)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={verGoogle}
+                     onChange={e => alternarGoogle(e.target.checked)} />
+              <CalendarDays size={15} /> Google Calendar
+            </label>
           )}
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--cal-text-muted)' }}>
+            <ArrowUpDown size={17} aria-hidden="true" />
+            <select aria-label="Ordenar tareas del calendario" value={sortOrder} onChange={e => setSortOrder(e.target.value as 'date' | 'priority')}><option value="date">Fecha de entrega</option><option value="priority">Mayor prioridad</option></select>
+          </label>
+          <div style={{ position: 'relative' }}>
+            <button type="button" data-cal-filter-trigger aria-label="Filtrar calendario" aria-controls="cal-filters" aria-expanded={showFilter} className="cal-action" onClick={() => setShowFilter(v => !v)}><Filter size={16} /> Filtros{activeFilters > 0 ? ' (' + activeFilters + ')' : ''}</button>
+            {showFilter && <FilterDropdown filterStatus={filterStatus} filterPriority={filterPriority} onStatusChange={setFilterStatus} onPriorityChange={setFilterPriority} onClose={() => setShowFilter(false)} />}
+          </div>
+        </div>
+
+        <div className="cal-focusbar" role="group" aria-label="Enfoque de la agenda">
+          <span><Target size={15} style={{ display: 'inline', marginRight: 6 }} /> Enfoque</span>
+          {([['month', 'Todo el mes'], ['upcoming', 'Próximos 7 días'], ['overdue', 'Vencidas'], ['mine', 'Mi agenda']] as [AgendaFocus, string][]).map(([value, label]) => <button type="button" key={value} className="cal-focus-btn" aria-pressed={agendaFocus === value} onClick={() => { setAgendaFocus(value); if (value === 'upcoming' || value === 'overdue') setViewMode('list'); }}>{label}</button>)}
+          {activeFilters > 0 && <button type="button" className="cal-action" onClick={resetFilters}><X size={15} /> Limpiar</button>}
         </div>
 
         {/* ── Stats ── */}
@@ -791,10 +928,9 @@ const CalendarPage: React.FC = () => {
             { label: `Completadas (${completionPct}%)`, value: completedCount.toString(), icon: CheckCircle2,  color: '#4ade80' },
             { label: 'Vencidas',                    value: overdueCount.toString(),   icon: AlertCircle,   color: '#f87171' },
           ].map(({ label, value, icon: Icon, color }, i) => (
-            <div key={label} className="cal-stat-card" style={{ animationDelay: `${i * 0.04}s` }}>
-              <Icon size={15} style={{ color, margin: '0 auto 5px' }} strokeWidth={1.5} />
-              <div style={{ fontSize: 20, fontWeight: 200, color: 'var(--cal-text-primary)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-              <div style={{ fontSize: 9, color: 'var(--cal-text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+            <div data-moon-reveal="metric" key={label} className="cal-stat-card">
+              <div><div className="cal-stat-label">{label}</div><div className="cal-stat-value">{value}</div></div>
+              <span className="cal-stat-icon"><Icon size={18} style={{ color: panelInk(color) }} strokeWidth={1.5} /></span>
               {i === 1 && totalMonth > 0 && (
                 <div className="cal-progress-bar">
                   <div className="cal-progress-fill" style={{ width: `${completionPct}%`, background: '#4ade80' }} />
@@ -804,24 +940,38 @@ const CalendarPage: React.FC = () => {
           ))}
         </div>
 
+        <p className="cal-export-note">
+          {!isCEO && <><Lock size={13} style={{ display: 'inline', marginRight: 5 }} /> Ves únicamente las tareas disponibles para tu cuenta. </>}
+          <span title={`País detectado: ${countryCode}`}>{countryFlag(countryCode)} Feriados de {countryCode}.</span> Exportar agenda descarga las tareas de la lista en formato .ics para tu aplicación de calendario.
+        </p>
+
         {/* ── Holiday summary strip (if any this month) ── */}
         {monthHolidays.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
             <PartyPopper style={{ width: 13, height: 13, color: 'var(--cal-holiday-color)', flexShrink: 0 }} strokeWidth={1.5} />
-            <span style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)', flexShrink: 0 }}>Feriados:</span>
+            <span style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)', flexShrink: 0 }}>Feriados:</span>
             {monthHolidays.map((h, i) => (
-              <span key={i} style={{ fontSize: 11, fontWeight: 300, padding: '3px 8px', borderRadius: 999, background: 'var(--cal-holiday-bg)', color: 'var(--cal-holiday-color)', border: '1px solid var(--cal-holiday-border)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span key={i} style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, padding: '3px 8px', borderRadius: 999, background: 'var(--cal-holiday-bg)', color: 'var(--cal-holiday-color)', border: '1px solid var(--cal-holiday-border)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {format(fechaFeriado(h), "d 'de' MMM", { locale: es })} – {h.localName}
               </span>
             ))}
           </div>
         )}
 
+        {/* Si la conexión con Google caducó, se dice. Antes el calendario se
+            habría quedado sin eventos sin explicar por qué. */}
+        {errorGoogle && googleConectado && verGoogle && (
+          <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-gcal-color)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AlertCircle style={{ width: 12, height: 12, flexShrink: 0 }} strokeWidth={1.5} />
+            {errorGoogle} Vuelve a conectarla en Configuración → Integraciones.
+          </p>
+        )}
+
         {holidaysError && (
-          <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <AlertCircle style={{ width: 12, height: 12, flexShrink: 0 }} strokeWidth={1.5} />
             No se pudieron cargar los feriados de {countryCode}. El calendario funciona igual.
-            <button type="button" className="cal-accent-btn" style={{ padding: '2px 8px', fontSize: 11 }}
+            <button type="button" className="cal-accent-btn" style={{ padding: '2px 8px', fontSize: 'max(13px,0.93rem)' }}
               onClick={() => { setHolidaysError(false); setLoadedYear(null); }}>
               Reintentar
             </button>
@@ -832,7 +982,7 @@ const CalendarPage: React.FC = () => {
         {viewMode === 'grid' && (
           <>
             <div className="cal-desktop-layout" style={{ display: 'flex' }}>
-              <div className="cal-grid-wrap" style={{ flex: 1, minWidth: 0 }}>
+              <div data-moon-reveal="card" className="cal-grid-wrap" style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ padding: 12 }}>
                   <div className="cal-grid-inner" style={{ marginBottom: 6 }}>
                     {weekDays.map(d => <div key={d} className="cal-weekday">{d}</div>)}
@@ -858,6 +1008,11 @@ const CalendarPage: React.FC = () => {
                             isHoliday ? 'is-holiday' : '',
                           ].filter(Boolean).join(' ')}
                           style={{ opacity: past && inMonth ? 0.65 : undefined }}
+                          role={clickable ? 'button' : undefined}
+                          tabIndex={clickable ? 0 : undefined}
+                          aria-label={clickable ? `${format(day, "d 'de' MMMM", { locale: es })}, ${dayTasks.length} tareas${isHoliday ? ', feriado' : ''}` : undefined}
+                          aria-pressed={clickable ? isSelected : undefined}
+                          onKeyDown={e => { if (clickable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleDayClick(day); } }}
                           onClick={() => clickable && handleDayClick(day)}
                         >
                           <div className={['cal-day-num', today ? 'today' : '', past ? 'past' : ''].filter(Boolean).join(' ')}>
@@ -872,6 +1027,28 @@ const CalendarPage: React.FC = () => {
                             </div>
                           )}
 
+                          {/* Google Calendar: hasta dos, y el resto contados.
+                              Una celda de calendario no da para más sin que
+                              las tareas dejen de verse. */}
+                          {(() => {
+                            const evs = eventosDelDia(day);
+                            if (!evs.length) return null;
+                            return (
+                              <>
+                                {evs.slice(0, 2).map(e => (
+                                  <span key={e.id}
+                                        className={`cal-gcal-chip${e.respuesta === 'declined' ? ' rechazado' : ''}`}
+                                        title={`${horaEvento(e)} · ${e.titulo}`}>
+                                    {e.todoElDia ? '' : `${horaEvento(e)} `}{e.titulo}
+                                  </span>
+                                ))}
+                                {evs.length > 2 && (
+                                  <span className="cal-gcal-chip">+{evs.length - 2} más</span>
+                                )}
+                              </>
+                            );
+                          })()}
+
                           {/* Task chips */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {dayTasks.slice(0, isHoliday ? 1 : 2).map(task => {
@@ -880,7 +1057,7 @@ const CalendarPage: React.FC = () => {
                                 <div key={task.id} className="cal-task-chip" title={task.title}
                                   style={{
                                     background: task.status === 'completed' ? 'rgba(74,222,128,0.12)' : pri.bg,
-                                    color: task.status === 'completed' ? '#4ade80' : pri.color,
+                                    color: panelInk(task.status === 'completed' ? '#4ade80' : pri.color),
                                     textDecoration: task.status === 'completed' ? 'line-through' : 'none',
                                   }}>
                                   {task.title}
@@ -888,7 +1065,7 @@ const CalendarPage: React.FC = () => {
                               );
                             })}
                             {dayTasks.length > (isHoliday ? 1 : 2) && (
-                              <div style={{ fontSize: 9, fontWeight: 300, padding: '0 3px', color: 'var(--cal-text-muted)' }}>
+                              <div style={{ fontSize: 'max(11px,0.79rem)', fontWeight: 400, padding: '0 3px', color: 'var(--cal-text-muted)' }}>
                                 +{dayTasks.length - (isHoliday ? 1 : 2)}
                               </div>
                             )}
@@ -905,6 +1082,7 @@ const CalendarPage: React.FC = () => {
                 <div className="cal-desktop-panel">
                   <DayPanel
                     day={panelDay} tasks={panelTasks} users={users} holidays={panelHolidays}
+                    eventosGoogle={panelDay ? eventosDelDia(panelDay) : []}
                     onTaskClick={handleTaskClick}
                     onClose={() => { setPanelDay(null); setMobilePanelOpen(false); }}
                     onCrearTarea={isCEO ? () => crearTareaEn(panelDay) : undefined}
@@ -918,6 +1096,7 @@ const CalendarPage: React.FC = () => {
               <div className="cal-mobile-panel">
                 <DayPanel
                   day={panelDay} tasks={panelTasks} users={users} holidays={panelHolidays}
+                    eventosGoogle={panelDay ? eventosDelDia(panelDay) : []}
                   onTaskClick={handleTaskClick}
                   onClose={() => { setPanelDay(null); setMobilePanelOpen(false); }}
                   onCrearTarea={isCEO ? () => crearTareaEn(panelDay) : undefined}
@@ -928,25 +1107,25 @@ const CalendarPage: React.FC = () => {
         )}
 
         {/* ── Month task list ── */}
-        <div className="cal-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div data-moon-reveal="card" className="cal-card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderBottom: '1px solid var(--cal-border)' }}>
-            <span style={{ fontSize: 13, fontWeight: 300, color: 'var(--cal-text-primary)' }}>
-              {isSearching ? 'Resultados de búsqueda (todos los meses)' : viewMode === 'list' ? 'Todas las tareas' : 'Tareas del mes'}
+            <span style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-primary)' }}>
+              {agendaFocus === 'overdue' ? 'Tareas vencidas · todos los meses' : agendaFocus === 'upcoming' ? 'Entregas de los próximos 7 días' : isSearching ? 'Resultados de búsqueda · todos los meses' : agendaFocus === 'mine' ? 'Mi agenda del mes' : 'Agenda del mes'}
             </span>
-            <span style={{ fontSize: 12, fontWeight: 300, color: 'var(--cal-text-muted)' }}>
+            <span style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>
               {monthTasks.length} tarea{monthTasks.length !== 1 ? 's' : ''}
-              {activeFilters > 0 && <span style={{ fontSize: 10, color: 'var(--cal-accent)', marginLeft: 5 }}>· Filtradas</span>}
+              {activeFilters > 0 && <span style={{ fontSize: 'max(12px,0.86rem)', color: 'var(--cal-accent)', marginLeft: 5 }}>· Filtradas</span>}
             </span>
           </div>
           <div style={{ padding: 10 }}>
             {monthTasks.length === 0 ? (
               <div className="cal-empty" style={{ padding: '36px 0' }}>
                 <CalendarIcon style={{ width: 26, height: 26, color: 'var(--cal-text-quaternary)' }} strokeWidth={1} />
-                <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--cal-text-muted)' }}>
+                <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>
                   {isSearching ? `Sin resultados para "${searchQuery}"` : activeFilters > 0 ? 'Sin resultados para los filtros activos' : isCEO ? 'No hay tareas programadas' : 'No tienes tareas asignadas este mes'}
                 </p>
                 {activeFilters > 0 && (
-                  <button className="cal-accent-btn" onClick={() => { setFilterStatus('all'); setFilterPriority('all'); setSearchQuery(''); }} style={{ marginTop: 4 }}>
+                  <button className="cal-accent-btn" onClick={resetFilters} style={{ marginTop: 4 }}>
                     Limpiar filtros
                   </button>
                 )}
@@ -962,11 +1141,11 @@ const CalendarPage: React.FC = () => {
                   const taskHoliday = getHolidaysForDay(new Date(task.date));
 
                   return (
-                    <div key={task.id} className="cal-list-row" style={{ opacity: past && !isOverdue ? 0.6 : 1 }}>
+                    <div data-moon-reveal="row" key={task.id} className="cal-list-row" style={{ opacity: past && !isOverdue ? 0.6 : 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         {isCEO && !past ? (
-                          <button className="cal-status-btn" onClick={e => handleStatusToggle(task, e)}
-                            style={{ color: task.status === 'completed' ? '#4ade80' : 'var(--cal-text-quaternary)' }}>
+                          <button className="cal-status-btn" aria-label={`${task.status === 'completed' ? 'Marcar pendiente' : 'Completar tarea'}: ${task.title}`} onClick={e => handleStatusToggle(task, e)}
+                            style={{ color: panelInk(task.status === 'completed' ? '#4ade80' : 'var(--cal-text-quaternary)') }}>
                             <CheckCircle2 style={{ width: 18, height: 18 }} strokeWidth={1.5} />
                           </button>
                         ) : (
@@ -976,31 +1155,31 @@ const CalendarPage: React.FC = () => {
                         <div style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: pri.dot }} />
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--cal-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.5 : 1 }}>
+                            <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'completed' ? 'line-through' : 'none', opacity: task.status === 'completed' ? 0.5 : 1 }}>
                               {task.title}
                             </p>
                             {isOverdue && <span className="cal-badge-overdue">Vencida</span>}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                            <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)' }}>
-                              {format(new Date(task.date), isSearching ? "d 'de' MMMM yyyy" : "d 'de' MMMM", { locale: es })}
+                            <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>
+                              {format(new Date(task.date), isSearching || agendaFocus === 'overdue' || agendaFocus === 'upcoming' ? "d 'de' MMMM yyyy" : "d 'de' MMMM", { locale: es })}
                             </p>
                             {taskHoliday.length > 0 && (
-                              <span style={{ fontSize: 10, color: 'var(--cal-holiday-color)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 'max(12px,0.86rem)', color: 'var(--cal-holiday-color)', display: 'flex', alignItems: 'center', gap: 3 }}>
                                 · 🎉 {taskHoliday[0].localName}
                               </span>
                             )}
                             {assignLabel && (
                               <span className="cal-list-assignee" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ color: 'var(--cal-border)', fontSize: 10 }}>·</span>
-                                <p style={{ fontSize: 11, fontWeight: 300, color: 'var(--cal-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{assignLabel}</p>
+                                <span style={{ color: 'var(--cal-border)', fontSize: 'max(12px,0.86rem)' }}>·</span>
+                                <p style={{ fontSize: 'max(13px,0.93rem)', fontWeight: 400, color: 'var(--cal-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{assignLabel}</p>
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, marginLeft: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 300, padding: '3px 7px', borderRadius: 999, color: sta.color, background: sta.bg, whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 'max(12px,0.86rem)', fontWeight: 400, padding: '3px 7px', borderRadius: 999, color: panelInk(sta.color), background: sta.bg, whiteSpace: 'nowrap' }}>
                           {sta.label}
                         </span>
                         <button className="cal-view-btn" onClick={e => handleTaskClick(task, e)}>Ver →</button>
@@ -1017,7 +1196,7 @@ const CalendarPage: React.FC = () => {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="cal-dialog-box" style={{ maxWidth: 480 }}>
             <DialogHeader>
-              <DialogTitle style={{ fontWeight: 300, fontSize: 14, color: 'var(--cal-dialog-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <DialogTitle style={{ fontWeight: 400, fontSize: 14, color: 'var(--cal-dialog-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <CalendarIcon style={{ width: 15, height: 15, color: 'var(--cal-text-muted)' }} strokeWidth={1.5} />
                 Detalle de tarea
               </DialogTitle>
@@ -1031,7 +1210,7 @@ const CalendarPage: React.FC = () => {
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--cal-border)' }}>
                     <button type="button" className="cal-report-btn"
                       onClick={() => { setDialogOpen(false); setReportTask(selectedTask); }}>
-                      <CheckCircle2 style={{ width: 15, height: 15, color: '#4ade80' }} strokeWidth={1.5} />
+                      <CheckCircle2 style={{ width: 15, height: 15, color: panelInk('#4ade80') }} strokeWidth={1.5} />
                       Reportar estado
                     </button>
                   </div>
@@ -1050,13 +1229,13 @@ const CalendarPage: React.FC = () => {
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--cal-border)' }}>
                     <div className="cal-no-interact">
                       <ShieldCheck style={{ width: 13, height: 13, flexShrink: 0, color: 'var(--cal-text-muted)' }} strokeWidth={1.5} />
-                      <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--cal-text-muted)' }}>Esta tarea no está asignada a ti.</p>
+                      <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, color: 'var(--cal-text-muted)' }}>Esta tarea no está asignada a ti.</p>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <p style={{ fontSize: 13, fontWeight: 300, textAlign: 'center', padding: '16px 0', color: 'var(--cal-text-muted)' }}>No se encontró la tarea.</p>
+              <p style={{ fontSize: 'max(14px,1.00rem)', fontWeight: 400, textAlign: 'center', padding: '16px 0', color: 'var(--cal-text-muted)' }}>No se encontró la tarea.</p>
             )}
           </DialogContent>
         </Dialog>
@@ -1070,7 +1249,7 @@ const CalendarPage: React.FC = () => {
           />
         )}
       </div>
-    </>
+    </section>
   );
 };
 

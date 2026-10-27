@@ -1,0 +1,18 @@
+.moon-work-tools { background: var(--moon-surface); border: 1px solid var(--moon-line); border-radius: 16px; padding: 18px; margin-bottom: 18px; color: var(--moon-ink); }
+.moon-work-tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.moon-work-tools-copy > span { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.moon-work-tools-copy p { color: var(--moon-muted); margin: 5px 0 0; font-size: .9rem; line-height: 1.6; }
+.moon-work-tools-actions, .moon-work-tools-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.moon-work-tools-actions button, .moon-work-tools-controls > button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 12px; border: 1px solid var(--moon-line); border-radius: 10px; background: var(--moon-surface-raised); color: var(--moon-ink); font: inherit; font-size: .92rem; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.moon-work-tools button:hover { border-color: var(--moon-muted); }
+.moon-work-tools button:disabled { opacity: .5; cursor: not-allowed; }
+.moon-work-tools-controls > button[aria-pressed='true'] { background: var(--moon-ink); color: var(--moon-bg); border-color: var(--moon-ink); }
+.moon-work-result-count { color: var(--moon-muted); font-size: .9rem; font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 5px; }
+.moon-work-tools-controls { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--moon-line); align-items: flex-end; }
+.moon-work-tools-controls label { display: flex; flex-direction: column; gap: 6px; min-width: 145px; flex: 1 1 145px; color: var(--moon-muted); font-size: .86rem; }
+.moon-work-tools-controls select { width: 100%; min-height: 44px; padding: 9px 12px; background: var(--moon-surface-raised); border: 1px solid var(--moon-line); border-radius: 10px; color: var(--moon-ink); font: inherit; font-size: 1rem; }
+.moon-work-tools :where(button,select):focus-visible { outline: 2px solid var(--accent-user, var(--moon-ink)); outline-offset: 3px; }
+.moon-work-page-heading { padding-bottom: 22px; border-bottom: 1px solid var(--moon-line); }
+.moon-work-kicker { display: block; margin-bottom: 7px; color: var(--moon-muted); font-size: .78rem; font-weight: 600; letter-spacing: .14em; line-height: 1.5; }
+.moon-work-page-heading .moon-page-title { font-weight: 600; letter-spacing: -.035em; }
+@media (max-width: 600px) { .moon-work-tools { padding: 15px; } .moon-work-tools-actions { width: 100%; } .moon-work-result-count { margin-right: auto; } .moon-work-tools-controls label { min-width: 0; flex-basis: calc(50% - 9px); } }

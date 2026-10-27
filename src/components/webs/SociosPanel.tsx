@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
 import { doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import {
   Building2, Wallet, Clock, Users, Search, X, Mail, FileText, Loader2, Trash2, RefreshCw,
@@ -89,7 +91,7 @@ export function SociosPanel({ borrarArchivo, onCambio }: { borrarArchivo: (url: 
           { t: 'En revisión', v: String(pendientes.length), s: `${dolares(sumar(pendientes))} por revisar`, I: Clock },
           { t: 'Inversores', v: String(inversores.length), s: inversores.length ? `Promedio ${dolares(Math.round(sumar(aprobados) / inversores.length))}` : 'Aún ninguno', I: Users },
         ].map(k => (
-          <div key={k.t} className="wb-tarjeta wb-kpi">
+          <div data-moon-reveal="metric" key={k.t} className="wb-tarjeta wb-kpi">
             <div className="wb-kpi-cab">{k.t}<k.I /></div>
             <b>{k.v}</b><small>{k.s}</small>
           </div>
@@ -97,7 +99,7 @@ export function SociosPanel({ borrarArchivo, onCambio }: { borrarArchivo: (url: 
       </div>
 
       {/* Niveles: cuántos inversores hay en cada uno (por lo aprobado en total). */}
-      <div className="wb-tarjeta" style={{ padding: 16 }}>
+      <div data-moon-reveal="card" className="wb-tarjeta" style={{ padding: 16 }}>
         <h2 className="wb-h2"><Layers />Niveles</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8, marginTop: 12 }}>
           {[...NIVELES].reverse().map(n => {
@@ -133,13 +135,13 @@ export function SociosPanel({ borrarArchivo, onCambio }: { borrarArchivo: (url: 
       </div>
 
       {visibles.length === 0 ? (
-        <div className="wb-tarjeta wb-vacio"><Inbox />{lista.length ? 'Nada coincide con la búsqueda o el filtro.' : 'Todavía no llegó ninguna solicitud de socio.'}</div>
+        <div data-moon-reveal="card" className="wb-tarjeta wb-vacio"><Inbox />{lista.length ? 'Nada coincide con la búsqueda o el filtro.' : 'Todavía no llegó ninguna solicitud de socio.'}</div>
       ) : (
         <div className="wb-lista">
           {visibles.map(s => {
             const m = metodoDe(s.metodo);
             return (
-              <button key={s.id} type="button" className="wb-fila" aria-current={abierto === s.id ? 'true' : undefined} onClick={() => setAbierto(s.id)}>
+              <button data-moon-reveal="row" key={s.id} type="button" className="wb-fila" aria-current={abierto === s.id ? 'true' : undefined} onClick={() => setAbierto(s.id)}>
                 <span className="wb-avatar">{(s.nombre || '?').charAt(0).toUpperCase()}</span>
                 <span className="wb-fila-texto">
                   <b>{s.nombre || 'Sin nombre'}</b>
@@ -167,6 +169,7 @@ function FichaSocio({ s, onCerrar, onGuardado, onBorrado, borrarArchivo }: {
 }) {
   const [estado, setEstado] = useState<Estado>(s.estado);
   const [nota, setNota] = useState(s.nota ?? '');
+  const noteEmojiRef = useRef<HTMLTextAreaElement>(null);
   const [pago, setPago] = useState(!!s.pagoConfirmado);
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
@@ -243,7 +246,7 @@ function FichaSocio({ s, onCerrar, onGuardado, onBorrado, borrarArchivo }: {
           </dl>
           {s.revisadoPor && <small style={{ marginTop: -10, fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Revisado por {s.revisadoPor}</small>}
 
-          {s.mensaje && <div><span className="wb-etiqueta">Su mensaje</span><p className="wb-cita">{s.mensaje}</p></div>}
+          {s.mensaje && <div><span className="wb-etiqueta">Su mensaje</span><p className="wb-cita"><EmojiText text={s.mensaje} /></p></div>}
 
           {s.fileUrl && (
             <a className="wb-btn" href={s.fileUrl} target="_blank" rel="noopener noreferrer" style={{ justifyContent: 'flex-start' }}>
@@ -267,8 +270,9 @@ function FichaSocio({ s, onCerrar, onGuardado, onBorrado, borrarArchivo }: {
 
           <div>
             <span className="wb-etiqueta">Nota para el socio</span>
-            <textarea className="wb-input" rows={4} maxLength={1000} value={nota} onChange={e => setNota(e.target.value)}
+            <textarea ref={noteEmojiRef} className="wb-input" rows={4} maxLength={1000} value={nota} onChange={e => setNota(e.target.value)}
               placeholder="La verá en su portal. Ej.: «Te escribimos por correo con los datos de la cuenta.»" />
+            <EmojiButton value={nota} onChange={setNota} inputRef={noteEmojiRef} maxLength={1000} disabled={guardando || borrando} unicodeOnly label="Añadir emoji a la nota para el socio" />
           </div>
         </div>
 

@@ -1,324 +1,126 @@
-// src/components/SessionModals.tsx
-//
-// Dos modales de sesión con animaciones profesionales:
-//   <TabSyncModal>    — "¿Mantenerme aquí o ir a la otra pestaña?"
-//   <AutoLogoutModal> — Contador regresivo de inactividad
-
 import React from 'react';
-import { LogOut, Monitor, Clock, Zap } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowRight, Check, Clock3, LogOut, Monitor, ShieldCheck } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
+import { useSettings } from '@/contexts/SettingsContext';
+import './session-modals.css';
 
-// ── Keyframes compartidos ─────────────────────────────────────────────────────
-export const SESSION_MODAL_STYLES = `
-  @keyframes _sm_in {
-    from { opacity: 0; transform: translateY(14px) scale(0.96); }
-    to   { opacity: 1; transform: translateY(0)     scale(1);   }
-  }
-  @keyframes _sm_overlay {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes _sm_countdown {
-    from { stroke-dashoffset: 0; }
-    to   { stroke-dashoffset: 163; }
-  }
-  @keyframes _sm_pulse {
-    0%, 100% { opacity: 0.4; }
-    50%       { opacity: 1; }
-  }
-  @keyframes _sm_shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position:  200% center; }
-  }
-  .__sm_overlay { animation: _sm_overlay 0.2s ease forwards; }
-  .__sm_card    { animation: _sm_in 0.3s cubic-bezier(0.22,1,0.36,1) forwards; }
-  .__sm_pulse   { animation: _sm_pulse 2s ease-in-out infinite; }
-`;
+// Kept for existing layout imports. Styles now live alongside these components.
+export const SESSION_MODAL_STYLES = '';
 
-// ── Componente base del modal ─────────────────────────────────────────────────
-const ModalShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div
-    className="__sm_overlay fixed inset-0 z-[9999] flex items-center justify-center"
-    style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(14px)' }}
-  >
-    <div
-      className="__sm_card w-[360px]"
-      style={{
-        background:   'rgba(8,8,8,0.97)',
-        border:       '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '14px',
-        boxShadow:    '0 40px 100px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04)',
-        overflow:     'hidden',
-      }}
-    >
-      {children}
-    </div>
-  </div>
-);
+interface ModalShellProps {
+  title: string;
+  description: React.ReactNode;
+  eyebrow: string;
+  children: React.ReactNode;
+  visual: React.ReactNode;
+}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// TabSyncModal
-// ══════════════════════════════════════════════════════════════════════════════
+/** Radix owns focus trapping, background accessibility and focus restoration. */
+function ModalShell({ title, description, eyebrow, visual, children }: ModalShellProps) {
+  const systemReduced = useReducedMotion();
+  const { settings } = useSettings();
+  const reduceMotion = systemReduced || settings.animations === false || settings.reduceMotion || settings.screenReader;
+  return (
+    <Dialog.Root open>
+      <Dialog.Portal forceMount>
+        <Dialog.Overlay forceMount asChild>
+          <motion.div className="moon-session-overlay"
+            initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.18 }}>
+            <Dialog.Content forceMount asChild
+              onEscapeKeyDown={event => event.preventDefault()}
+              onPointerDownOutside={event => event.preventDefault()}
+              onInteractOutside={event => event.preventDefault()}>
+              <motion.section className="moon-session-card"
+                initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.985 }}
+                transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}>
+                <div className="moon-session-brand-row">
+                  <BrandLogo className="moon-session-brand" />
+                  <span><ShieldCheck size={13} aria-hidden="true" /> Sesión protegida</span>
+                </div>
+                <div className="moon-session-visual">{visual}</div>
+                <div className="moon-session-content">
+                  <p className="moon-session-eyebrow">{eyebrow}</p>
+                  <Dialog.Title className="moon-session-title">{title}</Dialog.Title>
+                  <Dialog.Description className="moon-session-description">{description}</Dialog.Description>
+                  {children}
+                </div>
+                <div className="moon-session-footer"><span aria-hidden="true" /> Tu espacio de trabajo, en tus manos.</div>
+              </motion.section>
+            </Dialog.Content>
+          </motion.div>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
 
 interface TabSyncModalProps {
-  onStayHere:   () => void;
-  onGoToOther:  () => void;
+  onStayHere: () => void;
+  onGoToOther: () => void;
 }
 
 export const TabSyncModal: React.FC<TabSyncModalProps> = ({ onStayHere, onGoToOther }) => (
-  <ModalShell>
-    {/* Franja superior decorativa */}
-    <div style={{
-      height: '3px',
-      background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #3b82f6 100%)',
-      backgroundSize: '200% 100%',
-      animation: '_sm_shimmer 2.5s linear infinite',
-    }} />
-
-    <div style={{ padding: '28px 28px 24px' }}>
-      {/* Icono */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        {[0, 1].map(i => (
-          <div key={i} style={{
-            width: '36px', height: '28px', borderRadius: '5px',
-            background: i === 0 ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${i === 0 ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            position: 'relative',
-          }}>
-            <Monitor style={{ width: '14px', height: '14px', color: i === 0 ? '#3b82f6' : '#333' }} strokeWidth={1.5} />
-            {i === 0 && (
-              <div style={{
-                position: 'absolute', top: '-4px', right: '-4px',
-                width: '8px', height: '8px', borderRadius: '50%',
-                background: '#3b82f6',
-                boxShadow: '0 0 6px #3b82f6',
-              }} className="__sm_pulse" />
-            )}
-          </div>
-        ))}
-        <div style={{ flex: 1 }} />
+  <ModalShell eyebrow="Control de sesión" title="Elige dónde continuar"
+    description="Tu cuenta está abierta en otra pestaña. Elige el espacio que quieres mantener activo para seguir trabajando."
+    visual={(
+      <div className="moon-session-devices" aria-hidden="true">
+        <div className="moon-session-device is-current"><Monitor size={29} strokeWidth={1.25} /><span><Check size={11} /></span></div>
+        <div className="moon-session-connection"><i /><i /><i /></div>
+        <div className="moon-session-device"><Monitor size={29} strokeWidth={1.25} /></div>
       </div>
-
-      {/* Texto */}
-      <p style={{
-        color: '#d0d0d0', fontSize: '15px', fontWeight: 300,
-        letterSpacing: '0.01em', marginBottom: '6px',
-      }}>
-        Sesión activa en otra pestaña
-      </p>
-      <p style={{
-        color: '#3a3a3a', fontSize: '12px', fontWeight: 300,
-        letterSpacing: '0.02em', lineHeight: 1.6, marginBottom: '24px',
-      }}>
-        Tu cuenta ya está abierta en otra pestaña del navegador.
-        ¿Dónde quieres continuar?
-      </p>
-
-      {/* Botones */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <button
-          onClick={onStayHere}
-          style={{
-            width: '100%', padding: '11px 16px',
-            borderRadius: '8px',
-            background: '#fff',
-            border: 'none',
-            color: '#000', fontSize: '12px', fontWeight: 400,
-            letterSpacing: '0.07em', textTransform: 'uppercase',
-            cursor: 'pointer', transition: 'background 0.15s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#ddd'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
-        >
-          <Zap style={{ width: '13px', height: '13px' }} strokeWidth={2} />
-          Quedarme en esta pestaña
-        </button>
-
-        <button
-          onClick={onGoToOther}
-          style={{
-            width: '100%', padding: '11px 16px',
-            borderRadius: '8px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            color: '#555', fontSize: '12px', fontWeight: 300,
-            letterSpacing: '0.07em', textTransform: 'uppercase',
-            cursor: 'pointer', transition: 'all 0.15s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-          }}
-          onMouseEnter={e => {
-            const b = e.currentTarget as HTMLButtonElement;
-            b.style.background = 'rgba(255,255,255,0.07)';
-            b.style.color = '#888';
-          }}
-          onMouseLeave={e => {
-            const b = e.currentTarget as HTMLButtonElement;
-            b.style.background = 'rgba(255,255,255,0.04)';
-            b.style.color = '#555';
-          }}
-        >
-          <Monitor style={{ width: '13px', height: '13px' }} strokeWidth={1.5} />
-          Ir a la otra pestaña
-        </button>
-      </div>
+    )}>
+    <div className="moon-session-actions">
+      <button type="button" className="moon-session-button is-primary" onClick={onStayHere}>
+        Quedarme en esta pestaña <ArrowRight size={16} aria-hidden="true" />
+      </button>
+      <button type="button" className="moon-session-button" onClick={onGoToOther}>
+        <Monitor size={15} aria-hidden="true" /> Usar la otra pestaña
+      </button>
     </div>
   </ModalShell>
 );
 
-// ══════════════════════════════════════════════════════════════════════════════
-// AutoLogoutModal
-// ══════════════════════════════════════════════════════════════════════════════
-
 interface AutoLogoutModalProps {
-  countdown:       number;
-  totalSeconds:    number;
-  onStayActive:    () => void;
+  countdown: number;
+  totalSeconds: number;
+  onStayActive: () => void;
+  onLogout?: () => void | Promise<void>;
 }
 
-export const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
-  countdown, totalSeconds, onStayActive,
-}) => {
-  const progress  = countdown / totalSeconds;
-  const radius    = 26;
-  const circumference = 2 * Math.PI * radius; // ~163.4
-  const dashOffset = circumference * (1 - progress);
-
-  // Color del anillo: verde → amarillo → rojo según tiempo restante
-  const ringColor = countdown > totalSeconds * 0.5
-    ? '#22c55e'
-    : countdown > totalSeconds * 0.25
-      ? '#f59e0b'
-      : '#ef4444';
+export const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({ countdown, totalSeconds, onStayActive, onLogout }) => {
+  const seconds = Number.isFinite(countdown) ? Math.max(0, Math.ceil(countdown)) : 0;
+  const progress = Number.isFinite(totalSeconds) && totalSeconds > 0 ? Math.min(1, seconds / totalSeconds) : 0;
+  const circumference = 2 * Math.PI * 44;
+  const urgent = seconds <= 10;
 
   return (
-    <ModalShell>
-      {/* Franja superior */}
-      <div style={{
-        height: '2px',
-        background: ringColor,
-        width: `${progress * 100}%`,
-        transition: 'width 1s linear, background 1s linear',
-      }} />
-
-      <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
-        {/* Anillo SVG del countdown */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <div style={{ position: 'relative', width: '72px', height: '72px' }}>
-            <svg width="72" height="72" style={{ transform: 'rotate(-90deg)' }}>
-              {/* Track */}
-              <circle
-                cx="36" cy="36" r={radius}
-                fill="none"
-                stroke="rgba(255,255,255,0.05)"
-                strokeWidth="3"
-              />
-              {/* Progress */}
-              <circle
-                cx="36" cy="36" r={radius}
-                fill="none"
-                stroke={ringColor}
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-                style={{ transition: 'stroke-dashoffset 1s linear, stroke 1s linear' }}
-              />
-            </svg>
-            {/* Número */}
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{
-                color: ringColor, fontSize: '20px', fontWeight: 300,
-                letterSpacing: '-0.02em', transition: 'color 1s linear',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
-                {countdown}
-              </span>
-            </div>
-          </div>
+    <ModalShell eyebrow="Pausa de seguridad" title="¿Seguimos creando?"
+      description={<>Tu sesión se cerrará por inactividad en <strong>{seconds} segundo{seconds === 1 ? '' : 's'}</strong>. Confirma que sigues aquí para continuar.</>}
+      visual={(
+        <div className={`moon-session-countdown${urgent ? ' is-urgent' : ''}`} role="timer" aria-label={`${seconds} segundos para cerrar la sesión`}>
+          <svg viewBox="0 0 104 104" aria-hidden="true">
+            <circle className="moon-session-ring-track" cx="52" cy="52" r="44" />
+            <circle className="moon-session-ring-value" cx="52" cy="52" r="44" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)} />
+          </svg>
+          <div aria-hidden="true"><span>{seconds}</span><small>segundos</small></div>
         </div>
-
-        {/* Icono + texto */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '8px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Clock style={{ width: '15px', height: '15px', color: '#444' }} strokeWidth={1.5} />
-          </div>
-        </div>
-
-        <p style={{
-          color: '#c0c0c0', fontSize: '14px', fontWeight: 300,
-          letterSpacing: '0.01em', marginBottom: '6px',
-        }}>
-          ¿Sigues ahí?
-        </p>
-        <p style={{
-          color: '#333', fontSize: '12px', fontWeight: 300,
-          letterSpacing: '0.02em', lineHeight: 1.6, marginBottom: '24px',
-        }}>
-          Por seguridad, cerraremos tu sesión en{' '}
-          <span style={{ color: ringColor, transition: 'color 1s linear' }}>
-            {countdown} segundo{countdown !== 1 ? 's' : ''}
-          </span>{' '}
-          por inactividad.
-        </p>
-
-        {/* Botones */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={onStayActive}
-            style={{
-              flex: 1, padding: '11px',
-              borderRadius: '8px',
-              background: '#fff',
-              border: 'none',
-              color: '#000', fontSize: '12px', fontWeight: 400,
-              letterSpacing: '0.07em', textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#ddd'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
-          >
-            Seguir conectado
-          </button>
-
-          <button
-            onClick={() => {}} // llama onLogout directamente si quieres un botón manual
-            style={{
-              padding: '11px 16px',
-              borderRadius: '8px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              color: '#444', fontSize: '12px', fontWeight: 300,
-              letterSpacing: '0.07em', textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'all 0.15s',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}
-            onMouseEnter={e => {
-              const b = e.currentTarget as HTMLButtonElement;
-              b.style.background = 'rgba(239,68,68,0.08)';
-              b.style.borderColor = 'rgba(239,68,68,0.2)';
-              b.style.color = '#ef4444';
-            }}
-            onMouseLeave={e => {
-              const b = e.currentTarget as HTMLButtonElement;
-              b.style.background = 'rgba(255,255,255,0.03)';
-              b.style.borderColor = 'rgba(255,255,255,0.06)';
-              b.style.color = '#444';
-            }}
-          >
-            <LogOut style={{ width: '13px', height: '13px' }} strokeWidth={1.5} />
-            Salir
-          </button>
-        </div>
+      )}>
+      <div className="moon-session-note"><Clock3 size={14} aria-hidden="true" /><span>La protección por inactividad cuida tu cuenta.</span></div>
+      <div className="moon-session-actions">
+        <button type="button" className="moon-session-button is-primary" onClick={onStayActive}>
+          Seguir conectado <ArrowRight size={16} aria-hidden="true" />
+        </button>
+        {onLogout && <button type="button" className="moon-session-button" onClick={onLogout}>
+          <LogOut size={15} aria-hidden="true" /> Cerrar sesión ahora
+        </button>}
       </div>
+      <p className="moon-session-announcement" role="status" aria-live="polite" aria-atomic="true">
+        {urgent ? 'Quedan diez segundos o menos. Confirma que sigues conectado para mantener tu sesión.' : ''}
+      </p>
     </ModalShell>
   );
 };

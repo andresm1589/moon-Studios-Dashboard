@@ -5,7 +5,14 @@ import { collection, query, where, onSnapshot, orderBy, limit, doc as docRef, up
 import { db } from '@/lib/firebase';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { notificarSistema, enHorasDeSilencio } from '@/lib/escritorio';
+import { pushWebActivo } from '@/lib/pushWeb';
 import type { SoundType } from '@/lib/notificationSound';
+import { normalizeElectoralAnnouncement } from '@/electoral/model';
+import { electoralAnnouncementNotifications } from '@/lib/electoralNotifications';
+import { useElectoralAnnouncementClock } from '@/electoral/ElectoralPublicPanel';
+import type { ElectoralAnnouncement } from '@/electoral/types';
+import type { UserRole } from '@/types';
+import { esRevisorTramites, tramitesOwnNotifications, tramitesInboxNotifications } from '@/lib/tramitesNotifications';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -22,12 +29,17 @@ export interface UnifiedNotification {
   rawId?:    string;
   /** Qué escucha la trajo, si no es la de su categoría (p. ej. 'mention'). */
   fuente?:   string;
+  /** Invalida datos de Trámites al cambiar la cuenta o su delegación. */
+  tramitesScope?: string;
 }
 
 interface UseNotificationsOptions {
   uid:               string | undefined;
   /** Mensajes de contacto de las webs: las reglas solo dejan leerlos a CEO y Administración. */
   puedeVerMensajeria?: boolean;
+  rol?: UserRole;
+  /** Delegación de revisión de Trámites confirmada para Administración. */
+  puedeRevisarTramites?: boolean;
   /** Ajuste "Notificaciones de escritorio": aviso del sistema (Windows o el navegador). */
   escritorio?:       boolean;
   /** Horas de silencio: ni sonido ni aviso del sistema entre `desde` y `hasta` ('HH:mm'). */
@@ -49,6 +61,8 @@ interface UseNotificationsOptions {
 // lo marcado de a uno, y se recortan (no crecen para siempre).
 
 export interface EstadoNotif { leidasHasta: number; leidas: string[]; ocultasHasta: number; ocultas: string[] }
+/** Fuentes que también llegan por push desde Luna NET (services/push/avisosPush.js). */
+const FUENTES_CON_PUSH = new Set(['mention', 'aviso-tarea', 'security', 'conferencias', 'tramites-propios', 'tramites-bandeja']);
 const MAX_SUELTAS = 300;
 const TRES_DIAS = 3 * 86_400_000;
 
@@ -79,6 +93,8 @@ export const claveMiRespuesta = (uid: string, hiloId: string) => `hilos_mi_respu
 export function useNotifications({
   uid,
   puedeVerMensajeria = false,
+  rol,
+  puedeRevisarTramites = false,
   escritorio = false,
   silencio,
   soundType,
@@ -88,6 +104,8 @@ export function useNotifications({
 }: UseNotificationsOptions) {
 
   const [notifications, setNotifications] = useState<UnifiedNotification[]>([]);
+  const [electoralFeed, setElectoralFeed] = useState<{ uid: string; items: ElectoralAnnouncement[] }>({ uid: '', items: [] });
+  const electoralClock = useElectoralAnnouncementClock(electoralFeed.items);
 
   const [estado, setEstado] = useState<EstadoNotif | null>(null);
   const estadoRef = useRef<EstadoNotif | null>(null);
@@ -95,6 +113,14 @@ export function useNotifications({
   const knownIdsRef    = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
   const prevUidRef     = useRef<string | undefined>(undefined);
+  const requestedUidRef = useRef(uid);
+  requestedUidRef.current = uid;
+  const revisaTramites = esRevisorTramites(rol, puedeRevisarTramites);
+  const tramitesScope = `${uid || ''}:${enabledCategories.task}:${rol || ''}:${revisaTramites}`;
+  const requestedTramitesScopeRef = useRef(tramitesScope);
+  // Invalidate queued private callbacks before effect cleanup at a role change.
+  // eslint-disable-next-line react-hooks/refs
+  requestedTramitesScopeRef.current = tramitesScope;
 
   // ── Estado de la cuenta: al instante desde la copia local, y en vivo desde Firestore ──
   useEffect(() => {
@@ -106,16 +132,22 @@ export function useNotifications({
       prevUidRef.current     = undefined;
       return;
     }
-    if (prevUidRef.current && prevUidRef.current !== uid) {
+    if (prevUidRef.current !== uid) {
       knownIdsRef.current    = new Set();
       isFirstLoadRef.current = true;
       setNotifications([]);
+      // A second account with no local cache must never initialize its
+      // Firestore state from the account that was previously signed in.
+      estadoRef.current = null;
+      setEstado(null);
     }
     prevUidRef.current = uid;
 
     const local = leerCache(uid);
     if (local) { estadoRef.current = local; setEstado(local); }
-    return onSnapshot(docRef(db, 'users', uid), snap => {
+    let active = true;
+    const unsubscribe = onSnapshot(docRef(db, 'users', uid), snap => {
+      if (!active || requestedUidRef.current !== uid) return;
       const remoto = snap.data()?.notifEstado as EstadoNotif | undefined;
       if (remoto && typeof remoto.leidasHasta === 'number') {
         const e = recortar({ leidasHasta: remoto.leidasHasta, leidas: remoto.leidas ?? [], ocultasHasta: remoto.ocultasHasta ?? 0, ocultas: remoto.ocultas ?? [] });
@@ -128,22 +160,27 @@ export function useNotifications({
         updateDoc(docRef(db, 'users', uid), { notifEstado: e }).catch(err => console.error('[notif] estado:', err));
       }
     }, err => {
+      if (!active || requestedUidRef.current !== uid) return;
       console.error('[notif] estado:', err);
       if (!estadoRef.current) { const e = estadoInicial(uid); estadoRef.current = e; setEstado(e); }
     });
+    return () => { active = false; unsubscribe(); };
   }, [uid]);
 
   /** Cambia el estado y lo guarda en la cuenta (y en la copia local). */
   const cambiar = useCallback((f: (e: EstadoNotif) => EstadoNotif) => {
-    if (!uid) return;
+    if (!uid || requestedUidRef.current !== uid || prevUidRef.current !== uid) return;
     const nuevo = recortar(f(estadoRef.current ?? estadoInicial(uid)));
     estadoRef.current = nuevo; setEstado(nuevo);
     try { localStorage.setItem(claveCache(uid), JSON.stringify(nuevo)); } catch { /* sin espacio */ }
     updateDoc(docRef(db, 'users', uid), { notifEstado: nuevo }).catch(err => console.error('[notif] guardar estado:', err));
   }, [uid]);
 
+  /** Marca como ya conocidas (sin sonido ni aviso) las notificaciones de una primera carga. */
+  const sembrar = (items: UnifiedNotification[]) => { items.forEach(n => knownIdsRef.current.add(n.id)); };
+
   // ── Merge helper ──────────────────────────────────────────────────────────
-  const merge = useCallback((incoming: UnifiedNotification[], category: NotifCategory | 'mention' | 'aviso-tarea') => {
+  const merge = useCallback((incoming: UnifiedNotification[], category: NotifCategory | 'mention' | 'aviso-tarea' | 'electoral' | 'tramites-propios' | 'tramites-bandeja' | 'conferencias') => {
     setNotifications(prev => {
       const rest     = prev.filter(n => (n.fuente ?? n.category) !== category);
       const combined = [...rest, ...incoming];
@@ -152,15 +189,78 @@ export function useNotifications({
     });
   }, []);
 
+  // Electoral communications are a live public source, without copying them to
+  // every account or sending emails. Withdrawal/expiry removes them immediately.
+  useEffect(() => {
+    setElectoralFeed({ uid: uid || '', items: [] });
+    merge([], 'electoral');
+    if (!uid || !enabledCategories.announcement) return;
+    let active = true;
+    let firstSnapshot = true;
+    const unsubscribe = onSnapshot(query(collection(db, 'electoralAnnouncements'), where('status', '==', 'published')), snapshot => {
+      if (!active || requestedUidRef.current !== uid) return;
+      const items = snapshot.docs.map(item => normalizeElectoralAnnouncement(item.id, item.data()));
+      if (firstSnapshot) {
+        // Other notification sources can finish first. Existing electoral
+        // publications must still stay silent on login/reconnection.
+        electoralAnnouncementNotifications(items, new Date()).forEach(item => knownIdsRef.current.add(item.id));
+        firstSnapshot = false;
+      }
+      setElectoralFeed({ uid, items });
+    }, () => {
+      if (active) { setElectoralFeed({ uid, items: [] }); merge([], 'electoral'); }
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [uid, enabledCategories.announcement, merge]);
+  useEffect(() => {
+    if (!uid || electoralFeed.uid !== uid || !enabledCategories.announcement) { merge([], 'electoral'); return; }
+    merge(electoralAnnouncementNotifications(electoralFeed.items, electoralClock), 'electoral');
+  }, [uid, electoralFeed, electoralClock.getTime(), enabledCategories.announcement, merge]);
+
+  // La campana se deriva de las solicitudes confirmadas, sin copiar avisos a
+  // cada cuenta. Un cambio de sesión o delegación invalida callbacks en cola.
+  useEffect(() => {
+    if (!uid || !enabledCategories.task) return;
+    let active = true;
+    const sources = [
+      { source: query(collection(db, 'tramites_solicitudes'), where('solicitanteUid', '==', uid)), category: 'tramites-propios' as const },
+      ...(revisaTramites ? [{ source: collection(db, 'tramites_solicitudes'), category: 'tramites-bandeja' as const }] : []),
+    ];
+    const unsubscribes = sources.map(({ source, category }) => {
+      let firstSnapshot = true;
+      let failed = false;
+      return onSnapshot(source, { includeMetadataChanges: true }, snapshot => {
+        if (!active || failed || requestedUidRef.current !== uid || requestedTramitesScopeRef.current !== tramitesScope) return;
+        // Una escritura optimista o una copia sin confirmar no constituye una
+        // entrega. Esperamos al servidor también en el primer acceso sin red.
+        if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) { merge([], category); return; }
+        const records = snapshot.docs.filter(item => !item.metadata.hasPendingWrites).map(item => ({ id: item.id, data: item.data() }));
+        const items = category === 'tramites-propios'
+          ? tramitesOwnNotifications(records, uid)
+          : tramitesInboxNotifications(records, uid, rol, puedeRevisarTramites);
+        if (firstSnapshot) {
+          items.forEach(item => knownIdsRef.current.add(item.id));
+          firstSnapshot = false;
+        }
+        merge(items.map(item => ({ ...item, tramitesScope })), category);
+      }, () => {
+        failed = true;
+        if (active && requestedUidRef.current === uid && requestedTramitesScopeRef.current === tramitesScope) merge([], category);
+      });
+    });
+    return () => { active = false; unsubscribes.forEach(unsubscribe => unsubscribe()); merge([], 'tramites-propios'); merge([], 'tramites-bandeja'); };
+  }, [uid, enabledCategories.task, rol, puedeRevisarTramites, revisaTramites, tramitesScope, merge]);
+
   // ── Sonido: solo para notificaciones genuinamente nuevas ──────────────────
   useEffect(() => {
     if (notifications.length === 0) return;
 
     if (isFirstLoadRef.current) {
-      // Primera carga post-login: registrar todos sin sonar
-      notifications.forEach(n => knownIdsRef.current.add(n.id));
+      // Los trámites registran su propia primera captura, incluso si estaba
+      // vacía: una respuesta posterior sí debe avisar aunque sea el primer
+      // elemento de la campana. El resto conserva la carga inicial silenciosa.
+      notifications.filter(n => n.fuente !== 'tramites-propios' && n.fuente !== 'tramites-bandeja').forEach(n => knownIdsRef.current.add(n.id));
       isFirstLoadRef.current = false;
-      return;
     }
 
     const e = estadoRef.current;
@@ -175,9 +275,11 @@ export function useNotifications({
         playNotificationSound(soundType, soundVolume);
       }
       // Aviso del sistema solo si no estás mirando el portal.
-      if (escritorio && !callado && (document.hidden || !document.hasFocus())) {
-        const n = newOnes[0];
-        const extra = newOnes.length > 1 ? ` (+${newOnes.length - 1} más)` : '';
+      // Si este navegador ya recibe push, Luna avisa de esas fuentes: no se duplica.
+      const paraSistema = pushWebActivo() ? newOnes.filter(n => !FUENTES_CON_PUSH.has(n.fuente ?? n.category)) : newOnes;
+      if (escritorio && !callado && paraSistema.length > 0 && (document.hidden || !document.hasFocus())) {
+        const n = paraSistema[0];
+        const extra = paraSistema.length > 1 ? ` (+${paraSistema.length - 1} más)` : '';
         void notificarSistema(`${n.title}${extra}`, n.preview || 'moon Studios');
       }
     }
@@ -195,7 +297,10 @@ export function useNotifications({
       orderBy('createdAt', 'desc'),
       limit(20)
     );
+    // La primera carga de cada fuente es historia: no suena ni avisa al sistema.
+    let primera = true;
     const unsub = onSnapshot(q, snap => {
+      if (requestedUidRef.current !== uid) return;
       const items: UnifiedNotification[] = snap.docs.map(doc => {
         const d = doc.data();
         return {
@@ -209,6 +314,7 @@ export function useNotifications({
           linkTo:    '/dashboard/announcements',
         };
       });
+      if (primera) { sembrar(items); primera = false; }
       merge(items, 'announcement');
     }, err => console.error('[notif] announcements:', err));
     return unsub;
@@ -228,7 +334,10 @@ export function useNotifications({
       where('deleted', '==', false),
       where('draft',   '==', false)
     );
+    // La primera carga de cada fuente es historia: no suena ni avisa al sistema.
+    let primera = true;
     const unsub = onSnapshot(q, snap => {
+      if (requestedUidRef.current !== uid) return;
       const items: UnifiedNotification[] = snap.docs
         // La papelera y el borrado ahora son por persona (Correo.tsx).
         .filter(doc => {
@@ -248,6 +357,7 @@ export function useNotifications({
           };
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      if (primera) { sembrar(items); primera = false; }
       merge(items, 'email');
     }, err => console.error('[notif] correos:', err));
     return unsub;
@@ -268,7 +378,10 @@ export function useNotifications({
       collection(db, 'hilos'),
       where('subscribers', 'array-contains', uid)
     );
+    // La primera carga de cada fuente es historia: no suena ni avisa al sistema.
+    let primera = true;
     const unsub = onSnapshot(q, snap => {
+      if (requestedUidRef.current !== uid) return;
       const items: UnifiedNotification[] = snap.docs
         .filter(doc => {
           const d = doc.data();
@@ -293,6 +406,7 @@ export function useNotifications({
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 15);
+      if (primera) { sembrar(items); primera = false; }
       merge(items, 'thread');
     }, err => console.error('[notif] hilos:', err));
     return unsub;
@@ -304,6 +418,7 @@ export function useNotifications({
   // 'task-report'. Solo array-contains (sin orderBy) para no necesitar índice.
   const conMenciones = !!enabledCategories.thread;
   const conTareas    = !!enabledCategories.task;
+  const conAnuncios  = !!enabledCategories.announcement;
   useEffect(() => {
     // Siempre se escucha: los avisos de seguridad (inicio de sesión) no se pueden apagar por categoría.
     if (!uid) return;
@@ -311,10 +426,14 @@ export function useNotifications({
     const ESTADO: Record<string, string> = {
       pending: 'pendiente', 'in-progress': 'en progreso', completed: 'completada', 'not-completed': 'no completada',
     };
+    // La primera carga de cada fuente es historia: no suena ni avisa al sistema.
+    let primera = true;
     const unsub = onSnapshot(q, snap => {
+      if (requestedUidRef.current !== uid) return;
       const menciones: UnifiedNotification[] = [];
       const tareas: UnifiedNotification[] = [];
       const seguridad: UnifiedNotification[] = [];
+      const conferencias: UnifiedNotification[] = [];
       for (const doc of snap.docs) {
         const d = doc.data();
         const createdAt = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(0);
@@ -325,6 +444,21 @@ export function useNotifications({
             title: 'Nuevo inicio de sesión',
             preview: `Desde ${d.dispositivo || 'un dispositivo nuevo'}. ¿No fuiste tú? Cierra esa sesión en Configuración → Seguridad.`,
             linkTo: '/dashboard/settings', important: true,
+          });
+          continue;
+        }
+        // Los trámites actuales se derivan de su registro real. Ignoramos las
+        // copias históricas para no duplicar avisos ni conservar datos revocados.
+        if (tipo.startsWith('tramite')) {
+          continue;
+        }
+        // Moon Studios Conferencias: invitaciones y avisos del organizador.
+        if (tipo.startsWith('conferencia')) {
+          if (conAnuncios) conferencias.push({
+            id: `conf_${doc.id}`, rawId: doc.id, category: 'announcement', fuente: 'conferencias', createdAt,
+            title: tipo === 'conferencia-aviso' ? `Aviso: ${d.avisoTitulo || 'novedades del evento'}` : 'Tienes una invitación',
+            preview: d.eventoTitulo ? String(d.eventoTitulo) : 'Un evento de Moon Studios',
+            linkTo: '/dashboard/conferencias?vista=invitaciones', important: tipo === 'conferencia-invitacion',
           });
           continue;
         }
@@ -353,13 +487,15 @@ export function useNotifications({
         }
       }
       const recientes = (l: UnifiedNotification[]) => l.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 20);
+      if (primera) { sembrar([...menciones, ...tareas, ...seguridad, ...conferencias]); primera = false; }
       merge(recientes(menciones), 'mention');
       merge(recientes(tareas), 'aviso-tarea');
       merge(recientes(seguridad), 'security');
+      merge(recientes(conferencias), 'conferencias');
     }, err => console.error('[notif] notifications:', err));
     // Al desactivar la categoría o cerrar sesión se quitan de la campana.
-    return () => { unsub(); merge([], 'mention'); merge([], 'aviso-tarea'); merge([], 'security'); };
-  }, [uid, conMenciones, conTareas, merge]);
+    return () => { unsub(); merge([], 'mention'); merge([], 'aviso-tarea'); merge([], 'security'); merge([], 'conferencias'); };
+  }, [uid, conMenciones, conTareas, conAnuncios, merge]);
 
   // ── Listener: Mensajería ──────────────────────────────────────────────────
   useEffect(() => {
@@ -375,7 +511,10 @@ export function useNotifications({
       collection(db, 'correos_panel_moonstudios'),
       where('leido', '==', false)
     );
+    // La primera carga de cada fuente es historia: no suena ni avisa al sistema.
+    let primera = true;
     const unsub = onSnapshot(q, snap => {
+      if (requestedUidRef.current !== uid) return;
       const items: UnifiedNotification[] = snap.docs
         .map(doc => {
           const d = doc.data();
@@ -392,6 +531,7 @@ export function useNotifications({
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 15);
+      if (primera) { sembrar(items); primera = false; }
       merge(items, 'message');
     }, err => console.error('[notif] mensajeria:', err));
     return unsub;
@@ -400,7 +540,11 @@ export function useNotifications({
   // ── Acciones ──────────────────────────────────────────────────────────────
 
   // Lo eliminado no se muestra; lo leído se calcula contra el estado de la cuenta.
-  const visibles = useMemo(() => (estado ? notifications.filter(n => !estaOculta(estado, n)) : notifications), [estado, notifications]);
+  const visibles = useMemo(() => notifications.filter(n =>
+    ((!n.fuente?.startsWith('tramites-')) || n.tramitesScope === tramitesScope)
+    && (n.fuente !== 'tramites-bandeja' || (enabledCategories.task && revisaTramites))
+    && (n.fuente !== 'tramites-propios' || enabledCategories.task)
+    && (!estado || !estaOculta(estado, n))), [estado, notifications, enabledCategories.task, revisaTramites, tramitesScope]);
   const readIds = useMemo(() => new Set(estado ? visibles.filter(n => estaLeida(estado, n)).map(n => n.id) : []), [estado, visibles]);
   // Mientras carga el estado no se cuenta nada como nuevo (antes «revivían» al abrir).
   const unreadCount = estado ? visibles.length - readIds.size : 0;
@@ -432,5 +576,7 @@ export function useNotifications({
   // llama markAllRead con delay al abrir el panel
   const markPanelSeen = useCallback(() => {}, []);
 
-  return { notifications: visibles, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen, dismissOne, dismissAllRead, dismissAll, cargado: !!estado };
+  // Hide data from the old account during the render before effect cleanup.
+  const sameAccount = !!uid && prevUidRef.current === uid;
+  return { notifications: sameAccount ? visibles : [], unreadCount: sameAccount ? unreadCount : 0, readIds: sameAccount ? readIds : new Set<string>(), markOneRead, markAllRead, markPanelSeen, dismissOne, dismissAllRead, dismissAll, cargado: sameAccount && !!estado };
 }

@@ -4,30 +4,43 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import type { Permission } from '@/types';
 import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
 import Login from '@/components/Login';
-import DashboardLayout from '@/components/DashboardLayout';
-import DashboardHome from '@/components/DashboardHome';
-import Calendar from '@/components/Calendar';
-import MisTareas from '@/components/MisTareas';
-import DiscordBot from '@/components/DiscordBot';
-import Announcements from '@/components/Announcements';
-import Users from '@/components/Users';
-import Settings from '@/components/Settings';
-import CEOPanel from '@/components/CEOPanel';
-import Correo from '@/components/Correo';
-import Hilos, { HilosObserverView } from '@/components/Hilos';
-import Mensajeria from '@/components/Mensajeria';
-import Contador from '@/components/Contador';
-import Webs from '@/Pages/Webs';
-import PanelProgramacion from '@/components/PanelProgramacion';
-import Proyectos from '@/components/Proyectos';
-import PanelAdmin      from '@/components/PanelAdmin';
-import PanelDiseno     from '@/components/PanelDiseno';
-import PanelRoles      from '@/components/PanelRoles';
-import PanelSecretaria from '@/components/PanelSecretaria';
 import TitleBar from '@/components/TitleBar';
+// La conferencia activa sigue al navegar por el dashboard (ventanita / ventana flotante).
+import { SalaActivaProvider } from '@/components/conferencias/SalaActivaProvider';
 import UpdateNotifier from '@/components/UpdateNotifier';
+import { BrandLogo } from '@/components/BrandLogo';
+import { Loader2 } from 'lucide-react';
+import WorkspaceNotFound from '@/components/WorkspaceNotFound';
+import AccessRecovery from '@/components/AccessRecovery';
 import { Toaster } from 'sonner';
 import { interceptarEnlacesExternos } from '@/lib/escritorio';
+
+// Load each tool when opened, keeping the access screen and workspace lighter.
+const DashboardLayout = React.lazy(() => import('@/components/DashboardLayout'));
+const DashboardHome = React.lazy(() => import('@/components/DashboardHome'));
+const Calendar = React.lazy(() => import('@/components/Calendar'));
+const MisTareas = React.lazy(() => import('@/components/MisTareas'));
+const DiscordBot = React.lazy(() => import('@/components/DiscordBot'));
+const Announcements = React.lazy(() => import('@/components/Announcements'));
+const Users = React.lazy(() => import('@/components/Users'));
+const Settings = React.lazy(() => import('@/components/Settings'));
+const CEOPanel = React.lazy(() => import('@/components/CEOPanel'));
+const Correo = React.lazy(() => import('@/components/Correo'));
+const Hilos = React.lazy(() => import('@/components/Hilos'));
+const HilosObserverView = React.lazy(() => import('@/components/Hilos').then(module => ({ default: module.HilosObserverView })));
+const Mensajeria = React.lazy(() => import('@/components/Mensajeria'));
+const Contador = React.lazy(() => import('@/components/Contador'));
+const Webs = React.lazy(() => import('@/Pages/Webs'));
+const PanelProgramacion = React.lazy(() => import('@/components/PanelProgramacion'));
+const Proyectos = React.lazy(() => import('@/components/Proyectos'));
+const ElectionsPanel = React.lazy(() => import('@/components/ElectionsPanel'));
+const PanelAdmin = React.lazy(() => import('@/components/PanelAdmin'));
+const PanelDiseno = React.lazy(() => import('@/components/PanelDiseno'));
+const PanelRoles = React.lazy(() => import('@/components/PanelRoles'));
+const PanelSecretaria = React.lazy(() => import('@/components/PanelSecretaria'));
+const Tramites = React.lazy(() => import('@/components/tramites/Tramites'));
+const Conferencias = React.lazy(() => import('@/components/conferencias/Conferencias'));
+const AccesoAdministracion = React.lazy(() => import('@/components/AccesoAdministracion'));
 
 // Hook para detectar Tauri
 const useIsTauri = () => {
@@ -44,15 +57,16 @@ const HilosObserverWrapper: React.FC = () => {
 };
 
 const PageLoader = () => (
-  <div style={{ height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <span style={{ color: '#fff', fontWeight: 200 }}>Cargando...</span>
+  <div className="moon-page-loader" role="status">
+    <BrandLogo /><span><Loader2 size={15} className="moon-spin" /> Preparando tu espacio</span>
   </div>
 );
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userProfile, loading } = useAuth();
   if (loading) return <PageLoader />;
   if (!currentUser) return <Navigate to="/" replace />;
+  if (!userProfile) return <AccessRecovery />;
   return <>{children}</>;
 };
 
@@ -108,10 +122,10 @@ function App() {
           overflow: 'hidden',
         }}>
           <Router>
-            <Routes>
+            <React.Suspense fallback={<PageLoader />}><Routes>
               <Route path="/" element={<Login />} />
               <Route path="/hilos/observe/:hiloId" element={<HilosObserverWrapper />} />
-              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<ProtectedRoute><SalaActivaProvider><DashboardLayout /></SalaActivaProvider></ProtectedRoute>}>
                 <Route index element={<DashboardHome />} />
                 <Route path="calendar"      element={<Calendar />} />
                 <Route path="tareas"        element={<MisTareas />} />
@@ -121,7 +135,11 @@ function App() {
                 <Route path="hilos"         element={<Hilos />} />
                 <Route path="mensajeria"    element={<Mensajeria />} />
                 <Route path="proyectos" element={<Proyectos />} />
+                <Route path="elecciones/*" element={<ElectionsPanel />} />
                 <Route path="settings"      element={<Settings />} />
+                <Route path="tramites"      element={<Tramites />} />
+              <Route path="conferencias" element={<Conferencias />} />
+                <Route path="administracion" element={<PermisoRoute permiso="acceso"><AccesoAdministracion /></PermisoRoute>} />
                 <Route path="webs"          element={<PermisoRoute permiso="webs"><Webs /></PermisoRoute>} />
                 <Route path="users"         element={<PermisoRoute permiso="admin"><Users /></PermisoRoute>} />
                 <Route path="ceo-panel"     element={<PermisoRoute permiso="ceo"><CEOPanel /></PermisoRoute>} />
@@ -132,8 +150,8 @@ function App() {
                 <Route path="roles"         element={<PermisoRoute permiso="roles"><PanelRoles /></PermisoRoute>} />
                 <Route path="secretaria"    element={<PermisoRoute permiso="secretaria"><PanelSecretaria /></PermisoRoute>} />
               </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+              <Route path="*" element={<WorkspaceNotFound />} />
+            </Routes></React.Suspense>
           </Router>
         </div>
       </SettingsProvider>

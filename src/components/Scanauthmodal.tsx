@@ -1,522 +1,260 @@
-/**
- * ScanAuthModal.tsx — Rediseñado
- * Secuencia post-login: ESCANEO → AUTORIZADO → BIENVENIDO → navigate
- * Fases:
- *   0 — "Verificando identidad"  (scan + datos + QR)   ~3.5 s
- *   1 — "Acceso autorizado"      (check animado)        ~1.0 s
- *   2 — "Bienvenido {name}"      (pantalla full)        ~1.8 s
- *   → onComplete()
- */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { UserProfile, UserRole } from '@/types';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowRight, Check, CheckCheck, Fingerprint, LoaderCircle, LockKeyhole, LogOut, RefreshCw, ShieldCheck, TriangleAlert, UserRound } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
+import type { UserProfile } from '@/types';
+import './auth-welcome.css';
 
-const ROLE_LABELS: Record<string, string> = {
-  CEO:            'CEO',
-  Administración: 'Administración',
-  Empleado:       'Empleado',
-  Contador:       'Contador',
-};
+export type AuthVerificationStep = 'session' | 'profile' | 'access';
+export type AuthWelcomePhase = 'verifying' | 'confirmed' | 'welcome' | 'error';
+export type AuthEntryProfile = Pick<UserProfile, 'uid' | 'email'> & Partial<Omit<UserProfile, 'uid' | 'email'>>;
 
-interface Props {
-  user: UserProfile;
-  onComplete: () => void;
+const STEPS = [
+  { id: 'session', label: 'Sesión de acceso', detail: 'Comprobando tu sesión con el servidor.', icon: Fingerprint },
+  { id: 'profile', label: 'Identidad del equipo', detail: 'Consultando tu perfil actualizado.', icon: UserRound },
+  { id: 'access', label: 'Permisos del espacio', detail: 'Validando el acceso de tu cuenta.', icon: LockKeyhole },
+] as const;
+
+export interface AuthWelcomeViewProps {
+  profile: AuthEntryProfile;
+  phase: AuthWelcomePhase;
+  step: AuthVerificationStep;
+  error?: string | null;
+  qrDataUrl?: string;
+  autoEnterSeconds?: number | null;
+  onRetry: () => void;
+  onCancel: () => void | Promise<void>;
+  onEnter: () => void;
 }
 
-const PHASE_DURATIONS = [3600, 900, 1800];
+const initialsFor = (name: string) => name.trim().split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'MS';
 
-const ScanAuthModal: React.FC<Props> = ({ user, onComplete }) => {
-  const [phase,   setPhase]   = useState(0);
-  const [scanPct, setScanPct] = useState(0);
-  const [qrReady, setQrReady] = useState(false);
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  const getOrCreatePayload = useCallback(async (): Promise<string> => {
-    try {
-      const snap = await getDoc(doc(db, 'users', user.uid));
-      const data = snap.data();
-      if (data?.credentialPayload) return data.credentialPayload as string;
-      const payload = JSON.stringify({ uid: user.uid, name: user.displayName, role: user.role });
-      await updateDoc(doc(db, 'users', user.uid), { credentialPayload: payload });
-      return payload;
-    } catch {
-      return JSON.stringify({ uid: user.uid, name: user.displayName, role: user.role });
-    }
-  }, [user]);
-
-  const drawQR = useCallback(async () => {
-    if (!qrCanvasRef.current) return;
-    const payload = await getOrCreatePayload();
-    const QRCode  = await import('qrcode');
-    QRCode.toCanvas(qrCanvasRef.current, payload, {
-      width:  120,
-      margin: 1,
-      color:  { dark: '#000000', light: '#ffffff' },
-    }, (err) => { if (!err) setQrReady(true); });
-  }, [getOrCreatePayload]);
+/** Presentational surface also used by the local, network-free visual preview. */
+export function AuthWelcomeView({
+  profile, phase, step, error, qrDataUrl, autoEnterSeconds, onRetry, onCancel, onEnter,
+}: AuthWelcomeViewProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const verified = phase === 'confirmed' || phase === 'welcome';
+  const activeIndex = Math.max(0, STEPS.findIndex(item => item.id === step));
+  const firstName = profile.displayName?.trim().split(/\s+/)[0] || 'de vuelta';
+  const title = phase === 'error' ? 'No pudimos verificar tu acceso.'
+    : phase === 'confirmed' ? 'Acceso confirmado.'
+      : phase === 'welcome' ? `Bienvenido, ${firstName}.` : 'Un momento. Estamos preparando tu espacio.';
 
   useEffect(() => {
-    drawQR();
-    const scanInterval = setInterval(() => {
-      setScanPct(p => Math.min(p + 100 / (PHASE_DURATIONS[0] / 40), 100));
-    }, 40);
+    // A phase replaces its controls; keep keyboard focus inside the dialog.
+    if (!dialogRef.current?.contains(document.activeElement)) dialogRef.current?.focus({ preventScroll: true });
+  }, [phase]);
 
-    let t1: ReturnType<typeof setTimeout>;
-    let t2: ReturnType<typeof setTimeout>;
-    let t3: ReturnType<typeof setTimeout>;
-
-    t1 = setTimeout(() => {
-      clearInterval(scanInterval);
-      setScanPct(100);
-      setPhase(1);
-      t2 = setTimeout(() => {
-        setPhase(2);
-        t3 = setTimeout(() => { onComplete(); }, PHASE_DURATIONS[2]);
-      }, PHASE_DURATIONS[1]);
-    }, PHASE_DURATIONS[0]);
-
-    return () => {
-      clearInterval(scanInterval);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [drawQR, onComplete]);
-
-  const roleLabel = ROLE_LABELS[user.role as UserRole] ?? user.role;
-  const initials  = (user.displayName ?? 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  ESTILOS GLOBALES
-  // ══════════════════════════════════════════════════════════════════════════
-  const STYLES = `
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Outfit:wght@200;300;400&display=swap');
-
-    @keyframes _scanLine {
-      0%      { top: 0%;   opacity: 1; }
-      48%     { opacity: 1; }
-      50%     { top: 100%; opacity: 0; }
-      50.01%  { top: 0%;   opacity: 0; }
-      52%     { opacity: 1; }
-      100%    { top: 100%; opacity: 1; }
+  const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const elements = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex="0"]') ?? []);
+    const first = elements[0];
+    const last = elements[elements.length - 1];
+    if (!first || !last) { event.preventDefault(); return; }
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) {
+      event.preventDefault(); first.focus();
     }
-    @keyframes _blink {
-      0%,100% { opacity: 1; }
-      50%     { opacity: 0; }
-    }
-    @keyframes _fadeSlideIn {
-      from { opacity: 0; transform: translateX(-6px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes _checkDraw {
-      from { stroke-dashoffset: 60; }
-      to   { stroke-dashoffset: 0; }
-    }
-    @keyframes _authorizedPop {
-      0%  { opacity: 0; transform: scale(0.88); }
-      60% { transform: scale(1.03); }
-      100%{ opacity: 1; transform: scale(1); }
-    }
-    @keyframes _welcomeFadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes _orbitPulse {
-      0%,100% { opacity: 0.08; transform: translate(-50%,-50%) scale(1); }
-      50%     { opacity: 0.18; transform: translate(-50%,-50%) scale(1.04); }
-    }
-    @keyframes _ringRotate {
-      from { transform: translate(-50%,-50%) rotate(0deg); }
-      to   { transform: translate(-50%,-50%) rotate(360deg); }
-    }
-    @keyframes _dotOrbit {
-      from { transform: rotate(0deg)   translateX(80px) rotate(0deg); }
-      to   { transform: rotate(360deg) translateX(80px) rotate(-360deg); }
-    }
-    @keyframes _dotOrbit2 {
-      from { transform: rotate(120deg) translateX(130px) rotate(-120deg); }
-      to   { transform: rotate(480deg) translateX(130px) rotate(-480deg); }
-    }
-    @keyframes _starTwinkle {
-      0%,100% { opacity: 0.06; }
-      50%     { opacity: 0.5; }
-    }
+  };
 
-    ._scan-line {
-      position: absolute; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4) 40%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.4) 60%, transparent);
-      animation: _scanLine 2s linear infinite;
-      pointer-events: none;
-    }
-    ._data-row   { animation: _fadeSlideIn 0.4s ease both; }
-    ._blink      { animation: _blink 1s step-end infinite; }
-    ._auth-pop   { animation: _authorizedPop 0.5s cubic-bezier(.4,0,.2,1) forwards; }
-    ._check-draw {
-      stroke-dasharray: 60;
-      stroke-dashoffset: 60;
-      animation: _checkDraw 0.5s ease 0.1s forwards;
-    }
-    ._welcome-1  { animation: _welcomeFadeUp 0.7s ease both; }
-    ._welcome-2  { animation: _welcomeFadeUp 0.7s ease 0.15s both; }
-    ._welcome-3  { animation: _welcomeFadeUp 0.7s ease 0.3s both; }
-    ._welcome-4  { animation: _welcomeFadeUp 0.7s ease 0.45s both; }
-  `;
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  FASE 2 — BIENVENIDO
-  // ══════════════════════════════════════════════════════════════════════════
-  if (phase === 2) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
-        style={{ background: '#060608', fontFamily: 'Outfit, sans-serif' }}>
-        <style>{STYLES}</style>
-
-        {/* Orbital bg decoration */}
-        <div style={{ position: 'absolute', top: '50%', left: '50%' }}>
-          {/* Rings */}
-          {[160, 260, 360].map((size, i) => (
-            <div key={i} style={{
-              position: 'absolute',
-              width: `${size}px`, height: `${size}px`,
-              marginLeft: `-${size/2}px`, marginTop: `-${size/2}px`,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.04)',
-              animation: `_orbitPulse ${3 + i * 1.5}s ease infinite`,
-              animationDelay: `${i * 0.5}s`,
-            }} />
-          ))}
-          {/* Orbiting dot */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: '4px', height: '4px', borderRadius: '50%', marginLeft: '-2px', marginTop: '-2px',
-            background: 'rgba(255,255,255,0.4)',
-            boxShadow: '0 0 8px rgba(255,255,255,0.3)',
-            animation: '_dotOrbit 8s linear infinite',
-          }} />
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: '3px', height: '3px', borderRadius: '50%', marginLeft: '-1.5px', marginTop: '-1.5px',
-            background: 'rgba(255,255,255,0.25)',
-            animation: '_dotOrbit2 14s linear infinite',
-          }} />
-        </div>
-
-        {/* Star field */}
-        {[15,25,35,45,55,65,75,85,10,20,40,60,80,90,5,50,30,70,95].map((x, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            left: `${x}%`, top: `${[20,65,10,80,35,15,70,45,50,90,55,25,85,10,75,5,40,60,30][i]}%`,
-            width: '1px', height: '1px', borderRadius: '50%', background: 'white',
-            animation: `_starTwinkle ${2 + (i % 3)}s ease-in-out ${(i * 0.3) % 3}s infinite`,
-          }} />
-        ))}
-
-        {/* Vignette */}
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%)', pointerEvents: 'none' }} />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center px-6 text-center">
-          {/* Avatar */}
-          <div className="_welcome-1" style={{
-            width: '80px', height: '80px', borderRadius: '24px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: '28px', overflow: 'hidden',
-            boxShadow: '0 0 40px rgba(255,255,255,0.04)',
-          }}>
-            {user.avatar
-              ? <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '22px', fontWeight: 300, fontFamily: 'Cormorant Garamond, serif' }}>{initials}</span>
-            }
-          </div>
-
-          {/* Acceso concedido */}
-          <p className="_welcome-2" style={{
-            fontFamily: 'Outfit, sans-serif',
-            fontSize: '10px', fontWeight: 300,
-            letterSpacing: '0.45em', textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.2)', marginBottom: '12px',
-          }}>
-            Acceso concedido
-          </p>
-
-          {/* Nombre */}
-          <h1 className="_welcome-3" style={{
-            fontFamily: 'Cormorant Garamond, serif',
-            fontSize: 'clamp(28px, 6vw, 42px)',
-            fontWeight: 300,
-            letterSpacing: '0.04em',
-            color: 'rgba(255,255,255,0.88)',
-            marginBottom: '6px',
-            lineHeight: 1.1,
-          }}>
-            {user.displayName}
-          </h1>
-
-          <p className="_welcome-3" style={{
-            fontFamily: 'Cormorant Garamond, serif',
-            fontSize: 'clamp(14px, 3vw, 18px)',
-            fontWeight: 300,
-            fontStyle: 'italic',
-            color: 'rgba(255,255,255,0.25)',
-            marginBottom: '28px',
-          }}>
-            Bienvenido de vuelta
-          </p>
-
-          {/* Role pill */}
-          <div className="_welcome-4" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px', borderRadius: '100px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}>
-            <span style={{
-              width: '5px', height: '5px', borderRadius: '50%',
-              background: 'rgba(255,255,255,0.3)', display: 'inline-block',
-            }} />
-            <span style={{
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: '10px', fontWeight: 300,
-              letterSpacing: '0.2em', textTransform: 'uppercase',
-              color: 'rgba(255,255,255,0.3)',
-            }}>
-              {roleLabel} · Moon Studios
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  FASE 0 + 1 — ESCANEO / AUTORIZADO
-  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ background: '#060608', fontFamily: 'Outfit, sans-serif' }}>
-      <style>{STYLES}</style>
+    <div className={`moon-auth moon-auth--${phase}`} role="dialog" aria-modal="true" aria-labelledby="moon-auth-title" aria-describedby="moon-auth-status" tabIndex={-1} ref={dialogRef} onKeyDown={containFocus}>
+      <div className="moon-auth__ambient" aria-hidden="true" />
+      <header className="moon-auth__topbar">
+        <BrandLogo className="moon-auth__wordmark" />
+        <span className="moon-auth__workspace"><span /> Workspace</span>
+        <button type="button" className="moon-auth__exit" onClick={onCancel} aria-label="Volver al inicio de sesión"><LogOut size={15} /><span>Salir</span></button>
+      </header>
 
-      {/* ── FASE 1: AUTORIZADO overlay ── */}
-      {phase === 1 && (
-        <div className="_auth-pop absolute inset-0 flex flex-col items-center justify-center z-10"
-          style={{ background: '#060608' }}>
-          <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-            <circle cx="36" cy="36" r="32" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
-            <circle cx="36" cy="36" r="32" stroke="rgba(255,255,255,0.04)" strokeWidth="1"
-              strokeDasharray="5 5"/>
-            <polyline
-              points="22,37 32,47 50,28"
-              stroke="rgba(255,255,255,0.7)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              className="_check-draw"
-            />
-          </svg>
-          <p style={{
-            marginTop: '20px',
-            fontFamily: 'Outfit, sans-serif',
-            fontSize: '10px', fontWeight: 300,
-            letterSpacing: '0.45em', textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.2)',
-          }}>
-            Acceso Autorizado
-          </p>
-        </div>
-      )}
-
-      {/* ── FASE 0: PANEL DE ESCANEO ── */}
-      <div style={{
-        opacity: phase === 1 ? 0 : 1,
-        transition: 'opacity 0.3s ease',
-        width: '100%', maxWidth: '640px',
-        borderRadius: '20px',
-        border: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(10,10,12,0.98)',
-        overflow: 'hidden',
-        boxShadow: '0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03)',
-      }}>
-
-        {/* Header bar */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 20px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ display: 'flex', gap: '5px' }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-              ))}
+      <main className="moon-auth__main">
+        <section className="moon-auth__visual" aria-hidden="true">
+          <div className="moon-auth__scene">
+            <div className="moon-auth__coordinate moon-auth__coordinate--top">MOON / IDENTITY</div>
+            <div className="moon-auth__orbit moon-auth__orbit--outer"><i /></div>
+            <div className="moon-auth__orbit moon-auth__orbit--middle"><i /></div>
+            <div className="moon-auth__orbit moon-auth__orbit--inner" />
+            <div className="moon-auth__crosshair moon-auth__crosshair--horizontal" />
+            <div className="moon-auth__crosshair moon-auth__crosshair--vertical" />
+            <div className="moon-auth__core">
+              {phase === 'error' ? <TriangleAlert className="moon-auth__core-alert" size={47} strokeWidth={1.15} /> : verified ? (
+                <svg className="moon-auth__check" viewBox="0 0 80 80" fill="none"><circle cx="40" cy="40" r="37" /><path d="m24 40 11 11 22-24" /></svg>
+              ) : <><BrandLogo compact className="moon-auth__symbol" /><span className="moon-auth__scan" /></>}
             </div>
-            <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.15)' }}>
-              Moon Studios · Auth System
-            </span>
+            <span className="moon-auth__satellite moon-auth__satellite--one"><Fingerprint size={17} /></span>
+            <span className="moon-auth__satellite moon-auth__satellite--two"><ShieldCheck size={17} /></span>
+            <span className="moon-auth__scene-caption">{verified ? 'CONEXIÓN ESTABLECIDA' : phase === 'error' ? 'VERIFICACIÓN INTERRUMPIDA' : 'ESTABLECIENDO CONEXIÓN'}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div className="_blink" style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
-            <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.15)' }}>LIVE</span>
+          <div className="moon-auth__visual-copy">
+            <span className="moon-auth__eyebrow">Un equipo. Un espacio.</span>
+            <p>Tu siguiente órbita<br /><span>empieza aquí.</span></p>
           </div>
-        </div>
+        </section>
 
-        {/* Body — responsive: stack on mobile, side-by-side on tablet+ */}
-        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-
-          {/* Left: datos */}
-          <div style={{
-            flex: '1 1 280px',
-            padding: '20px',
-            borderBottom: '1px solid rgba(255,255,255,0.04)',
-          }}>
-            {/* Title */}
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.15)', marginBottom: '6px' }}>
-                Iniciando escaneo
-              </p>
-              <h2 style={{
-                fontFamily: 'Cormorant Garamond, serif',
-                fontSize: '20px', fontWeight: 300,
-                color: 'rgba(255,255,255,0.75)', letterSpacing: '0.02em',
-              }}>
-                Verificando Identidad
-                <span className="_blink" style={{ color: 'rgba(255,255,255,0.2)', marginLeft: '2px' }}>_</span>
-              </h2>
+        <section className="moon-auth__panel">
+          <div className="moon-auth__panel-content" key={phase}>
+            <div className="moon-auth__overline">
+              {phase === 'error' ? <TriangleAlert size={15} /> : verified ? <ShieldCheck size={15} /> : <LockKeyhole size={15} />}
+              <span>{phase === 'error' ? 'Acceso pendiente' : verified ? 'Identidad verificada' : 'Verificación de acceso'}</span>
+              <span className="moon-auth__phase-index">{verified ? '03' : String(activeIndex + 1).padStart(2, '0')} / 03</span>
             </div>
-
-            {/* Avatar + nombre */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-              <div style={{
-                position: 'relative', width: '48px', height: '48px', borderRadius: '14px',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                {user.avatar
-                  ? <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontFamily: 'Cormorant Garamond, serif', color: 'rgba(255,255,255,0.4)', fontSize: '14px', fontWeight: 300 }}>{initials}</span>
-                }
-                <div className="absolute inset-0 overflow-hidden" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-                  <div className="_scan-line" />
-                </div>
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: '13px', fontWeight: 300, color: 'rgba(255,255,255,0.7)', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user.displayName}
-                </p>
-                <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: '10px', fontWeight: 300, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user.email}
-                </p>
-              </div>
-            </div>
-
-            {/* Data rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-              {[
-                { label: 'UID',       value: user.uid.slice(0, 14) + '…' },
-                { label: 'Rol',       value: roleLabel },
-                { label: 'Estado',    value: 'AUTORIZADO', bright: true },
-                { label: 'Protocolo', value: 'LUNANET · v2.0' },
-                { label: 'Sesión',    value: new Date().toLocaleTimeString('es-PE') },
-              ].map(({ label, value, bright }, i) => (
-                <div key={label} className="_data-row" style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                  animationDelay: `${i * 0.12}s`,
-                }}>
-                  <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>
-                    {label}
-                  </span>
-                  <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '10px', fontWeight: 300, letterSpacing: '0.05em', color: bright ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.2)', textAlign: 'right' }}>
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Progress bar */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.12)' }}>
-                  Progreso
-                </span>
-                <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', color: 'rgba(255,255,255,0.15)' }}>
-                  {Math.round(scanPct)}%
-                </span>
-              </div>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', borderRadius: '1px', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: '1px', transition: 'width 0.1s linear',
-                  width: `${scanPct}%`,
-                  background: 'linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.5))',
-                }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Right: QR — se oculta en móvil muy pequeño, aparece desde sm */}
-          <div style={{
-            flex: '0 0 auto',
-            padding: '20px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px',
-            borderLeft: '1px solid rgba(255,255,255,0.04)',
-            minWidth: '160px',
-          }}
-          className="hidden sm:flex"
-          >
-            <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: '9px', fontWeight: 300, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.15)' }}>
-              Código QR
+            <h1 id="moon-auth-title">{title}</h1>
+            <p id="moon-auth-status" className="moon-auth__description" role="status" aria-live="polite">
+              {phase === 'error' ? (error || 'La conexión no permitió completar la verificación. Puedes intentarlo otra vez.')
+                : verified ? 'Tu sesión y tus permisos están listos. Hagamos que las ideas sigan avanzando.'
+                  : 'Validamos tu sesión, tu perfil y tus permisos antes de darte acceso al dashboard.'}
             </p>
 
-            {/* QR wrapper */}
-            <div style={{ position: 'relative', padding: '8px', borderRadius: '12px', background: '#ffffff' }}>
-              <canvas ref={qrCanvasRef} style={{ display: qrReady ? 'block' : 'none', borderRadius: '4px' }} />
-              {!qrReady && (
-                <div style={{ width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: '20px', height: '20px', border: '1.5px solid #ddd', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                  <style>{'@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}'}</style>
+            {verified ? (
+              <div className="moon-auth__verified-content">
+                <div className="moon-auth__identity moon-auth__identity--verified">
+                  <div className="moon-auth__avatar">
+                    {profile.avatar ? <img src={profile.avatar} alt="" /> : <span>{initialsFor(profile.displayName || '')}</span>}
+                    <span className="moon-auth__avatar-check"><Check size={11} strokeWidth={3} /></span>
+                  </div>
+                  <div className="moon-auth__identity-copy"><strong>{profile.displayName || 'Miembro del equipo'}</strong><span>{profile.email}</span><small>{profile.role} <i /> Moon Studios</small></div>
                 </div>
-              )}
-              {qrReady && (
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden' }}>
-                  <div className="_scan-line" style={{ opacity: 0.4 }} />
+                <div className="moon-auth__credential">
+                  <div className="moon-auth__credential-copy"><span className="moon-auth__eyebrow">Tu credencial</span><p>Identidad del equipo,<br />siempre a mano.</p><small>El QR identifica tu perfil. El acceso se valida con tu sesión.</small></div>
+                  <div className="moon-auth__qr">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de identificación de tu perfil" /> : <Fingerprint size={40} strokeWidth={1} aria-label="Identificador del perfil" />}</div>
                 </div>
-              )}
-              {/* Corner brackets */}
-              {[
-                { top: 4, left: 4,    borderTop: '2px solid rgba(0,0,0,0.2)', borderLeft: '2px solid rgba(0,0,0,0.2)' },
-                { top: 4, right: 4,   borderTop: '2px solid rgba(0,0,0,0.2)', borderRight: '2px solid rgba(0,0,0,0.2)' },
-                { bottom: 4, left: 4, borderBottom: '2px solid rgba(0,0,0,0.2)', borderLeft: '2px solid rgba(0,0,0,0.2)' },
-                { bottom: 4, right: 4,borderBottom: '2px solid rgba(0,0,0,0.2)', borderRight: '2px solid rgba(0,0,0,0.2)' },
-              ].map((s, i) => (
-                <div key={i} style={{ position: 'absolute', width: '12px', height: '12px', ...s as React.CSSProperties }} />
-              ))}
-            </div>
-
-            <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: '8px', fontWeight: 300, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.12)', textAlign: 'center', maxWidth: '120px' }}>
-              {user.uid.slice(0, 10).toUpperCase()}…
-            </p>
+                <button type="button" className="moon-auth__button moon-auth__button--primary" onClick={onEnter}>Entrar a mi espacio <ArrowRight size={17} /></button>
+                <p className="moon-auth__automatic">{autoEnterSeconds != null ? <><span className="moon-auth__countdown" key={autoEnterSeconds}>{autoEnterSeconds}</span> Entrarás automáticamente en {autoEnterSeconds} {autoEnterSeconds === 1 ? 'segundo' : 'segundos'}.</> : <><CheckCheck size={14} /> Todo listo para continuar.</>}</p>
+              </div>
+            ) : (
+              <>
+                <div className="moon-auth__identity">
+                  <div className="moon-auth__avatar">{profile.avatar ? <img src={profile.avatar} alt="" /> : <span>{initialsFor(profile.displayName || '')}</span>}</div>
+                  <div className="moon-auth__identity-copy"><strong>{profile.displayName || 'Cuenta del equipo'}</strong><span>{profile.email}</span></div>
+                </div>
+                <ol className="moon-auth__steps" aria-label="Estado de la verificación">
+                  {STEPS.map((item, index) => {
+                    const Icon = item.icon;
+                    const done = index < activeIndex;
+                    const active = index === activeIndex;
+                    return <li key={item.id} className={`${done ? 'is-done' : ''} ${active ? 'is-active' : ''} ${active && phase === 'error' ? 'has-error' : ''}`} aria-current={active ? 'step' : undefined}>
+                      <span className="moon-auth__step-icon">{done ? <Check size={16} /> : <Icon size={16} />}</span>
+                      <span className="moon-auth__step-copy"><strong>{item.label}</strong><small>{done ? 'Comprobado con el servidor' : active ? (phase === 'error' ? 'No se pudo completar este paso' : item.detail) : 'Pendiente'}</small></span>
+                      <span className="moon-auth__step-state">{done ? <Check size={14} /> : active ? phase === 'error' ? <TriangleAlert size={16} /> : <LoaderCircle size={16} className="moon-auth__spinner" /> : <span>0{index + 1}</span>}</span>
+                    </li>;
+                  })}
+                </ol>
+                {phase === 'error' ? <div className="moon-auth__error-actions"><button className="moon-auth__button moon-auth__button--primary" type="button" onClick={onRetry}><RefreshCw size={16} /> Reintentar verificación</button><button className="moon-auth__button moon-auth__button--quiet" type="button" onClick={onCancel}>Volver al inicio de sesión</button></div>
+                  : <div className="moon-auth__waiting"><div className="moon-auth__activity"><span /></div><p><span className="moon-auth__status-dot" /> Esperando la confirmación del servidor</p></div>}
+              </>
+            )}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 20px',
-          borderTop: '1px solid rgba(255,255,255,0.04)',
-        }}>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '8px', fontWeight: 300, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.1)' }}>
-            Moon Studios · Sistema Seguro
-          </span>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: '8px', color: 'rgba(255,255,255,0.1)' }}>
-            {new Date().toLocaleDateString('es-PE')} · {new Date().toLocaleTimeString('es-PE')}
-          </span>
-        </div>
-      </div>
+          <footer className="moon-auth__panel-footer"><ShieldCheck size={13} /><span>Acceso exclusivo para el equipo de Moon Studios</span></footer>
+        </section>
+      </main>
+      <footer className="moon-auth__footer"><span>Moon Studios © {new Date().getFullYear()}</span><span>Ideas que llegan más lejos. <span aria-hidden="true">↗</span></span></footer>
     </div>
   );
-};
+}
 
-export default ScanAuthModal;
+interface Props {
+  user: AuthEntryProfile;
+  verifyAccess: (onStep: (step: AuthVerificationStep) => void) => Promise<UserProfile>;
+  onComplete: (profile: UserProfile) => void;
+  onCancel: () => void | Promise<void>;
+  /** Set to null to require an explicit click; verification always comes first. */
+  autoEnterMs?: number | null;
+}
+
+export default function ScanAuthModal({ user, verifyAccess, onComplete, onCancel, autoEnterMs = 3000 }: Props) {
+  const [phase, setPhase] = useState<AuthWelcomePhase>('verifying');
+  const [step, setStep] = useState<AuthVerificationStep>('session');
+  const [profile, setProfile] = useState(user);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [qrDataUrl, setQrDataUrl] = useState<string>();
+  const [autoEnterSeconds, setAutoEnterSeconds] = useState<number | null>(null);
+  const verifyRef = useRef(verifyAccess);
+  const completeRef = useRef(onComplete);
+  const cancelRef = useRef(onCancel);
+  const mountedRef = useRef(false);
+  const attemptRef = useRef(attempt);
+  const completedRef = useRef(false);
+  const verifiedRef = useRef<UserProfile | null>(null);
+  const requestRef = useRef<{ attempt: number; promise: Promise<UserProfile> } | null>(null);
+  verifyRef.current = verifyAccess;
+  completeRef.current = onComplete;
+  cancelRef.current = onCancel;
+  attemptRef.current = attempt;
+  const isVerified = phase === 'confirmed' || phase === 'welcome';
+
+  useEffect(() => {
+    mountedRef.current = true;
+    let cancelled = false;
+    setPhase('verifying');
+    setStep('session');
+    setError(null);
+    verifiedRef.current = null;
+    // Reuse the same in-flight request during React Strict Mode's effect replay.
+    // UI callbacks are refs, so ordinary parent renders do not restart validation.
+    if (requestRef.current?.attempt !== attempt) {
+      requestRef.current = { attempt, promise: Promise.resolve().then(() => verifyRef.current(nextStep => {
+        if (mountedRef.current && attemptRef.current === attempt) setStep(nextStep);
+      })) };
+    }
+    requestRef.current.promise.then(verifiedProfile => {
+      if (cancelled || !mountedRef.current || completedRef.current) return;
+      verifiedRef.current = verifiedProfile;
+      setProfile(verifiedProfile);
+      setStep('access');
+      setPhase('confirmed');
+    }).catch(reason => {
+      if (cancelled || !mountedRef.current || completedRef.current) return;
+      setError(reason instanceof Error && reason.message ? reason.message : 'No se pudo verificar tu acceso. Revisa tu conexión e inténtalo nuevamente.');
+      setPhase('error');
+    });
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, [attempt]);
+
+  const enter = useCallback(() => {
+    if (!verifiedRef.current || completedRef.current || !mountedRef.current) return;
+    completedRef.current = true;
+    completeRef.current(verifiedRef.current);
+  }, []);
+
+  const cancel = useCallback(async () => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    verifiedRef.current = null;
+    try { await cancelRef.current(); }
+    catch {
+      if (!mountedRef.current) return;
+      completedRef.current = false;
+      setError('No pudimos cerrar la sesión. Vuelve a intentarlo o verifica tu acceso para continuar.');
+      setPhase('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (phase !== 'confirmed') return;
+    const timer = window.setTimeout(() => setPhase('welcome'), 650);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'welcome' || autoEnterMs == null || autoEnterMs <= 0) { setAutoEnterSeconds(null); return; }
+    const deadline = Date.now() + autoEnterMs;
+    setAutoEnterSeconds(Math.ceil(autoEnterMs / 1000));
+    const countdown = window.setInterval(() => setAutoEnterSeconds(Math.max(1, Math.ceil((deadline - Date.now()) / 1000))), 250);
+    const timer = window.setTimeout(enter, autoEnterMs);
+    return () => { window.clearInterval(countdown); window.clearTimeout(timer); };
+  }, [phase, autoEnterMs, enter]);
+
+  useEffect(() => {
+    if (!isVerified) return;
+    let cancelled = false;
+    // This is a local identification card, never an authentication factor or a
+    // reason to grant access. It does not write credential data to Firestore.
+    import('qrcode').then(QRCode => QRCode.toDataURL(JSON.stringify({ uid: profile.uid, name: profile.displayName, role: profile.role }), {
+      width: 176, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#111111', light: '#ffffff' },
+    })).then(url => { if (!cancelled) setQrDataUrl(url); }).catch(() => { /* The verified session is independent of the optional QR. */ });
+    return () => { cancelled = true; };
+  }, [isVerified, profile.uid, profile.displayName, profile.role]);
+
+  return <AuthWelcomeView profile={profile} phase={phase} step={step} error={error} qrDataUrl={qrDataUrl} autoEnterSeconds={autoEnterSeconds} onRetry={() => { if (!completedRef.current) setAttempt(current => current + 1); }} onCancel={cancel} onEnter={enter} />;
+}

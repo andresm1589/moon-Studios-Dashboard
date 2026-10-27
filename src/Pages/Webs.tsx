@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import emailjs from '@emailjs/browser';
+import { panelInk } from '@/lib/panelColors';
+import '@/styles/enterprise-sections.css';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  collection, doc, getDoc, setDoc, getDocs, deleteDoc,
+  collection, doc, getDocs, deleteDoc,
   Timestamp, updateDoc, addDoc, writeBatch,
 } from 'firebase/firestore';
 import {
-  Globe, ExternalLink, Save, Settings, Image, MessageCircle, Users, Loader2,
-  RefreshCw, Trash2, Mail, Send, X, CheckCircle, UserCheck, AlertCircle,
-  Search, AtSign, FileText, Edit, Eye, ChevronDown, Building2, Paperclip,
+  Globe, ExternalLink, Save, Image, Loader2,
+  RefreshCw, Trash2, Send, X, CheckCircle, UserCheck, AlertCircle,
+  Search, FileText, Edit, Eye, ChevronDown, Building2, Paperclip,
   Activity, Tag, Sparkles, Plus, ChevronUp, Link2,
   AlertTriangle,
   BarChart3, CreditCard, Handshake, ToggleLeft, ToggleRight,
@@ -19,6 +20,7 @@ import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { LegalLunaPanel } from '@/components/LegalLunaPanel';
 import { WebLunaPanel } from '@/components/WebLunaPanel';
+import { WebMoonPanel } from '@/components/WebMoonPanel';
 import { EventosLunaPanel } from '@/components/EventosLunaPanel';
 import { ProteccionErrores } from '@/components/ProteccionErrores';
 import { SociosPanel } from '@/components/webs/SociosPanel';
@@ -88,11 +90,6 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string,
 );
 
-// ── EmailJS ───────────────────────────────────────────────────────────────────
-const EJ_SERVICE  = import.meta.env.VITE_EMAILJS_SERVICE_ID  as string;
-const EJ_TEMPLATE = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string;
-const EJ_KEY      = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  as string;
-
 // ═══════════════════════════════════════════════════════════════════
 // TIPOS
 // ═══════════════════════════════════════════════════════════════════
@@ -113,14 +110,6 @@ interface AllyData {
   plans: { name: string; price: string; highlight?: boolean }[];
   apiUrl: string; order: number; active: boolean;
   features: AllyFeatures; // siempre requerido en dashboard (se inicializa en DEFAULT_ALLY / openEdit)
-}
-interface FestConfig {
-  logoUrl: string; discordInviteUrl: string; eventName: string; eventDate: string;
-  eventLocation: string; primaryColor: string; secondaryColor: string; accentColor: string;
-}
-interface FestUser {
-  id: string; code: string; firstName: string; lastName: string;
-  email: string; phone: string; registeredAt: Timestamp | string | null;
 }
 type SolicitudStatus = 'pendiente' | 'en_proceso' | 'completado' | 'denegado';
 type SolicitudTipo   = 'alianza' | 'ticket' | 'cotizacion' | 'soporte' | 'otro';
@@ -229,8 +218,6 @@ const deleteSupabaseImage = async (url: string): Promise<void> => {
 };
 
 // ── Firestore refs (db principal) ─────────────────────────────────────────────
-const CONFIG_DOC      = doc(db, 'config', 'appConfig');
-const USERS_COL       = collection(db, 'moon_studios_fest_2026');
 const SOLICITUDES_COL = collection(db, 'moonStudios', 'solicitudes', 'items');
 const SOCIOS_COL      = collection(db, 'moonStudios', 'socios', 'items');
 const EQUIPO_COL      = collection(db, 'moonStudios', 'equipo', 'items');
@@ -261,9 +248,9 @@ const SOCIO_STATUS: Record<string, { label: string; color: string; bg: string }>
 
 const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
   <div className="space-y-1.5">
-    <label className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>{label}</label>
+    <label className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>{label}</label>
     {children}
-    {hint && <p className="text-[11px] font-light" style={{ color: 'rgba(255,255,255,0.2)' }}>{hint}</p>}
+    {hint && <p className="text-[11px] font-light" style={{ color: 'var(--moon-muted)' }}>{hint}</p>}
   </div>
 );
 
@@ -273,7 +260,7 @@ const StyledInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { name
     {...props}
     className="w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none transition-all"
     style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
-    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+    onFocus={e => (e.target.style.borderColor = 'color-mix(in srgb, var(--moon-ink) 20%, transparent)')}
     onBlur={e =>  (e.target.style.borderColor = bd)}
   />
 );
@@ -284,8 +271,8 @@ const SaveBtn: React.FC<{ saving: boolean; onClick: () => void; label?: string }
   <button
     onClick={onClick}
     disabled={saving}
-    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
-    style={{ background: '#fff', color: '#000' }}
+    className="moon-panel-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
+    style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
   >
     {saving
       ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</>
@@ -298,7 +285,7 @@ const StatusBadge: React.FC<{ status: SolicitudStatus }> = ({ status }) => {
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide"
-      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}25` }}
+      style={{ background: cfg.bg, color: panelInk(cfg.color), border: `1px solid ${cfg.color}25` }}
     >
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
       {cfg.label}
@@ -309,8 +296,8 @@ const StatusBadge: React.FC<{ status: SolicitudStatus }> = ({ status }) => {
 /** Spinner de carga centrado genérico. */
 const LoadingSpinner: React.FC<{ label?: string }> = ({ label }) => (
   <div className="flex flex-col items-center justify-center h-32 gap-3">
-    <div className="w-5 h-5 border border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
-    {label && <p className="text-xs font-light" style={{ color: mt }}>{label}</p>}
+    <div className="w-5 h-5 border moon-panel-border border-t-zinc-300 rounded-full animate-spin" />
+    {label && <p className="text-xs font-light" style={{ color: panelInk(mt) }}>{label}</p>}
   </div>
 );
 
@@ -321,13 +308,13 @@ const ErrorState: React.FC<{ message: string; onRetry: () => void }> = ({ messag
     style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}
   >
     <div className="flex items-center gap-2">
-      <AlertCircle className="w-4 h-4" style={{ color: '#f87171' }} strokeWidth={1.5} />
-      <p className="text-sm font-light" style={{ color: '#f87171' }}>{message}</p>
+      <AlertCircle className="w-4 h-4" style={{ color: panelInk('#f87171') }} strokeWidth={1.5} />
+      <p className="text-sm font-light" style={{ color: panelInk('#f87171') }}>{message}</p>
     </div>
     <button
       onClick={onRetry}
-      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-      style={{ border: `1px solid ${bd}`, color: mt }}
+      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
     >
       <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar
     </button>
@@ -397,8 +384,8 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
             onClick={() => setFormTab(id)}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-light transition-all"
             style={{
-              background: formTab === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-              color: formTab === id ? 'white' : mt,
+              background: formTab === id ? 'color-mix(in srgb, var(--moon-ink) 8%, transparent)' : 'transparent',
+              color: panelInk(formTab === id ? 'var(--moon-ink)' : mt),
             }}
           >
             <Icon className="w-3 h-3" strokeWidth={1.5} />{label}
@@ -443,7 +430,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
                 className="w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none resize-none transition-all"
                 style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
                 rows={3}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+                onFocus={e => (e.target.style.borderColor = 'color-mix(in srgb, var(--moon-ink) 20%, transparent)')}
                 onBlur={e =>  (e.target.style.borderColor = bd)}
               />
             </Field>
@@ -479,9 +466,9 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
               className="flex items-center gap-2 text-sm font-light transition-all"
             >
               {form.active
-                ? <ToggleRight className="w-5 h-5" style={{ color: '#4ade80' }} />
-                : <ToggleLeft  className="w-5 h-5" style={{ color: mt }} />}
-              <span style={{ color: form.active ? '#4ade80' : mt }}>
+                ? <ToggleRight className="w-5 h-5" style={{ color: panelInk('#4ade80') }} />
+                : <ToggleLeft  className="w-5 h-5" style={{ color: panelInk(mt) }} />}
+              <span style={{ color: panelInk(form.active ? '#4ade80' : mt) }}>
                 {form.active ? 'Activo' : 'Inactivo'}
               </span>
             </button>
@@ -504,7 +491,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
           ))}
           {form.logo && (
             <div className="p-3 rounded-xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-              <p className="text-[9px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>Preview logo</p>
+              <p className="text-[9px] uppercase tracking-widest font-light mb-2" style={{ color: panelInk(mt) }}>Preview logo</p>
               <img
                 src={form.logo}
                 alt="Logo preview"
@@ -529,7 +516,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
               <button
                 onClick={() => removeStat(i)}
                 className="w-9 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-red-500/10"
-                style={{ border: `1px solid ${bd}`, color: mt }}
+                style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
@@ -537,8 +524,8 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
           ))}
           <button
             onClick={addStat}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Agregar stat
           </button>
@@ -560,7 +547,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
                 style={{
                   border:     `1px solid ${plan.highlight ? 'rgba(250,204,21,0.3)' : bd}`,
                   background: plan.highlight ? 'rgba(250,204,21,0.08)' : 'transparent',
-                  color:      plan.highlight ? '#facc15' : mt,
+                  color:      panelInk(plan.highlight ? '#facc15' : mt),
                 }}
                 title="Popular"
               >
@@ -569,7 +556,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
               <button
                 onClick={() => removePlan(i)}
                 className="w-9 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-red-500/10"
-                style={{ border: `1px solid ${bd}`, color: mt }}
+                style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
@@ -577,8 +564,8 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
           ))}
           <button
             onClick={addPlan}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Agregar plan
           </button>
@@ -588,7 +575,7 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
       {/* VISIBILIDAD */}
       {formTab === 'display' && (
         <div className="space-y-2.5">
-          <p className="text-xs font-light pb-1" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          <p className="text-xs font-light pb-1" style={{ color: 'var(--moon-muted)' }}>
             Controla qué secciones aparecen en la card pública. Los cambios se reflejan tras guardar.
           </p>
           {DISPLAY_SECTIONS.map(({ key, label, desc, Icon }) => {
@@ -598,19 +585,19 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
                 key={key}
                 className="flex items-start gap-3 p-3.5 rounded-xl transition-all"
                 style={{
-                  background: enabled ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)',
-                  border: `1px solid ${enabled ? 'rgba(255,255,255,0.1)' : bd}`,
+                  background: enabled ? 'color-mix(in srgb, var(--moon-ink) 4%, transparent)' : 'color-mix(in srgb, var(--moon-ink) 1%, transparent)',
+                  border: `1px solid ${enabled ? 'color-mix(in srgb, var(--moon-ink) 10%, transparent)' : bd}`,
                 }}
               >
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: enabled ? 'rgba(255,255,255,0.06)' : 'transparent', border: `1px solid ${bd}` }}
+                  style={{ background: enabled ? 'color-mix(in srgb, var(--moon-ink) 6%, transparent)' : 'transparent', border: `1px solid ${bd}` }}
                 >
-                  <Icon className="w-3.5 h-3.5" style={{ color: enabled ? 'white' : mt }} strokeWidth={1.5} />
+                  <Icon className="w-3.5 h-3.5" style={{ color: panelInk(enabled ? 'var(--moon-ink)' : mt) }} strokeWidth={1.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-light" style={{ color: enabled ? 'white' : mt }}>{label}</p>
-                  <p className="text-[11px] font-light mt-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>{desc}</p>
+                  <p className="text-sm font-light" style={{ color: panelInk(enabled ? 'var(--moon-ink)' : mt) }}>{label}</p>
+                  <p className="text-[11px] font-light mt-0.5" style={{ color: 'var(--moon-muted)' }}>{desc}</p>
                 </div>
                 <button
                   onClick={() => setForm(f => ({
@@ -620,16 +607,16 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
                   className="flex-shrink-0 mt-0.5 transition-transform hover:scale-110"
                 >
                   {enabled
-                    ? <ToggleRight className="w-5 h-5" style={{ color: '#4ade80' }} />
-                    : <ToggleLeft  className="w-5 h-5" style={{ color: mt }} />}
+                    ? <ToggleRight className="w-5 h-5" style={{ color: panelInk('#4ade80') }} />
+                    : <ToggleLeft  className="w-5 h-5" style={{ color: panelInk(mt) }} />}
                 </button>
               </div>
             );
           })}
           {form.features && !Object.values(form.features).some(Boolean) && (
             <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#f59e0b' }} strokeWidth={1.5} />
-              <p className="text-xs font-light" style={{ color: '#f59e0b' }}>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: panelInk('#f59e0b') }} strokeWidth={1.5} />
+              <p className="text-xs font-light" style={{ color: panelInk('#f59e0b') }}>
                 Todas las secciones están ocultas. Solo se mostrará el encabezado del aliado.
               </p>
             </div>
@@ -641,8 +628,8 @@ const AllyForm: React.FC<AllyFormProps> = ({ form, setForm, saving, editingId, o
       <div className="flex gap-2 justify-end pt-2">
         <button
           onClick={onCancel}
-          className="px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-          style={{ border: `1px solid ${bd}`, color: mt }}
+          className="px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
         >
           Cancelar
         </button>
@@ -836,16 +823,16 @@ const AlliesPanel: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-light text-white">Aliados de Luna NET</p>
-          <p className="text-xs font-light mt-0.5" style={{ color: mt }}>
+          <p className="text-sm font-light moon-panel-ink">Aliados de Luna NET</p>
+          <p className="text-xs font-light mt-0.5" style={{ color: panelInk(mt) }}>
             Los cambios se reflejan en tiempo real en la web de Luna NET
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadAllies}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             title="Recargar"
           >
             <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -854,9 +841,9 @@ const AlliesPanel: React.FC = () => {
             onClick={showNew ? cancelForm : openNew}
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all"
             style={{
-              background: showNew ? 'transparent' : 'rgba(255,255,255,0.07)',
-              border:     `1px solid ${showNew ? bd : 'rgba(255,255,255,0.15)'}`,
-              color:      showNew ? mt : 'white',
+              background: showNew ? 'transparent' : 'color-mix(in srgb, var(--moon-ink) 7%, transparent)',
+              border:     `1px solid ${showNew ? bd : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)'}`,
+              color:      panelInk(showNew ? mt : 'var(--moon-ink)'),
             }}
           >
             {showNew
@@ -868,8 +855,8 @@ const AlliesPanel: React.FC = () => {
 
       {/* Formulario nuevo */}
       {showNew && (
-        <div className="rounded-2xl p-5" style={{ background: sf, border: `1px solid rgba(255,255,255,0.12)` }}>
-          <p className="text-xs font-light text-white">Nuevo aliado</p>
+        <div data-moon-reveal="card" className="rounded-2xl p-5" style={{ background: sf, border: `1px solid color-mix(in srgb, var(--moon-ink) 12%, transparent)` }}>
+          <p className="text-xs font-light moon-panel-ink">Nuevo aliado</p>
           <AllyForm
             form={form} setForm={setForm} saving={saving}
             editingId={editingId} onCancel={cancelForm} onSave={handleSave}
@@ -880,24 +867,24 @@ const AlliesPanel: React.FC = () => {
       {/* Lista vacía */}
       {allies.length === 0 && !showNew ? (
         <div className="text-center py-12 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <Handshake className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-          <p className="text-sm font-light" style={{ color: mt }}>No hay aliados todavía. Agrega el primero.</p>
+          <Handshake className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+          <p className="text-sm font-light" style={{ color: panelInk(mt) }}>No hay aliados todavía. Agrega el primero.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {allies.map((ally, idx) => {
             const isEditing = editingId === ally.id;
             return (
-              <div
+              <div data-moon-reveal="card"
                 key={ally.id}
                 className="rounded-2xl overflow-hidden transition-all"
-                style={{ background: sf, border: `1px solid ${isEditing ? 'rgba(255,255,255,0.15)' : bd}` }}
+                style={{ background: sf, border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' : bd}` }}
               >
                 <div className="flex items-center gap-3 px-4 py-3">
                   {/* Logo */}
                   <div
                     className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${bd}` }}
+                    style={{ background: 'color-mix(in srgb, var(--moon-ink) 4%, transparent)', border: `1px solid ${bd}` }}
                   >
                     {ally.logo
                       ? <img
@@ -905,21 +892,21 @@ const AlliesPanel: React.FC = () => {
                           className="w-full h-full object-contain p-1"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
-                      : <Handshake className="w-4 h-4" style={{ color: mt }} strokeWidth={1.5} />}
+                      : <Handshake className="w-4 h-4" style={{ color: panelInk(mt) }} strokeWidth={1.5} />}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-white text-sm font-light truncate">{ally.name}</p>
+                      <p className="moon-panel-ink text-sm font-light truncate">{ally.name}</p>
                       <span
                         className="text-[9px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: mt }}
+                        style={{ background: 'color-mix(in srgb, var(--moon-ink) 5%, transparent)', color: panelInk(mt) }}
                       >
                         {ally.badge}
                       </span>
                     </div>
-                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                       {ally.tagline}
                     </p>
                   </div>
@@ -927,9 +914,9 @@ const AlliesPanel: React.FC = () => {
                   {/* Estado */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: ally.active ? '#4ade80' : 'rgba(255,255,255,0.15)' }} />
+                      style={{ background: ally.active ? '#4ade80' : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' }} />
                     <span className="text-[9px] font-light"
-                      style={{ color: ally.active ? '#4ade80' : mt }}>
+                      style={{ color: panelInk(ally.active ? '#4ade80' : mt) }}>
                       {ally.active ? 'Activo' : 'Oculto'}
                     </span>
                   </div>
@@ -938,39 +925,39 @@ const AlliesPanel: React.FC = () => {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => moveOrder(ally, 'up')} disabled={idx === 0}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowUp className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => moveOrder(ally, 'down')} disabled={idx === allies.length - 1}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowDown className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => toggleActive(ally)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
-                      style={{ border: `1px solid ${bd}`, color: ally.active ? '#4ade80' : mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(ally.active ? '#4ade80' : mt) }}
                       title={ally.active ? 'Ocultar' : 'Mostrar'}
                     >
                       <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                     <a
                       href={ally.website} target="_blank" rel="noopener noreferrer"
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ExtLink className="w-3 h-3" strokeWidth={1.5} />
                     </a>
                     <button
                       onClick={() => isEditing ? cancelForm() : openEdit(ally)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
                       style={{
-                        border: `1px solid ${isEditing ? 'rgba(255,255,255,0.2)' : bd}`,
-                        color:  isEditing ? 'white' : mt,
+                        border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 20%, transparent)' : bd}`,
+                        color:  panelInk(isEditing ? 'var(--moon-ink)' : mt),
                       }}
                     >
                       {isEditing
@@ -980,7 +967,7 @@ const AlliesPanel: React.FC = () => {
                     <button
                       onClick={() => handleDelete(ally.id!, ally.name)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10 hover:border-red-500/30"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
@@ -1166,21 +1153,21 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
       {/* Lightbox imagen */}
       {viewingImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 moon-media-overlay bg-black/90 backdrop-blur-md"
           onClick={() => setViewingImage(null)}
         >
           <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setViewingImage(null)}
               className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}
+              style={{ background: 'color-mix(in srgb, var(--moon-ink) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--moon-ink) 20%, transparent)' }}
             >
-              <X className="w-4 h-4 text-white" />
+              <X className="w-4 h-4 moon-panel-ink" />
             </button>
             <img
               src={viewingImage} alt="Adjunto"
               className="w-full h-auto rounded-2xl shadow-2xl"
-              style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ border: '1px solid color-mix(in srgb, var(--moon-ink) 10%, transparent)' }}
             />
           </div>
         </div>
@@ -1189,18 +1176,18 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Solicitudes',       value: stats.total,       sub: `${stats.pendiente} pend.`,     color: 'rgba(255,255,255,0.7)', icon: <FileText className="w-3.5 h-3.5" /> },
+          { label: 'Solicitudes',       value: stats.total,       sub: `${stats.pendiente} pend.`,     color: 'var(--moon-ink)', icon: <FileText className="w-3.5 h-3.5" /> },
           { label: 'En proceso',        value: stats.en_proceso,  sub: `${stats.completado} OK`,        color: '#60a5fa',               icon: <Activity className="w-3.5 h-3.5" /> },
           { label: 'Completadas',       value: stats.completado,  sub: 'cerradas con éxito',           color: '#4ade80',               icon: <CheckCircle className="w-3.5 h-3.5" /> },
           { label: 'Denegadas',         value: stats.denegado,    sub: 'no aprobadas',                 color: '#f87171',               icon: <X className="w-3.5 h-3.5" /> },
         ].map((s, i) => (
-          <div key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
+          <div data-moon-reveal="card" key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>{s.label}</span>
-              <span style={{ color: mt }}>{s.icon}</span>
+              <span className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>{s.label}</span>
+              <span style={{ color: panelInk(mt) }}>{s.icon}</span>
             </div>
-            <p className="text-2xl font-light" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[11px] font-light mt-1" style={{ color: mt }}>{s.sub}</p>
+            <p className="text-2xl font-light" style={{ color: panelInk(s.color) }}>{s.value}</p>
+            <p className="text-[11px] font-light mt-1" style={{ color: panelInk(mt) }}>{s.sub}</p>
           </div>
         ))}
       </div>
@@ -1213,8 +1200,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
             onClick={() => setActiveTab(tab)}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-light transition-all"
             style={{
-              background: activeTab === tab ? 'rgba(255,255,255,0.08)' : 'transparent',
-              color:      activeTab === tab ? 'white' : mt,
+              background: activeTab === tab ? 'color-mix(in srgb, var(--moon-ink) 8%, transparent)' : 'transparent',
+              color:      panelInk(activeTab === tab ? 'var(--moon-ink)' : mt),
             }}
           >
             {tab === 'solicitudes'
@@ -1223,7 +1210,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
             {tab === 'solicitudes' ? 'Solicitudes' : 'Socios Capitalistas'}
             {tab === 'socios' && stats.socioPending > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                style={{ background: 'rgba(245,158,11,0.15)', color: panelInk('#f59e0b') }}>
                 {stats.socioPending}
               </span>
             )}
@@ -1237,7 +1224,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
           {/* Filtros */}
           <div className="flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} strokeWidth={1.5} />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} strokeWidth={1.5} />
               <input
                 value={searchQ}
                 onChange={e => setSearchQ(e.target.value)}
@@ -1251,12 +1238,12 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                 value={filterTipo}
                 onChange={e => setFilterTipo(e.target.value)}
                 className="pl-3 pr-8 py-2 rounded-xl text-xs font-light outline-none appearance-none cursor-pointer"
-                style={{ background: sf, border: `1px solid ${bd}`, color: filterTipo !== 'todos' ? 'white' : mt }}
+                style={{ background: sf, border: `1px solid ${bd}`, color: panelInk(filterTipo !== 'todos' ? 'var(--moon-ink)' : mt) }}
               >
                 <option value="todos">Tipo: todos</option>
                 {Object.entries(TIPO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} />
+              <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} />
             </div>
             <div className="flex gap-1 flex-wrap">
               {(['todas', 'pendiente', 'en_proceso', 'completado', 'denegado'] as const).map(s => {
@@ -1268,9 +1255,9 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                     onClick={() => setFilterStatus(s)}
                     className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all"
                     style={{
-                      background: active ? (cfg ? cfg.bg : 'rgba(255,255,255,0.08)') : 'transparent',
-                      color:      active ? (cfg ? cfg.color : 'white') : mt,
-                      border:    `1px solid ${active ? (cfg ? `${cfg.color}30` : 'rgba(255,255,255,0.15)') : 'transparent'}`,
+                      background: active ? (cfg ? cfg.bg : 'color-mix(in srgb, var(--moon-ink) 8%, transparent)') : 'transparent',
+                      color:      panelInk(active ? (cfg ? cfg.color : 'var(--moon-ink)') : mt),
+                      border:    `1px solid ${active ? (cfg ? `${cfg.color}30` : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)') : 'transparent'}`,
                     }}
                   >
                     {s === 'todas' ? 'Todas' : s === 'en_proceso' ? 'En proceso' : STATUS_CONFIG[s].label}
@@ -1280,8 +1267,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
             </div>
             <button
               onClick={loadData}
-              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5"
-              style={{ border: `1px solid ${bd}`, color: mt }}
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover"
+              style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             >
               <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
             </button>
@@ -1289,8 +1276,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
 
           {filtered.length === 0 ? (
             <div className="text-center py-12 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-              <FileText className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-              <p className="text-sm font-light" style={{ color: mt }}>No hay solicitudes que coincidan.</p>
+              <FileText className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+              <p className="text-sm font-light" style={{ color: panelInk(mt) }}>No hay solicitudes que coincidan.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1298,37 +1285,37 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                 const isExpanded = expandedId === s.id;
                 const isEditing  = editingId  === s.id;
                 return (
-                  <div
+                  <div data-moon-reveal="card"
                     key={s.id}
                     className="rounded-2xl overflow-hidden transition-all"
                     style={{
                       background: sf,
-                      border: `1px solid ${isEditing ? 'rgba(255,255,255,0.15)' : isExpanded ? 'rgba(255,255,255,0.1)' : bd}`,
+                      border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' : isExpanded ? 'color-mix(in srgb, var(--moon-ink) 10%, transparent)' : bd}`,
                     }}
                   >
                     {/* Fila principal */}
                     <div className="flex items-center gap-3 px-4 py-3.5">
                       <div
                         className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${bd}` }}
+                        style={{ background: 'color-mix(in srgb, var(--moon-ink) 4%, transparent)', border: `1px solid ${bd}` }}
                       >
-                        <Tag className="w-3.5 h-3.5" style={{ color: mt }} strokeWidth={1.5} />
+                        <Tag className="w-3.5 h-3.5" style={{ color: panelInk(mt) }} strokeWidth={1.5} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-white text-sm font-light truncate">{s.titulo}</p>
+                          <p className="moon-panel-ink text-sm font-light truncate">{s.titulo}</p>
                           <span
                             className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
-                            style={{ background: 'rgba(255,255,255,0.05)', color: mt }}
+                            style={{ background: 'color-mix(in srgb, var(--moon-ink) 5%, transparent)', color: panelInk(mt) }}
                           >
                             {TIPO_LABELS[s.tipo] ?? s.tipo}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] font-light font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                          <span className="text-[10px] font-light font-mono" style={{ color: 'var(--moon-muted)' }}>
                             {s.uid.substring(0, 10)}…
                           </span>
-                          <span className="text-[10px] font-light" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                          <span className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                             {formatDateShort(s.creadoEn)}
                           </span>
                         </div>
@@ -1338,8 +1325,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                         {s.imageUrl && (
                           <button
                             onClick={() => setViewingImage(s.imageUrl!)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
-                            style={{ border: `1px solid ${bd}`, color: mt }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                           >
                             <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
                           </button>
@@ -1349,8 +1336,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                             if (isExpanded && !isEditing) setExpandedId(null);
                             else { setExpandedId(s.id); setEditingId(null); }
                           }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
-                          style={{ border: `1px solid ${bd}`, color: mt }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                         >
                           <ChevronDown
                             className="w-3.5 h-3.5 transition-transform"
@@ -1365,7 +1352,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                     {isExpanded && !isEditing && (
                       <div style={{ borderTop: `1px solid ${bd}` }}>
                         <div className="px-4 py-3">
-                          <p className="text-sm font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                          <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--moon-muted)' }}>
                             {s.descripcion}
                           </p>
                         </div>
@@ -1374,7 +1361,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                             className="mx-4 mb-3 flex gap-2.5 p-3 rounded-xl"
                             style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.12)' }}
                           >
-                            <Sparkles className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} strokeWidth={1.5} />
+                            <Sparkles className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: panelInk('#fbbf24') }} strokeWidth={1.5} />
                             <div>
                               <p className="text-[9px] uppercase tracking-widest font-light mb-1" style={{ color: 'rgba(251,191,36,0.5)' }}>
                                 Nota interna
@@ -1384,7 +1371,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                           </div>
                         )}
                         <div className="px-4 pb-4">
-                          <p className="text-[9px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>
+                          <p className="text-[9px] uppercase tracking-widest font-light mb-2" style={{ color: panelInk(mt) }}>
                             Cambio rápido
                           </p>
                           <div className="flex gap-2 flex-wrap items-center justify-between">
@@ -1398,8 +1385,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                                     className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
                                     style={{
                                       background: s.estado === st ? c.bg : 'transparent',
-                                      color:      s.estado === st ? c.color : mt,
-                                      border:    `1px solid ${s.estado === st ? `${c.color}30` : 'rgba(255,255,255,0.08)'}`,
+                                      color:      panelInk(s.estado === st ? c.color : mt),
+                                      border:    `1px solid ${s.estado === st ? `${c.color}30` : 'color-mix(in srgb, var(--moon-ink) 8%, transparent)'}`,
                                     }}
                                   >
                                     {c.label}
@@ -1411,14 +1398,14 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                               <button
                                 onClick={() => handleDeleteSolicitud(s.id, s.imageUrl)}
                                 className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10"
-                                style={{ border: `1px solid ${bd}`, color: mt }}
+                                style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                               >
                                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                               </button>
                               <button
                                 onClick={() => { setEditingId(s.id); setEditData({ estado: s.estado, nota: s.nota ?? '' }); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
-                                style={{ background: '#fff', color: '#000' }}
+                                className="moon-panel-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+                                style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
                               >
                                 <Edit className="w-3 h-3" />Gestionar
                               </button>
@@ -1437,7 +1424,7 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                               value={editData.estado}
                               onChange={e => setEditData(d => ({ ...d, estado: e.target.value as SolicitudStatus }))}
                               className="w-full px-3 py-2.5 rounded-xl text-sm font-light outline-none cursor-pointer"
-                              style={{ background: sc, border: `1px solid ${bd}`, color: 'white' }}
+                              style={{ background: sc, border: `1px solid ${bd}`, color: 'var(--moon-ink)' }}
                             >
                               {(['pendiente', 'en_proceso', 'completado', 'denegado'] as SolicitudStatus[]).map(st => (
                                 <option key={st} value={st}>{STATUS_CONFIG[st].label}</option>
@@ -1453,32 +1440,32 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                             value={editData.nota}
                             onChange={e => setEditData(d => ({ ...d, nota: e.target.value }))}
                             className="w-full px-3 py-2.5 rounded-xl text-sm font-light outline-none resize-none transition-all"
-                            style={{ background: sc, border: `1px solid ${bd}`, color: 'white' }}
+                            style={{ background: sc, border: `1px solid ${bd}`, color: 'var(--moon-ink)' }}
                             rows={3}
-                            onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+                            onFocus={e => (e.target.style.borderColor = 'color-mix(in srgb, var(--moon-ink) 20%, transparent)')}
                             onBlur={e =>  (e.target.style.borderColor = bd)}
                           />
                         </Field>
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-                            style={{ border: `1px solid ${bd}`, color: mt }}
+                            className="px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+                            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                           >
                             Cancelar
                           </button>
                           <button
                             onClick={() => handleDeleteSolicitud(s.id, s.imageUrl)}
                             className="px-3 py-2 rounded-xl text-xs font-light"
-                            style={{ border: '1px solid rgba(248,113,113,0.25)', color: '#f87171', background: 'rgba(248,113,113,0.05)' }}
+                            style={{ border: '1px solid rgba(248,113,113,0.25)', color: panelInk('#f87171'), background: 'rgba(248,113,113,0.05)' }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleUpdateSolicitud(s.id)}
                             disabled={saving}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-40"
-                            style={{ background: '#fff', color: '#000' }}
+                            className="moon-panel-primary flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-40"
+                            style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
                           >
                             {saving
                               ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -1501,19 +1488,19 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Total solicitudes',    value: socios.length, color: 'rgba(255,255,255,0.7)' },
+              { label: 'Total solicitudes',    value: socios.length, color: 'var(--moon-ink)' },
               { label: 'Inversión aprobada',   value: `$${socios.filter(s => s.estado === 'aprobado').reduce((a, s) => a + s.monto, 0).toLocaleString('es-PE')}`, color: '#4ade80' },
               { label: 'Inversión pendiente',  value: `$${socios.filter(s => s.estado === 'pendiente').reduce((a, s) => a + s.monto, 0).toLocaleString('es-PE')}`, color: '#f59e0b' },
             ].map((s, i) => (
-              <div key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-                <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>{s.label}</p>
-                <p className="text-xl font-light" style={{ color: s.color }}>{s.value}</p>
+              <div data-moon-reveal="card" key={i} className="rounded-2xl p-4" style={{ background: sf, border: `1px solid ${bd}` }}>
+                <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: panelInk(mt) }}>{s.label}</p>
+                <p className="text-xl font-light" style={{ color: panelInk(s.color) }}>{s.value}</p>
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[160px]">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} strokeWidth={1.5} />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} strokeWidth={1.5} />
               <input
                 value={socioSearch}
                 onChange={e => setSocioSearch(e.target.value)}
@@ -1529,12 +1516,12 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                 className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all"
                 style={{
                   background: socioFilter === f
-                    ? (f !== 'todos' ? SOCIO_STATUS[f].bg : 'rgba(255,255,255,0.08)')
+                    ? (f !== 'todos' ? SOCIO_STATUS[f].bg : 'color-mix(in srgb, var(--moon-ink) 8%, transparent)')
                     : 'transparent',
-                  color: socioFilter === f
-                    ? (f !== 'todos' ? SOCIO_STATUS[f].color : 'white')
-                    : mt,
-                  border: `1px solid ${socioFilter === f ? 'rgba(255,255,255,0.15)' : 'transparent'}`,
+                  color: panelInk(socioFilter === f
+                    ? (f !== 'todos' ? SOCIO_STATUS[f].color : 'var(--moon-ink)')
+                    : mt),
+                  border: `1px solid ${socioFilter === f ? 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' : 'transparent'}`,
                 }}
               >
                 {f === 'todos' ? 'Todos' : SOCIO_STATUS[f].label}
@@ -1543,8 +1530,8 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
           </div>
           {filteredSocios.length === 0 ? (
             <div className="text-center py-12 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-              <Building2 className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-              <p className="text-sm font-light" style={{ color: mt }}>No hay solicitudes de socio.</p>
+              <Building2 className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+              <p className="text-sm font-light" style={{ color: panelInk(mt) }}>No hay solicitudes de socio.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1552,29 +1539,29 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                 const cfg  = SOCIO_STATUS[s.estado] ?? SOCIO_STATUS.pendiente;
                 const tier = s.tierLabel ?? getTierLabel(s.monto);
                 return (
-                  <div key={s.id} className="rounded-2xl p-4 transition-all" style={{ background: sf, border: `1px solid ${bd}` }}>
+                  <div data-moon-reveal="card" key={s.id} className="rounded-2xl p-4 transition-all" style={{ background: sf, border: `1px solid ${bd}` }}>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="text-white text-sm font-light">{s.nombre}</p>
+                          <p className="moon-panel-ink text-sm font-light">{s.nombre}</p>
                           <span
                             className="text-xs font-light px-2 py-0.5 rounded-full"
-                            style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.15)' }}
+                            style={{ background: 'rgba(74,222,128,0.08)', color: panelInk('#4ade80'), border: '1px solid rgba(74,222,128,0.15)' }}
                           >
                             ${s.monto.toLocaleString('es-PE')} USD
                           </span>
                           <span className="text-[10px]">{tier}</span>
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-xs font-light" style={{ color: mt }}>
+                          <span className="text-xs font-light" style={{ color: panelInk(mt) }}>
                             {s.metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}
                           </span>
-                          <span className="text-xs font-light" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                          <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>
                             {formatDate(s.creadoEn)}
                           </span>
                         </div>
                         {s.mensaje && (
-                          <p className="text-xs font-light mt-1.5 leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          <p className="text-xs font-light mt-1.5 leading-relaxed" style={{ color: 'var(--moon-muted)' }}>
                             "{s.mensaje}"
                           </p>
                         )}
@@ -1583,15 +1570,15 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                         {s.fileUrl && (
                           <a
                             href={s.fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
-                            style={{ border: `1px solid ${bd}`, color: mt }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                           >
                             <Paperclip className="w-3.5 h-3.5" strokeWidth={1.5} />
                           </a>
                         )}
                         <span
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold"
-                          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}25` }}
+                          style={{ background: cfg.bg, color: panelInk(cfg.color), border: `1px solid ${cfg.color}25` }}
                         >
                           <span className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.color }} />
                           {cfg.label}
@@ -1602,20 +1589,20 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
                             onChange={e => handleUpdateSocio(s.id, e.target.value as 'aprobado' | 'rechazado' | 'pendiente')}
                             disabled={updatingSocio === s.id}
                             className="pl-2.5 pr-7 py-1.5 rounded-xl text-[10px] font-light outline-none appearance-none cursor-pointer transition-all disabled:opacity-50"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${bd}`, color: 'rgba(255,255,255,0.6)' }}
+                            style={{ background: 'color-mix(in srgb, var(--moon-ink) 4%, transparent)', border: `1px solid ${bd}`, color: 'var(--moon-muted)' }}
                           >
                             <option value="pendiente">En revisión</option>
                             <option value="aprobado">Aprobado</option>
                             <option value="rechazado">Rechazado</option>
                           </select>
                           {updatingSocio === s.id
-                            ? <Loader2 className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 animate-spin pointer-events-none" style={{ color: mt }} />
-                            : <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} />}
+                            ? <Loader2 className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 animate-spin pointer-events-none" style={{ color: panelInk(mt) }} />
+                            : <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: panelInk(mt) }} />}
                         </div>
                         <button
                           onClick={() => handleDeleteSocio(s.id)}
                           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10"
-                          style={{ border: `1px solid ${bd}`, color: mt }}
+                          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                         >
                           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                         </button>
@@ -1628,631 +1615,6 @@ const PortalClientesPanel: React.FC<{ onCambio?: () => void }> = ({ onCambio }) 
           )}
         </div>
       )}
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// MOON FEST PANEL
-// ═══════════════════════════════════════════════════════════════════
-
-const MoonFestPanel: React.FC = () => {
-  const [config,     setConfig]     = useState<Partial<FestConfig>>({
-    logoUrl: '', discordInviteUrl: '', eventName: 'MOON FEST 2026', eventDate: '',
-    eventLocation: '', primaryColor: '#000000', secondaryColor: '#ffffff', accentColor: '#6b7280',
-  });
-  const [users,      setUsers]      = useState<FestUser[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [saving,     setSaving]     = useState(false);
-  const [activeTab,  setActiveTab]  = useState('general');
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [configSnap, usersSnap] = await Promise.all([getDoc(CONFIG_DOC), getDocs(USERS_COL)]);
-      if (configSnap.exists()) setConfig(configSnap.data() as FestConfig);
-      setUsers(usersSnap.docs.map(d => ({ ...d.data(), id: d.id }) as FestUser));
-    } catch (e) {
-      toast.error('Error cargando datos');
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  const handleSave = async (fields: Partial<FestConfig>) => {
-    setSaving(true);
-    try {
-      await setDoc(CONFIG_DOC, fields, { merge: true });
-      setConfig(p => ({ ...p, ...fields }));
-      toast.success('Guardado correctamente');
-    } catch (e) {
-      toast.error('Error al guardar');
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setConfig(p => ({ ...p, [name]: value }));
-  };
-
-  const handleDelete = async (userId: string) => {
-    if (!confirm('¿Eliminar este registro?')) return;
-    try {
-      await deleteDoc(doc(db, 'moon_studios_fest_2026', userId));
-      setUsers(p => p.filter(u => u.id !== userId));
-      toast.success('Eliminado');
-    } catch {
-      toast.error('Error al eliminar');
-    }
-  };
-
-  if (loading) return <LoadingSpinner />;
-
-  const TABS = [
-    { id: 'general',  label: 'General',                           icon: Settings },
-    { id: 'branding', label: 'Marca',                             icon: Image },
-    { id: 'discord',  label: 'Discord',                           icon: MessageCircle },
-    { id: 'users',    label: `Registrados (${users.length})`,     icon: Users },
-  ];
-
-  return (
-    <div className="space-y-5">
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-2xl p-1.5 flex-wrap" style={{ background: sc, border: `1px solid ${bd}` }}>
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light transition-all"
-            style={{
-              background: activeTab === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-              color:      activeTab === id ? 'white' : mt,
-            }}
-          >
-            <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />{label}
-          </button>
-        ))}
-      </div>
-
-      {/* GENERAL */}
-      {activeTab === 'general' && (
-        <div className="rounded-2xl p-5 space-y-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <p className="text-sm font-light text-white">Configuración General</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Nombre del Evento" hint="Aparece como título en la web pública">
-              <StyledInput name="eventName" value={config.eventName ?? ''} onChange={handleChange} placeholder="MOON FEST 2026" />
-            </Field>
-            <Field label="Fecha del Evento">
-              <StyledInput name="eventDate" type="date" value={config.eventDate ?? ''} onChange={handleChange} />
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Ubicación">
-                <StyledInput name="eventLocation" value={config.eventLocation ?? ''} onChange={handleChange} placeholder="Lima, Perú" />
-              </Field>
-            </div>
-          </div>
-          {(config.eventName || config.eventDate || config.eventLocation) && (
-            <div className="p-4 rounded-2xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-              <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>Vista previa</p>
-              <p className="text-base font-light text-white">{config.eventName}</p>
-              {config.eventDate && (
-                <p className="text-sm font-light mt-0.5" style={{ color: mt }}>
-                  {new Date(config.eventDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              )}
-              {config.eventLocation && (
-                <p className="text-sm font-light" style={{ color: mt }}>📍 {config.eventLocation}</p>
-              )}
-            </div>
-          )}
-          <SaveBtn
-            saving={saving}
-            onClick={() => handleSave({
-              eventName:     config.eventName     ?? '',
-              eventDate:     config.eventDate     ?? '',
-              eventLocation: config.eventLocation ?? '',
-            })}
-          />
-        </div>
-      )}
-
-      {/* BRANDING */}
-      {activeTab === 'branding' && (
-        <div className="rounded-2xl p-5 space-y-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <p className="text-sm font-light text-white">Configuración de Marca</p>
-          <Field label="URL del Logo" hint="Aparece en el header y en los tickets">
-            <StyledInput name="logoUrl" value={config.logoUrl ?? ''} onChange={handleChange} placeholder="https://ejemplo.com/logo.png" />
-          </Field>
-          {config.logoUrl && (
-            <div className="p-4 rounded-2xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-              <p className="text-[10px] uppercase tracking-widest font-light mb-3" style={{ color: mt }}>Vista previa</p>
-              <img
-                src={config.logoUrl} alt="Logo"
-                className="h-16 object-contain"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
-          )}
-          <div className="grid grid-cols-3 gap-3">
-            {([
-              { key: 'primaryColor'   as const, label: 'Primario' },
-              { key: 'secondaryColor' as const, label: 'Secundario' },
-              { key: 'accentColor'    as const, label: 'Acento' },
-            ]).map(({ key, label }) => (
-              <Field key={key} label={label}>
-                <div className="flex gap-2">
-                  <input
-                    name={key} type="color"
-                    value={config[key] ?? '#000000'}
-                    onChange={handleChange}
-                    className="w-12 h-10 rounded-xl p-1 cursor-pointer"
-                    style={{ background: sc, border: `1px solid ${bd}` }}
-                  />
-                  <input
-                    value={config[key] ?? ''} readOnly
-                    className="flex-1 px-2.5 rounded-xl text-xs font-mono font-light"
-                    style={{ background: sc, border: `1px solid ${bd}`, color: mt }}
-                  />
-                </div>
-              </Field>
-            ))}
-          </div>
-          <SaveBtn
-            saving={saving}
-            onClick={() => handleSave({
-              logoUrl:        config.logoUrl        ?? '',
-              primaryColor:   config.primaryColor   ?? '#000000',
-              secondaryColor: config.secondaryColor ?? '#ffffff',
-              accentColor:    config.accentColor    ?? '#6b7280',
-            })}
-          />
-        </div>
-      )}
-
-      {/* DISCORD */}
-      {activeTab === 'discord' && (
-        <div className="rounded-2xl p-5 space-y-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <p className="text-sm font-light text-white">Configuración de Discord</p>
-          <Field label="URL de Invitación" hint="Aparece en el ticket tras el registro">
-            <StyledInput
-              name="discordInviteUrl"
-              value={config.discordInviteUrl ?? ''}
-              onChange={handleChange}
-              placeholder="https://discord.gg/tu-invitacion"
-            />
-          </Field>
-          {config.discordInviteUrl && (
-            <div
-              className="flex items-center gap-2.5 p-3 rounded-xl"
-              style={{ background: 'rgba(88,101,242,0.1)', border: '1px solid rgba(88,101,242,0.2)' }}
-            >
-              <MessageCircle className="w-4 h-4" style={{ color: '#818cf8' }} strokeWidth={1.5} />
-              <span className="text-sm font-light" style={{ color: '#818cf8' }}>{config.discordInviteUrl}</span>
-            </div>
-          )}
-          <SaveBtn
-            saving={saving}
-            onClick={() => handleSave({ discordInviteUrl: config.discordInviteUrl ?? '' })}
-          />
-        </div>
-      )}
-
-      {/* USERS */}
-      {activeTab === 'users' && (
-        <div className="rounded-2xl overflow-hidden border" style={{ background: sf, borderColor: bd }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: bd }}>
-            <div>
-              <span className="text-sm font-light text-white">Usuarios Registrados</span>
-              <span className="text-xs font-light ml-2" style={{ color: mt }}>{users.length} total</span>
-            </div>
-            <button
-              onClick={loadData}
-              className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all hover:bg-white/[0.05]"
-              style={{ borderColor: bd, color: mt }}
-            >
-              <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
-          </div>
-          {users.length === 0 ? (
-            <div className="py-16 text-center">
-              <Users className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.1)' }} strokeWidth={1} />
-              <p className="text-sm font-light" style={{ color: mt }}>No hay usuarios registrados aún</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: bd }}>
-                    {['Código', 'Nombre', 'Correo', 'Teléfono', 'Registrado', ''].map(h => (
-                      <th
-                        key={h}
-                        className="text-left py-3 px-4 text-[10px] uppercase tracking-widest font-light"
-                        style={{ color: mt }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => (
-                    <tr key={user.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: bd }}>
-                      <td className="py-3 px-4 font-mono text-xs" style={{ color: mt }}>{user.code ?? '—'}</td>
-                      <td className="py-3 px-4 font-light text-white text-sm">{user.firstName} {user.lastName}</td>
-                      <td className="py-3 px-4 font-light text-sm" style={{ color: mt }}>{user.email}</td>
-                      <td className="py-3 px-4 font-light text-sm" style={{ color: mt }}>{user.phone}</td>
-                      <td className="py-3 px-4 font-light text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        {formatDate(user.registeredAt)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10"
-                          style={{ color: 'rgba(255,255,255,0.2)' }}
-                          onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#f87171')}
-                          onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.2)')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// CORREO FEST PANEL
-// ═══════════════════════════════════════════════════════════════════
-
-const CorreoFestPanel: React.FC = () => {
-  const [festUsers,     setFestUsers]     = useState<FestUser[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [mode,          setMode]          = useState<'all' | 'one'>('all');
-  const [selectedUser,  setSelectedUser]  = useState<FestUser | null>(null);
-  const [userSearch,    setUserSearch]    = useState('');
-  const [showDropdown,  setShowDropdown]  = useState(false);
-  const [subject,       setSubject]       = useState('');
-  const [body,          setBody]          = useState('');
-  const [fromName,      setFromName]      = useState('Moon Studios');
-  const [sending,       setSending]       = useState(false);
-  const [progress,      setProgress]      = useState({ current: 0, total: 0 });
-  const [done,          setDone]          = useState(false);
-  const [failedList,    setFailedList]    = useState<{ name: string; email: string }[]>([]);
-  const [formError,     setFormError]     = useState('');
-
-  const ejConfigured = !!(
-    EJ_SERVICE  && EJ_SERVICE  !== 'undefined' &&
-    EJ_TEMPLATE && EJ_TEMPLATE !== 'undefined' &&
-    EJ_KEY      && EJ_KEY      !== 'undefined'
-  );
-
-  useEffect(() => {
-    getDocs(USERS_COL)
-      .then(snap => setFestUsers(snap.docs.map(d => ({ ...d.data(), id: d.id }) as FestUser)))
-      .catch(e => { toast.error('Error cargando usuarios'); console.error(e); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const recipients      = mode === 'all' ? festUsers : selectedUser ? [selectedUser] : [];
-  const validRecipients = recipients.filter(u => u.email?.includes('@'));
-  const filtered        = festUsers.filter(u =>
-    `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
-
-  const handleSend = async () => {
-    setFormError(''); setFailedList([]); setDone(false);
-    if (!ejConfigured)            { setFormError('EmailJS no está configurado.'); return; }
-    if (!subject.trim())          { setFormError('El asunto es obligatorio.'); return; }
-    if (!body.trim())             { setFormError('El mensaje no puede estar vacío.'); return; }
-    if (validRecipients.length === 0) { setFormError('No hay destinatarios con email válido.'); return; }
-    if (!confirm(`¿Enviar a ${validRecipients.length} destinatario${validRecipients.length !== 1 ? 's' : ''}?`)) return;
-
-    setSending(true);
-    setProgress({ current: 0, total: validRecipients.length });
-    const failed: { name: string; email: string }[] = [];
-
-    for (let i = 0; i < validRecipients.length; i++) {
-      const user     = validRecipients[i];
-      const fullName = `${user.firstName} ${user.lastName}`.trim();
-      try {
-        await emailjs.send(EJ_SERVICE, EJ_TEMPLATE, {
-          to_email:  user.email,
-          to_name:   fullName || user.email,
-          subject:   subject.trim(),
-          message:   body.trim(),
-          from_name: fromName.trim() || 'Moon Studios',
-        }, EJ_KEY);
-      } catch (err) {
-        console.error(err);
-        failed.push({ name: fullName, email: user.email });
-      }
-      setProgress({ current: i + 1, total: validRecipients.length });
-      if (i < validRecipients.length - 1) {
-        await new Promise(r => setTimeout(r, 1000));
-      }
-    }
-
-    setSending(false);
-    setFailedList(failed);
-    setDone(true);
-    const sent = validRecipients.length - failed.length;
-    if (sent > 0) {
-      toast.success(`${sent} email${sent !== 1 ? 's' : ''} enviado${sent !== 1 ? 's' : ''}`);
-      setSubject(''); setBody(''); setSelectedUser(null);
-    }
-    if (failed.length > 0) toast.error(`${failed.length} fallo${failed.length !== 1 ? 's' : ''}`);
-  };
-
-  return (
-    <div className="space-y-5">
-      {!ejConfigured && (
-        <div
-          className="flex items-start gap-3 p-4 rounded-2xl"
-          style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)' }}
-        >
-          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} strokeWidth={1.5} />
-          <div className="space-y-1.5">
-            <p className="text-sm font-light" style={{ color: '#fbbf24' }}>EmailJS no configurado</p>
-            <div className="rounded-lg p-3 space-y-1" style={{ background: 'rgba(0,0,0,0.3)' }}>
-              {[
-                'VITE_EMAILJS_SERVICE_ID=service_xxxxxxx',
-                'VITE_EMAILJS_TEMPLATE_ID=template_xxxxxxx',
-                'VITE_EMAILJS_PUBLIC_KEY=xxxxxxxxxxxxxxx',
-              ].map(line => (
-                <p key={line} className="text-[11px] font-mono" style={{ color: 'rgba(251,191,36,0.5)' }}>{line}</p>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Destinatarios */}
-      <div className="rounded-2xl p-5 space-y-4" style={{ background: sf, border: `1px solid ${bd}` }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AtSign className="w-4 h-4" style={{ color: mt }} strokeWidth={1.5} />
-            <p className="text-sm font-light text-white">Destinatarios</p>
-          </div>
-          {!loading && (
-            <span className="text-xs font-light px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.05)', color: mt }}>
-              {festUsers.length} registrado{festUsers.length !== 1 ? 's' : ''} · {festUsers.filter(u => u.email?.includes('@')).length} con email
-            </span>
-          )}
-        </div>
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-          {([
-            { id: 'all' as const, label: 'Todos los registrados',    Icon: Users },
-            { id: 'one' as const, label: 'Un usuario específico',    Icon: UserCheck },
-          ]).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => { setMode(id); setSelectedUser(null); setUserSearch(''); }}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-light transition-all"
-              style={{
-                background: mode === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:      mode === id ? 'white' : mt,
-              }}
-            >
-              <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />{label}
-            </button>
-          ))}
-        </div>
-        {mode === 'all' && !loading && (
-          <div
-            className="flex items-center gap-2.5 px-4 py-3 rounded-xl"
-            style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.15)' }}
-          >
-            <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#4ade80' }} strokeWidth={1.5} />
-            <p className="text-xs font-light" style={{ color: '#4ade80' }}>
-              Se enviará a <strong>{validRecipients.length}</strong> correos válidos
-            </p>
-          </div>
-        )}
-        {mode === 'one' && (
-          <div className="relative">
-            {selectedUser ? (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: sc, border: `1px solid ${bd}` }}>
-                <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-sm font-light">{selectedUser.firstName?.[0]?.toUpperCase() ?? '?'}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-light truncate">{selectedUser.firstName} {selectedUser.lastName}</p>
-                  <p className="text-xs font-light truncate" style={{ color: mt }}>{selectedUser.email}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/10"
-                  style={{ color: mt }}
-                >
-                  <X className="w-3.5 h-3.5" strokeWidth={1.5} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: mt }} strokeWidth={1.5} />
-                  <input
-                    value={userSearch}
-                    onChange={e => { setUserSearch(e.target.value); setShowDropdown(true); }}
-                    onFocus={() => setShowDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                    placeholder="Buscar por nombre o email..."
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm font-light outline-none"
-                    style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
-                  />
-                </div>
-                {showDropdown && filtered.length > 0 && (
-                  <div
-                    className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-50 max-h-52 overflow-y-auto"
-                    style={{ background: 'hsl(var(--card))', border: `1px solid ${bd}`, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
-                  >
-                    {filtered.map(u => (
-                      <button
-                        key={u.id}
-                        onMouseDown={() => { setSelectedUser(u); setUserSearch(''); setShowDropdown(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.05]"
-                        style={{ borderBottom: `1px solid ${bd}` }}
-                      >
-                        <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs">{u.firstName?.[0]?.toUpperCase() ?? '?'}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-light truncate">{u.firstName} {u.lastName}</p>
-                          <p className="text-xs font-light truncate" style={{ color: mt }}>{u.email}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Remitente */}
-      <div className="rounded-2xl p-5 space-y-3" style={{ background: sf, border: `1px solid ${bd}` }}>
-        <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>Nombre del remitente</p>
-        <input
-          value={fromName}
-          onChange={e => setFromName(e.target.value)}
-          placeholder="Moon Studios"
-          maxLength={60}
-          className="w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none"
-          style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
-          onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
-          onBlur={e =>  (e.target.style.borderColor = bd)}
-        />
-      </div>
-
-      {/* Redactar */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: sf, border: `1px solid ${bd}` }}>
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b" style={{ borderColor: bd }}>
-          <Mail className="w-4 h-4" style={{ color: mt }} strokeWidth={1.5} />
-          <p className="text-sm font-light text-white">Redactar email</p>
-        </div>
-
-        {/* Asunto */}
-        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-          <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>Asunto</p>
-          <input
-            value={subject}
-            onChange={e => setSubject(e.target.value)}
-            maxLength={100}
-            placeholder="Ej: ¡Bienvenido al Moon Studios Fest 2026!"
-            className="w-full bg-transparent text-white text-sm font-light outline-none placeholder:opacity-25"
-          />
-          <div className="flex justify-end mt-2">
-            <span className="text-[10px] font-light" style={{ color: subject.length > 85 ? '#f87171' : 'rgba(255,255,255,0.15)' }}>
-              {subject.length}/100
-            </span>
-          </div>
-        </div>
-
-        {/* Mensaje */}
-        <div className="px-5 pt-4 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-          <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: mt }}>Mensaje</p>
-          <textarea
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            rows={8}
-            maxLength={3000}
-            placeholder="Escribe el contenido del email..."
-            className="w-full bg-transparent text-white text-sm font-light outline-none resize-none placeholder:opacity-20 leading-relaxed"
-          />
-          <div className="flex justify-end mt-1">
-            <span className="text-[10px] font-light" style={{ color: body.length > 2700 ? '#f87171' : 'rgba(255,255,255,0.15)' }}>
-              {body.length}/3000
-            </span>
-          </div>
-        </div>
-
-        {/* Progreso */}
-        {sending && progress.total > 0 && (
-          <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-light" style={{ color: mt }}>
-                Enviando {progress.current} de {progress.total}...
-              </span>
-              <span className="text-xs font-light" style={{ color: mt }}>
-                {Math.round((progress.current / progress.total) * 100)}%
-              </span>
-            </div>
-            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{ width: `${(progress.current / progress.total) * 100}%`, background: '#818cf8' }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Resultado */}
-        {done && !sending && (
-          <div className="px-5 py-4 border-b space-y-2" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3.5 h-3.5" style={{ color: '#4ade80' }} strokeWidth={1.5} />
-              <p className="text-xs font-light" style={{ color: '#4ade80' }}>
-                {progress.total - failedList.length} email{progress.total - failedList.length !== 1 ? 's' : ''} enviado{progress.total - failedList.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-            {failedList.length > 0 && (
-              <div
-                className="rounded-xl p-3 space-y-1.5"
-                style={{ background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)' }}
-              >
-                <p className="text-xs font-light" style={{ color: '#f87171' }}>
-                  {failedList.length} fallo{failedList.length !== 1 ? 's' : ''}:
-                </p>
-                {failedList.map((e, i) => (
-                  <p key={i} className="text-[11px] font-mono" style={{ color: 'rgba(248,113,113,0.65)' }}>
-                    {e.name} — {e.email}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Footer con botón enviar */}
-        <div className="flex items-center justify-between px-5 py-4">
-          <div>
-            {formError && (
-              <div className="flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#f87171' }} strokeWidth={1.5} />
-                <p className="text-xs font-light" style={{ color: '#f87171' }}>{formError}</p>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={sending || validRecipients.length === 0 || !subject.trim() || !body.trim() || !ejConfigured}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-light transition-all disabled:opacity-40 hover:opacity-90"
-            style={{ background: '#fff', color: '#000' }}
-          >
-            {sending
-              ? <><Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />Enviando {progress.current}/{progress.total}</>
-              : <><Send className="w-4 h-4" strokeWidth={1.5} />Enviar{validRecipients.length > 0 ? ` (${validRecipients.length})` : ''}</>}
-          </button>
-        </div>
-      </div>
-      <p className="text-[11px] font-light text-center" style={{ color: 'rgba(255,255,255,0.15)' }}>
-        Plan gratuito EmailJS: 200 emails/mes · Los emails llegan directamente al Gmail del registrado
-      </p>
     </div>
   );
 };
@@ -2280,7 +1642,7 @@ const INC_STATUS: Record<EstadoIncidente, { label: string; color: string; bg: st
 };
 
 const INC_IMPACT: Record<ImpactoTipo, { label: string; color: string }> = {
-  ninguno: { label: 'Sin impacto',     color: 'rgba(255,255,255,0.3)' },
+  ninguno: { label: 'Sin impacto',     color: 'var(--moon-muted)' },
   menor:   { label: 'Impacto menor',   color: '#facc15'               },
   mayor:   { label: 'Impacto mayor',   color: '#fb923c'               },
   crítico: { label: 'Impacto crítico', color: '#f87171'               },
@@ -2317,17 +1679,17 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   const isResolved = inc.status === 'resuelto';
 
   return (
-    <div
+    <div data-moon-reveal="card"
       className="rounded-2xl overflow-hidden"
       style={{
         border:     `1px solid ${isResolved ? bd : sCfg.color + '30'}`,
-        background: isResolved ? 'rgba(255,255,255,0.015)' : sCfg.bg,
+        background: isResolved ? 'color-mix(in srgb, var(--moon-ink) 1.5%, transparent)' : sCfg.bg,
       }}
     >
       {/* Fila header */}
       <button
         onClick={onToggle}
-        className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all hover:bg-white/[0.03]"
+        className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all moon-panel-hover"
       >
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${!isResolved ? 'animate-pulse' : ''}`}
@@ -2335,12 +1697,12 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
         />
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="text-sm font-light text-white">{inc.title}</span>
+            <span className="text-sm font-light moon-panel-ink">{inc.title}</span>
             <span
               className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide"
               style={{
                 background: iCfg.color + '18',
-                color:      iCfg.color,
+                color:      panelInk(iCfg.color),
                 border:     `1px solid ${iCfg.color}35`,
               }}
             >
@@ -2348,11 +1710,11 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: sCfg.color }}>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: panelInk(sCfg.color) }}>
               {sCfg.label}
             </span>
-            <span className="w-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }} />
-            <span className="text-[11px] font-light" style={{ color: mt }}>{fmtRel(inc.createdAt)}</span>
+            <span className="w-1 h-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--moon-ink) 20%, transparent)' }} />
+            <span className="text-[11px] font-light" style={{ color: panelInk(mt) }}>{fmtRel(inc.createdAt)}</span>
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -2368,7 +1730,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
           </button>
           <ChevronDown
             className="w-4 h-4 transition-transform"
-            style={{ color: mt, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            style={{ color: panelInk(mt), transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
             strokeWidth={1.5}
           />
         </div>
@@ -2376,7 +1738,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
 
       {/* Contenido expandido */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid color-mix(in srgb, var(--moon-ink) 5%, transparent)' }}>
 
           {/* Timeline de actualizaciones */}
           {inc.updates.length > 0 && (
@@ -2388,17 +1750,17 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                     <div className="flex flex-col items-center pt-0.5">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: uCfg.color }} />
                       {i < inc.updates.length - 1 && (
-                        <div className="w-px flex-1 mt-1.5" style={{ background: 'rgba(255,255,255,0.06)', minHeight: 12 }} />
+                        <div className="w-px flex-1 mt-1.5" style={{ background: 'color-mix(in srgb, var(--moon-ink) 6%, transparent)', minHeight: 12 }} />
                       )}
                     </div>
                     <div className="flex-1 pb-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: uCfg.color }}>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: panelInk(uCfg.color) }}>
                           {uCfg.label}
                         </span>
-                        <span className="text-[10px] font-light" style={{ color: mt }}>{fmtRel(u.createdAt)}</span>
+                        <span className="text-[10px] font-light" style={{ color: panelInk(mt) }}>{fmtRel(u.createdAt)}</span>
                       </div>
-                      <p className="text-xs font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      <p className="text-xs font-light leading-relaxed" style={{ color: 'var(--moon-muted)' }}>
                         {u.body}
                       </p>
                     </div>
@@ -2410,8 +1772,8 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
 
           {/* Formulario de actualización (solo si no está resuelto) */}
           {!isResolved && (
-            <div className="space-y-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-              <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>
+            <div className="space-y-2.5 pt-2" style={{ borderTop: '1px solid color-mix(in srgb, var(--moon-ink) 5%, transparent)' }}>
+              <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>
                 Añadir actualización
               </p>
               <select
@@ -2432,15 +1794,15 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                 placeholder="Describe el progreso del incidente…"
                 className="w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none resize-none transition-all"
                 style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+                onFocus={e => (e.target.style.borderColor = 'color-mix(in srgb, var(--moon-ink) 20%, transparent)')}
                 onBlur={e =>  (e.target.style.borderColor = bd)}
               />
               <div className="flex justify-end">
                 <button
                   onClick={onAddUpdate}
                   disabled={updating || !updateForm.message.trim()}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all hover:opacity-90 disabled:opacity-40"
-                  style={{ background: '#fff', color: '#000' }}
+                  className="moon-panel-primary flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-light transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}
                 >
                   {updating
                     ? <><Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />Publicando...</>
@@ -2452,7 +1814,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
 
           {/* Fecha de resolución */}
           {isResolved && inc.resolvedAt && (
-            <p className="text-[11px] font-light pt-2" style={{ color: mt, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="text-[11px] font-light pt-2" style={{ color: panelInk(mt), borderTop: '1px solid color-mix(in srgb, var(--moon-ink) 5%, transparent)' }}>
               Resuelto el {new Date(inc.resolvedAt).toLocaleString('es-ES', {
                 day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
               })}
@@ -2581,8 +1943,8 @@ const IncidentsPanel: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-light text-white">Sistema de Incidentes</p>
-          <p className="text-xs font-light mt-0.5" style={{ color: mt }}>
+          <p className="text-sm font-light moon-panel-ink">Sistema de Incidentes</p>
+          <p className="text-xs font-light mt-0.5" style={{ color: panelInk(mt) }}>
             {activos.length > 0
               ? `${activos.length} incidente${activos.length > 1 ? 's' : ''} activo${activos.length > 1 ? 's' : ''}`
               : 'Sin incidentes activos · todos los sistemas OK'}
@@ -2591,8 +1953,8 @@ const IncidentsPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={loadIncidents}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             title="Recargar"
           >
             <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -2603,7 +1965,7 @@ const IncidentsPanel: React.FC = () => {
             style={{
               background: showNew ? 'transparent' : 'rgba(248,113,113,0.08)',
               border:     `1px solid ${showNew ? bd : 'rgba(248,113,113,0.3)'}`,
-              color:      showNew ? mt : '#f87171',
+              color:      panelInk(showNew ? mt : '#f87171'),
             }}
           >
             {showNew
@@ -2620,7 +1982,7 @@ const IncidentsPanel: React.FC = () => {
           className="space-y-3 p-4 rounded-2xl"
           style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.2)' }}
         >
-          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: '#f87171' }}>
+          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk('#f87171') }}>
             Declarar incidente
           </p>
           <Field label="Título *">
@@ -2654,15 +2016,15 @@ const IncidentsPanel: React.FC = () => {
               placeholder="Estamos investigando este incidente."
               className="w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none resize-none transition-all"
               style={{ background: sc, border: `1px solid ${bd}`, color: 'hsl(var(--foreground))' }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+              onFocus={e => (e.target.style.borderColor = 'color-mix(in srgb, var(--moon-ink) 20%, transparent)')}
               onBlur={e =>  (e.target.style.borderColor = bd)}
             />
           </Field>
           <div className="flex justify-end gap-2">
             <button
               onClick={() => setShowNew(false)}
-              className="px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-              style={{ border: `1px solid ${bd}`, color: mt }}
+              className="px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+              style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             >
               Cancelar
             </button>
@@ -2690,11 +2052,11 @@ const IncidentsPanel: React.FC = () => {
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}
           >
-            <CheckCircle className="w-5 h-5" style={{ color: '#4ade80' }} strokeWidth={1.5} />
+            <CheckCircle className="w-5 h-5" style={{ color: panelInk('#4ade80') }} strokeWidth={1.5} />
           </div>
           <div className="text-center">
-            <p className="text-sm font-light text-white">Todos los sistemas operativos</p>
-            <p className="text-xs font-light mt-0.5" style={{ color: mt }}>No hay incidentes activos</p>
+            <p className="text-sm font-light moon-panel-ink">Todos los sistemas operativos</p>
+            <p className="text-xs font-light mt-0.5" style={{ color: panelInk(mt) }}>No hay incidentes activos</p>
           </div>
         </div>
       )}
@@ -2702,7 +2064,7 @@ const IncidentsPanel: React.FC = () => {
       {/* Incidentes activos */}
       {activos.length > 0 && (
         <div className="space-y-2.5">
-          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: '#f87171' }}>
+          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk('#f87171') }}>
             ● Activos ({activos.length})
           </p>
           {activos.map(inc => (
@@ -2728,7 +2090,7 @@ const IncidentsPanel: React.FC = () => {
       {/* Incidentes resueltos */}
       {resueltos.length > 0 && (
         <div className="space-y-2.5">
-          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>
+          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>
             ✓ Resueltos ({resueltos.length})
           </p>
           {resueltos.slice(0, 15).map(inc => (
@@ -2802,7 +2164,7 @@ const EquipoForm: React.FC<EquipoFormProps> = ({ form, setForm, saving, editingI
         />
       </Field>
 
-      <p className="text-[10px] uppercase tracking-widest font-light pt-1" style={{ color: mt }}>
+      <p className="text-[10px] uppercase tracking-widest font-light pt-1" style={{ color: panelInk(mt) }}>
         Redes / Contacto (opcional)
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2826,8 +2188,8 @@ const EquipoForm: React.FC<EquipoFormProps> = ({ form, setForm, saving, editingI
       <div className="flex gap-2 justify-end pt-2">
         <button
           onClick={onCancel}
-          className="px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-          style={{ border: `1px solid ${bd}`, color: mt }}
+          className="px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
         >
           Cancelar
         </button>
@@ -2983,16 +2345,16 @@ const EquipoPanel: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-light text-white">Equipo de Moon Studios</p>
-          <p className="text-xs font-light mt-0.5" style={{ color: mt }}>
+          <p className="text-sm font-light moon-panel-ink">Equipo de Moon Studios</p>
+          <p className="text-xs font-light mt-0.5" style={{ color: panelInk(mt) }}>
             Se muestra en la sección "Equipo" de la web pública
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadEquipo}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             title="Recargar"
           >
             <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -3001,9 +2363,9 @@ const EquipoPanel: React.FC = () => {
             onClick={showNew ? cancelForm : openNew}
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all"
             style={{
-              background: showNew ? 'transparent' : 'rgba(255,255,255,0.07)',
-              border:     `1px solid ${showNew ? bd : 'rgba(255,255,255,0.15)'}`,
-              color:      showNew ? mt : 'white',
+              background: showNew ? 'transparent' : 'color-mix(in srgb, var(--moon-ink) 7%, transparent)',
+              border:     `1px solid ${showNew ? bd : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)'}`,
+              color:      panelInk(showNew ? mt : 'var(--moon-ink)'),
             }}
           >
             {showNew
@@ -3014,8 +2376,8 @@ const EquipoPanel: React.FC = () => {
       </div>
 
       {showNew && (
-        <div className="rounded-2xl p-5" style={{ background: sf, border: `1px solid rgba(255,255,255,0.12)` }}>
-          <p className="text-xs font-light text-white">Nuevo integrante</p>
+        <div data-moon-reveal="card" className="rounded-2xl p-5" style={{ background: sf, border: `1px solid color-mix(in srgb, var(--moon-ink) 12%, transparent)` }}>
+          <p className="text-xs font-light moon-panel-ink">Nuevo integrante</p>
           <EquipoForm
             form={form} setForm={setForm} saving={saving}
             editingId={editingId} onCancel={cancelForm} onSave={handleSave}
@@ -3025,23 +2387,23 @@ const EquipoPanel: React.FC = () => {
 
       {miembros.length === 0 && !showNew ? (
         <div className="text-center py-12 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <UserCheck className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-          <p className="text-sm font-light" style={{ color: mt }}>Aún no hay integrantes. Agrega el primero.</p>
+          <UserCheck className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+          <p className="text-sm font-light" style={{ color: panelInk(mt) }}>Aún no hay integrantes. Agrega el primero.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {miembros.map((m, idx) => {
             const isEditing = editingId === m.id;
             return (
-              <div
+              <div data-moon-reveal="card"
                 key={m.id}
                 className="rounded-2xl overflow-hidden transition-all"
-                style={{ background: sf, border: `1px solid ${isEditing ? 'rgba(255,255,255,0.15)' : bd}` }}
+                style={{ background: sf, border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' : bd}` }}
               >
                 <div className="flex items-center gap-3 px-4 py-3">
                   <div
                     className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${bd}` }}
+                    style={{ background: 'color-mix(in srgb, var(--moon-ink) 4%, transparent)', border: `1px solid ${bd}` }}
                   >
                     {m.foto
                       ? <img
@@ -3049,21 +2411,21 @@ const EquipoPanel: React.FC = () => {
                           className="w-full h-full object-cover"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
-                      : <UserCheck className="w-4 h-4" style={{ color: mt }} strokeWidth={1.5} />}
+                      : <UserCheck className="w-4 h-4" style={{ color: panelInk(mt) }} strokeWidth={1.5} />}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-light truncate">{m.nombre}</p>
-                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    <p className="moon-panel-ink text-sm font-light truncate">{m.nombre}</p>
+                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                       {m.rol}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: m.active ? '#4ade80' : 'rgba(255,255,255,0.15)' }} />
+                      style={{ background: m.active ? '#4ade80' : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' }} />
                     <span className="text-[9px] font-light"
-                      style={{ color: m.active ? '#4ade80' : mt }}>
+                      style={{ color: panelInk(m.active ? '#4ade80' : mt) }}>
                       {m.active ? 'Visible' : 'Oculto'}
                     </span>
                   </div>
@@ -3071,32 +2433,32 @@ const EquipoPanel: React.FC = () => {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => moveOrder(m, 'up')} disabled={idx === 0}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowUp className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => moveOrder(m, 'down')} disabled={idx === miembros.length - 1}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowDown className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => toggleActive(m)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
-                      style={{ border: `1px solid ${bd}`, color: m.active ? '#4ade80' : mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(m.active ? '#4ade80' : mt) }}
                       title={m.active ? 'Ocultar' : 'Mostrar'}
                     >
                       <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => isEditing ? cancelForm() : openEdit(m)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
                       style={{
-                        border: `1px solid ${isEditing ? 'rgba(255,255,255,0.2)' : bd}`,
-                        color:  isEditing ? 'white' : mt,
+                        border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 20%, transparent)' : bd}`,
+                        color:  panelInk(isEditing ? 'var(--moon-ink)' : mt),
                       }}
                     >
                       {isEditing
@@ -3106,7 +2468,7 @@ const EquipoPanel: React.FC = () => {
                     <button
                       onClick={() => handleDelete(m.id!, m.nombre)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10 hover:border-red-500/30"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
@@ -3200,14 +2562,14 @@ const PortfolioForm: React.FC<PortfolioFormProps> = ({ form, setForm, saving, ed
       <div
         className="flex items-center gap-3 p-3.5 rounded-xl transition-all"
         style={{
-          background: form.destacado ? 'rgba(250,204,21,0.06)' : 'rgba(255,255,255,0.01)',
+          background: form.destacado ? 'rgba(250,204,21,0.06)' : 'color-mix(in srgb, var(--moon-ink) 1%, transparent)',
           border: `1px solid ${form.destacado ? 'rgba(250,204,21,0.25)' : bd}`,
         }}
       >
-        <Star className="w-4 h-4 flex-shrink-0" style={{ color: form.destacado ? '#facc15' : mt }} strokeWidth={1.5} />
+        <Star className="w-4 h-4 flex-shrink-0" style={{ color: panelInk(form.destacado ? '#facc15' : mt) }} strokeWidth={1.5} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-light" style={{ color: form.destacado ? 'white' : mt }}>Destacado</p>
-          <p className="text-[11px] font-light mt-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
+          <p className="text-sm font-light" style={{ color: panelInk(form.destacado ? 'var(--moon-ink)' : mt) }}>Destacado</p>
+          <p className="text-[11px] font-light mt-0.5" style={{ color: 'var(--moon-muted)' }}>
             Aparece en el teaser de "Trabajos recientes" del Home
           </p>
         </div>
@@ -3216,16 +2578,16 @@ const PortfolioForm: React.FC<PortfolioFormProps> = ({ form, setForm, saving, ed
           className="flex-shrink-0 transition-transform hover:scale-110"
         >
           {form.destacado
-            ? <ToggleRight className="w-5 h-5" style={{ color: '#facc15' }} />
-            : <ToggleLeft  className="w-5 h-5" style={{ color: mt }} />}
+            ? <ToggleRight className="w-5 h-5" style={{ color: panelInk('#facc15') }} />
+            : <ToggleLeft  className="w-5 h-5" style={{ color: panelInk(mt) }} />}
         </button>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
         <button
           onClick={onCancel}
-          className="px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5"
-          style={{ border: `1px solid ${bd}`, color: mt }}
+          className="px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover"
+          style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
         >
           Cancelar
         </button>
@@ -3381,16 +2743,16 @@ const PortfolioPanel: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-light text-white">Portafolio de Moon Studios</p>
-          <p className="text-xs font-light mt-0.5" style={{ color: mt }}>
+          <p className="text-sm font-light moon-panel-ink">Portafolio de Moon Studios</p>
+          <p className="text-xs font-light mt-0.5" style={{ color: panelInk(mt) }}>
             Se muestra en "Trabajos recientes" del Home y en /proyectos
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadItems}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/5"
-            style={{ border: `1px solid ${bd}`, color: mt }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all moon-panel-hover"
+            style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
             title="Recargar"
           >
             <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -3399,9 +2761,9 @@ const PortfolioPanel: React.FC = () => {
             onClick={showNew ? cancelForm : openNew}
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light transition-all"
             style={{
-              background: showNew ? 'transparent' : 'rgba(255,255,255,0.07)',
-              border:     `1px solid ${showNew ? bd : 'rgba(255,255,255,0.15)'}`,
-              color:      showNew ? mt : 'white',
+              background: showNew ? 'transparent' : 'color-mix(in srgb, var(--moon-ink) 7%, transparent)',
+              border:     `1px solid ${showNew ? bd : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)'}`,
+              color:      panelInk(showNew ? mt : 'var(--moon-ink)'),
             }}
           >
             {showNew
@@ -3412,8 +2774,8 @@ const PortfolioPanel: React.FC = () => {
       </div>
 
       {showNew && (
-        <div className="rounded-2xl p-5" style={{ background: sf, border: `1px solid rgba(255,255,255,0.12)` }}>
-          <p className="text-xs font-light text-white">Nuevo proyecto</p>
+        <div data-moon-reveal="card" className="rounded-2xl p-5" style={{ background: sf, border: `1px solid color-mix(in srgb, var(--moon-ink) 12%, transparent)` }}>
+          <p className="text-xs font-light moon-panel-ink">Nuevo proyecto</p>
           <PortfolioForm
             form={form} setForm={setForm} saving={saving}
             editingId={editingId} onCancel={cancelForm} onSave={handleSave}
@@ -3423,23 +2785,23 @@ const PortfolioPanel: React.FC = () => {
 
       {items.length === 0 && !showNew ? (
         <div className="text-center py-12 rounded-2xl" style={{ background: sf, border: `1px solid ${bd}` }}>
-          <Briefcase className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.08)' }} strokeWidth={1} />
-          <p className="text-sm font-light" style={{ color: mt }}>Aún no hay proyectos. Agrega el primero.</p>
+          <Briefcase className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+          <p className="text-sm font-light" style={{ color: panelInk(mt) }}>Aún no hay proyectos. Agrega el primero.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {items.map((p, idx) => {
             const isEditing = editingId === p.id;
             return (
-              <div
+              <div data-moon-reveal="card"
                 key={p.id}
                 className="rounded-2xl overflow-hidden transition-all"
-                style={{ background: sf, border: `1px solid ${isEditing ? 'rgba(255,255,255,0.15)' : bd}` }}
+                style={{ background: sf, border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' : bd}` }}
               >
                 <div className="flex items-center gap-3 px-4 py-3">
                   <div
                     className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${bd}` }}
+                    style={{ background: 'color-mix(in srgb, var(--moon-ink) 4%, transparent)', border: `1px solid ${bd}` }}
                   >
                     {p.imagen
                       ? <img
@@ -3447,30 +2809,30 @@ const PortfolioPanel: React.FC = () => {
                           className="w-full h-full object-cover"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
-                      : <Image className="w-4 h-4" style={{ color: mt }} strokeWidth={1.5} />}
+                      : <Image className="w-4 h-4" style={{ color: panelInk(mt) }} strokeWidth={1.5} />}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-white text-sm font-light truncate">{p.titulo}</p>
-                      {p.destacado && <Star className="w-3 h-3 flex-shrink-0" style={{ color: '#facc15' }} strokeWidth={1.5} />}
+                      <p className="moon-panel-ink text-sm font-light truncate">{p.titulo}</p>
+                      {p.destacado && <Star className="w-3 h-3 flex-shrink-0" style={{ color: panelInk('#facc15') }} strokeWidth={1.5} />}
                       <span
                         className="text-[9px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: mt }}
+                        style={{ background: 'color-mix(in srgb, var(--moon-ink) 5%, transparent)', color: panelInk(mt) }}
                       >
                         {p.tag}
                       </span>
                     </div>
-                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                    <p className="text-[10px] font-light truncate mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                       {p.categoria} · {p.year}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: p.active ? '#4ade80' : 'rgba(255,255,255,0.15)' }} />
+                      style={{ background: p.active ? '#4ade80' : 'color-mix(in srgb, var(--moon-ink) 15%, transparent)' }} />
                     <span className="text-[9px] font-light"
-                      style={{ color: p.active ? '#4ade80' : mt }}>
+                      style={{ color: panelInk(p.active ? '#4ade80' : mt) }}>
                       {p.active ? 'Activo' : 'Oculto'}
                     </span>
                   </div>
@@ -3478,22 +2840,22 @@ const PortfolioPanel: React.FC = () => {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => moveOrder(p, 'up')} disabled={idx === 0}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowUp className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => moveOrder(p, 'down')} disabled={idx === items.length - 1}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 disabled:opacity-20"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover disabled:opacity-20"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <ArrowDown className="w-3 h-3" strokeWidth={1.5} />
                     </button>
                     <button
                       onClick={() => toggleActive(p)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
-                      style={{ border: `1px solid ${bd}`, color: p.active ? '#4ade80' : mt }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                      style={{ border: `1px solid ${bd}`, color: panelInk(p.active ? '#4ade80' : mt) }}
                       title={p.active ? 'Ocultar' : 'Mostrar'}
                     >
                       <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -3501,18 +2863,18 @@ const PortfolioPanel: React.FC = () => {
                     {p.link && (
                       <a
                         href={p.link} target="_blank" rel="noopener noreferrer"
-                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
-                        style={{ border: `1px solid ${bd}`, color: mt }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
+                        style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                       >
                         <ExtLink className="w-3 h-3" strokeWidth={1.5} />
                       </a>
                     )}
                     <button
                       onClick={() => isEditing ? cancelForm() : openEdit(p)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
                       style={{
-                        border: `1px solid ${isEditing ? 'rgba(255,255,255,0.2)' : bd}`,
-                        color:  isEditing ? 'white' : mt,
+                        border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--moon-ink) 20%, transparent)' : bd}`,
+                        color:  panelInk(isEditing ? 'var(--moon-ink)' : mt),
                       }}
                     >
                       {isEditing
@@ -3522,7 +2884,7 @@ const PortfolioPanel: React.FC = () => {
                     <button
                       onClick={() => handleDelete(p.id!, p.titulo)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10 hover:border-red-500/30"
-                      style={{ border: `1px solid ${bd}`, color: mt }}
+                      style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}
                     >
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
@@ -3551,9 +2913,8 @@ const PortfolioPanel: React.FC = () => {
 // ═══════════════════════════════════════════════════════════════════
 
 type TabId =
-  | 'resumen' | 'portal' | 'socios' | 'portafolio' | 'equipo'
-  | 'luna' | 'webluna' | 'legal' | 'eventos' | 'incidentes'
-  | 'sitios' | 'correo';
+  | 'resumen' | 'webmoon' | 'portal' | 'socios' | 'portafolio' | 'equipo'
+  | 'luna' | 'webluna' | 'legal' | 'eventos' | 'incidentes';
 
 interface Seccion { id: TabId; label: string; desc: string; Icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }
 interface Grupo { titulo: string; sitio?: string; items: Seccion[] }
@@ -3564,6 +2925,7 @@ const GRUPOS: Grupo[] = [
     { id: 'resumen', label: 'Resumen', desc: 'Los tres sitios de un vistazo y lo que espera respuesta.', Icon: LayoutDashboard },
   ] },
   { titulo: 'Moon Studios', sitio: 'https://moon-studios.netlify.app', items: [
+    { id: 'webmoon',    label: 'Editor de la web', desc: 'Contenido, animaciones, secciones, vista previa y publicación de Moon Studios.', Icon: Sparkles },
     { id: 'portal',     label: 'Solicitudes',  desc: 'Cotizaciones, tickets, alianzas y soporte del portal de clientes.', Icon: FileText },
     { id: 'socios',     label: 'Socios',       desc: 'Socios capitalistas: revisar, aprobar, confirmar pagos y dejar notas.', Icon: Building2 },
     { id: 'portafolio', label: 'Portafolio',   desc: 'Los proyectos que se muestran en la web y en /proyectos.', Icon: Briefcase },
@@ -3576,21 +2938,21 @@ const GRUPOS: Grupo[] = [
     { id: 'eventos',    label: 'Eventos',      desc: 'Eventos de temporada: contenido, imágenes y fechas.', Icon: CalendarDays },
     { id: 'incidentes', label: 'Incidentes',   desc: 'El estado del sistema que ven los usuarios.', Icon: AlertTriangle },
   ] },
-  { titulo: 'Moon Fest 2026', sitio: 'https://moon-studios-fest.netlify.app', items: [
-    { id: 'sitios',     label: 'Sitio e inscritos', desc: 'Configuración del evento y la lista de inscritos.', Icon: Globe },
-    { id: 'correo',     label: 'Correo masivo',     desc: 'Correos a los inscritos de Moon Fest.', Icon: Mail },
-  ] },
 ];
 const SECCIONES = GRUPOS.flatMap(g => g.items.map(it => ({ ...it, grupo: g })));
 const CLAVE_SECCION = 'webs-seccion';
 
 const Webs: React.FC = () => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [sectionSearch, setSectionSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     try { const v = localStorage.getItem(CLAVE_SECCION) as TabId | null; if (v && SECCIONES.some(x => x.id === v)) return v; } catch { /* sin almacenamiento */ }
     return 'resumen';
   });
   const [datos, setDatos] = useState<DatosWebs | null>(null);
   const actual = SECCIONES.find(x => x.id === activeTab) ?? SECCIONES[0];
+  const sectionTerm = sectionSearch.trim().toLocaleLowerCase('es');
+  const matchingGroups = GRUPOS.map(group => ({ ...group, items: group.items.filter(item => !sectionTerm || `${group.titulo} ${item.label} ${item.desc}`.toLocaleLowerCase('es').includes(sectionTerm)) })).filter(group => group.items.length > 0);
 
   // Lo que alimenta el resumen y las insignias del menú.
   const recargar = useCallback(() => { cargarDatosWebs(lunaFetch).then(setDatos).catch(e => console.error('Webs:', e)); }, []);
@@ -3601,6 +2963,7 @@ const Webs: React.FC = () => {
     setActiveTab(id as TabId);
     try { localStorage.setItem(CLAVE_SECCION, id); } catch { /* da igual */ }
     if (id === 'resumen') recargar();
+    if (window.innerWidth <= 1100) requestAnimationFrame(() => contentRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' }));
   };
 
   const insignia: Partial<Record<TabId, number>> = {
@@ -3609,7 +2972,7 @@ const Webs: React.FC = () => {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="moon-module moon-module--webs">
       <style>{CSS_WEBS}</style>
       <div className="wb">
         <nav className="wb-nav" aria-label="Secciones de Webs">
@@ -3617,7 +2980,9 @@ const Webs: React.FC = () => {
             <span className="wb-avatar" style={{ borderRadius: 11 }}><Globe className="w-4 h-4" strokeWidth={1.5} /></span>
             <div><b>Webs</b><small>Administración de los sitios</small></div>
           </div>
-          {GRUPOS.map(g => (
+          <div className="enterprise-web-search"><Search aria-hidden="true" /><input aria-label="Buscar sección de sitios" value={sectionSearch} onChange={e => setSectionSearch(e.target.value)} placeholder="Buscar sección…" /></div>
+          {matchingGroups.length === 0 && <p className="enterprise-web-empty">No hay secciones con ese nombre.</p>}
+          {matchingGroups.map(g => (
             <div key={g.titulo} className="wb-grupo">
               <div className="wb-grupo-titulo">
                 {g.titulo}
@@ -3633,11 +2998,11 @@ const Webs: React.FC = () => {
           ))}
         </nav>
 
-        <div className="wb-cuerpo">
-          <header className="wb-cab">
+        <div className="wb-cuerpo" ref={contentRef}>
+          <header data-moon-reveal="heading" className="moon-module-heading wb-cab">
             <div style={{ minWidth: 0 }}>
               <div className="wb-ruta">Webs<Flecha className="w-3 h-3" />{actual.grupo.titulo}</div>
-              <h1><actual.Icon className="w-5 h-5" strokeWidth={1.5} />{actual.label}</h1>
+              <h1 className="moon-page-title"><actual.Icon className="w-5 h-5" strokeWidth={1.5} />{actual.label}</h1>
               <p>{actual.desc}</p>
             </div>
             {actual.grupo.sitio && (
@@ -3647,7 +3012,12 @@ const Webs: React.FC = () => {
             )}
           </header>
 
-          <div key={activeTab} className={`wb-panel${activeTab === 'resumen' || activeTab === 'socios' ? ' wb-panel-limpio' : ''}`}>
+          <div hidden={activeTab !== 'webmoon'} className="wb-panel">
+            <ProteccionErrores nombre="Editor de la web Moon Studios">
+              <WebMoonPanel ir={ir} />
+            </ProteccionErrores>
+          </div>
+          <div hidden={activeTab === 'webmoon'} key={activeTab} className={`wb-panel${activeTab === 'resumen' || activeTab === 'socios' ? ' wb-panel-limpio' : ''}`}>
             {/* Si un panel se rompe, solo ese muestra el error (antes la app quedaba en negro). */}
             <ProteccionErrores nombre={activeTab}>
               {activeTab === 'resumen'    && <ResumenWebs datos={datos} ir={ir} />}
@@ -3660,8 +3030,6 @@ const Webs: React.FC = () => {
               {activeTab === 'legal'      && <LegalLunaPanel lunaFetch={lunaFetch} />}
               {activeTab === 'eventos'    && <EventosLunaPanel lunaFetch={lunaFetch} lunaSubir={lunaSubir} />}
               {activeTab === 'incidentes' && <IncidentsPanel />}
-              {activeTab === 'sitios'     && <MoonFestPanel />}
-              {activeTab === 'correo'     && <CorreoFestPanel />}
             </ProteccionErrores>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useState } from 'react';
 import {
   Building2, Target, BookOpen, Milestone, Gem, Users, ExternalLink, BarChart3,
@@ -36,10 +37,10 @@ export const EmpresaEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Empresa; o
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[11px] font-light" style={{ color: mt }}>
+        <p className="text-[11px] font-light" style={{ color: panelInk(mt) }}>
           {original.predeterminado ? 'Contenido predeterminado (nunca se editó)' : `Editado · ${fechaHora(original.actualizadoEn)}`}
         </p>
-        <a href={`${WEB}/about`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all hover:text-white" style={{ color: mt }}>
+        <a href={`${WEB}/about`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all moon-panel-hover" style={{ color: panelInk(mt) }}>
           <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver /about en la web
         </a>
       </div>
@@ -111,9 +112,9 @@ export const EmpresaEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Empresa; o
                     <div className="flex flex-wrap gap-1.5">
                       {ICONOS_VALOR.map(({ id, label, Icon }) => (
                         <button key={id} type="button" title={label} aria-label={label} onClick={() => c(x => { x.icono = id; })}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/5"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center transition-all moon-panel-hover"
                           style={{ border: `1px solid ${v.icono === id ? 'rgba(244,114,182,0.6)' : bd}`, background: v.icono === id ? 'rgba(244,114,182,0.1)' : 'transparent' }}>
-                          <Icon className="w-4 h-4" strokeWidth={1.5} style={{ color: v.icono === id ? '#f472b6' : mt }} />
+                          <Icon className="w-4 h-4" strokeWidth={1.5} style={{ color: panelInk(v.icono === id ? '#f472b6' : mt) }} />
                         </button>
                       ))}
                     </div>
@@ -131,10 +132,10 @@ export const EmpresaEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Empresa; o
               titulo={m => [m.nombre, m.rol].filter(Boolean).join(' · ')}
               render={(m, c) => (
                 <div className="flex gap-3">
-                  <div className="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ border: `1px solid ${bd}`, background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ border: `1px solid ${bd}`, background: 'color-mix(in srgb, var(--moon-ink) 3%, transparent)' }}>
                     {m.avatar && /^https:\/\//.test(m.avatar)
                       ? <img src={m.avatar} alt="" className="w-full h-full object-cover" />
-                      : <UserRound className="w-6 h-6" strokeWidth={1.25} style={{ color: mt }} />}
+                      : <UserRound className="w-6 h-6" strokeWidth={1.25} style={{ color: panelInk(mt) }} />}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-w-0">
                     <div><Etiqueta>Nombre</Etiqueta><Entrada value={m.nombre} maxLength={60} onChange={e => c(x => { x.nombre = e.target.value; })} /></div>
@@ -148,8 +149,8 @@ export const EmpresaEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Empresa; o
         </>
       )}
 
-      <div className="flex items-start gap-2 px-3.5 py-3 rounded-xl text-[11px] font-light leading-relaxed" style={{ border: `1px solid ${bd}`, color: mt }}>
-        <BarChart3 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#a5b4fc' }} strokeWidth={1.5} />
+      <div className="flex items-start gap-2 px-3.5 py-3 rounded-xl text-[11px] font-light leading-relaxed" style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}>
+        <BarChart3 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: panelInk('#a5b4fc') }} strokeWidth={1.5} />
         <span>Las funciones de Luna que aparecen en la página (seguridad, música, eventos…) salen de la wiki y se actualizan con cada versión de la web.</span>
       </div>
 

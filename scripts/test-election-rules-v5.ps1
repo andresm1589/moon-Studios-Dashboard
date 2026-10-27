@@ -1,0 +1,332 @@
+param([switch]$RefreshBaseline)
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'election-rules-v5-common.ps1')
+$electionHeaders = Get-ElectionHeaders
+if ($RefreshBaseline -or !(Test-Path -LiteralPath (Join-Path $script:ElectionQa 'baseline-manifest.json'))) { Save-ElectionBaseline $electionHeaders }
+$electionPrepared = Get-ElectionPreparedSource
+$electionActive = Get-ElectionActiveRelease $electionHeaders
+if ($electionActive.rulesetName -ne $electionPrepared.baseline.ruleset) { throw 'The active ruleset changed. Review the new authoritative baseline with -RefreshBaseline before testing.' }
+$electionSourcePath = Join-Path $script:ElectionQa 'proposed.rules'
+[IO.File]::WriteAllText($electionSourcePath,$electionPrepared.source,[Text.UTF8Encoding]::new($false))
+$electionManifestPath = Join-Path $script:ElectionQa 'test-manifest.json'
+if (Test-Path -LiteralPath $electionManifestPath) { Remove-Item -LiteralPath $electionManifestPath }
+$electionVerifiedHashes = @{
+  atomicCasesSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'election-atomic-adversarial-v5-cases.ps1'));
+  closureCasesSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'election-closure-rules-v5-cases.ps1'));
+  invitationCasesSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'election-invitation-rules-v4-cases.ps1'));
+  sourceSha256=(Get-ElectionHash $electionSourcePath);fragmentSha256=(Get-ElectionHash $script:ElectionFragmentPath);
+  baselineSha256=(Get-ElectionHash (Join-Path $script:ElectionQa 'baseline.rules'));
+  baselineManifestSha256=(Get-ElectionHash (Join-Path $script:ElectionQa 'baseline-manifest.json'));
+  companyCasesSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'company-auth-rules-v3-cases.ps1'));casesFileSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'election-rules-v5-cases.ps1'));testFileSha256=(Get-ElectionHash $PSCommandPath);commonFileSha256=(Get-ElectionHash (Join-Path $PSScriptRoot 'election-rules-v5-common.ps1'))
+}
+$electionNow = '2026-10-16T12:00:00Z'
+$electionStart = '2026-10-16T10:00:00Z'
+$electionEnd = '2026-10-16T14:00:00Z'
+$electionPrefix = '/databases/(default)/documents/'
+$electionCases = [System.Collections.Generic.List[object]]::new()
+$electionLabels = [System.Collections.Generic.List[string]]::new()
+
+function Copy-ElectionData($Value) { return ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $Value -Depth 50) -AsHashtable }
+function New-ElectionData {
+  return @{name='Elecciones de prueba';description='Proceso electoral interno de prueba.';startDate=$electionStart;endDate=$electionEnd;
+    registrationStartDate='2026-10-16T07:00:00Z';registrationEndDate='2026-10-16T09:00:00Z';status='active';positions=@('Dirección','Tesorería');departments=@('General');createdBy='manager';createdAt='2026-10-16T06:00:00Z';totalVotes=5}
+}
+function New-CandidateData([string]$Position='Dirección') {
+  return @{uid='candidate-owner';name='Persona candidata';photoURL='';position=$Position;department='General';proposals=@('Mejorar procesos del equipo');
+    slogan='Un equipo unido';party='';status='approved';electionId='election-1';votes=2;createdAt=$electionStart;approvedAt=$electionStart;approvedBy='manager'}
+}
+function New-VoteState([switch]$Second) {
+  $electionData = New-ElectionData
+  $electionIndex = if ($Second) { 1 } else { 0 }
+  $electionPosition = $electionData.positions[$electionIndex]
+  $electionCandidate = New-CandidateData $electionPosition
+  $electionVoteId = "voter_election-1_$electionIndex"
+  $electionRecord = @{voterId='voter';electionId='election-1';positionsVoted=@($electionPosition);votedAt=$electionNow;
+    lastVoteId=$electionVoteId;lastCandidateId='candidate-1';lastPositionIndex=$electionIndex}
+  $electionPrevious = $null
+  if ($Second) {
+    $electionPrevious = @{voterId='voter';electionId='election-1';positionsVoted=@('Dirección');votedAt=$electionStart;
+      lastVoteId='voter_election-1_0';lastCandidateId='previous-candidate';lastPositionIndex=0}
+    $electionRecord.positionsVoted=@('Dirección','Tesorería')
+  }
+  $electionBefore = @{'electoralAccess/voter_election-1'=@{uid='voter';electionId='election-1';displayName='Participante';email='voter@example.com';photoURL='';requestedVoter=$true;requestedCandidate=$true;voterStatus='approved';candidateStatus='approved';createdAt=$electionStart;updatedAt=$electionStart;reviewedAt=$electionStart;reviewedBy='manager'};'users/voter'=@{role='Empleado';isActive=$true};'elections/election-1'=$electionData;'candidates/candidate-1'=$electionCandidate;
+    'voteRecords/voter_election-1'=$electionPrevious;"votes/$electionVoteId"=$null}
+  $electionAfter = Copy-ElectionData $electionBefore
+  $electionAfter['elections/election-1'].totalVotes=6
+  $electionAfter['candidates/candidate-1'].votes=3
+  $electionAfter['voteRecords/voter_election-1']=$electionRecord
+  $electionAfter["votes/$electionVoteId"]=@{voterId='voter';candidateId='candidate-1';electionId='election-1';position=$electionPosition;positionIndex=$electionIndex;timestamp=$electionNow}
+  return @{before=$electionBefore;after=$electionAfter;voteId=$electionVoteId;index=$electionIndex;position=$electionPosition}
+}
+
+# Every database-dependent function is mocked by its exact path. Missing mocks
+# fail inside Rules API evaluation; the test command never queries app documents.
+function Add-ElectionCase([string]$Label,[string]$Route,[string]$Method,[string]$Expected,$Before,$After,[string]$Uid='voter',[string]$Time=$electionNow) {
+  $Before=Copy-ElectionData $Before;$After=Copy-ElectionData $After
+  if (!$Before.Contains('electoralSettings/general')) { $Before['electoralSettings/general']=$null }
+  if (!$After.Contains('electoralSettings/general')) { $After['electoralSettings/general']=$null }
+  if ($Uid -and $Uid -ne 'voter' -and !$Before.Contains(('users/'+$Uid))) {
+    $Before['users/'+$Uid]=$null
+    $After['users/'+$Uid]=$null
+  }
+  if($Uid -and !$Before.Contains(('electoralAccess/'+$Uid+'_election-1'))) {$Before['electoralAccess/'+$Uid+'_election-1']=$null;$After['electoralAccess/'+$Uid+'_election-1']=$null}
+  $electionRequest = @{path=($electionPrefix+$Route);method=$Method;time=$Time;auth=$null}
+  if ($Uid) { $electionRequest.auth=@{uid=$Uid;token=@{email=($Uid+'@example.com')}} }
+  if ($Method -in @('create','update')) { $electionRequest.resource=@{data=$After[$Route]} }
+  $electionCase = @{expectation=$Expected;request=$electionRequest;expressionReportLevel='NONE'}
+  if ($null -ne $Before[$Route]) { $electionCase.resource=@{data=$Before[$Route]} }
+  $electionRoutes = [System.Collections.Generic.HashSet[string]]::new()
+  foreach ($electionRoute in @($Before.Keys)+@($After.Keys)) { [void]$electionRoutes.Add([string]$electionRoute) }
+  $electionMocks = [System.Collections.Generic.List[object]]::new()
+  foreach ($electionRoute in $electionRoutes) {
+    foreach ($electionFunction in @('get','getAfter','exists','existsAfter')) {
+      $electionMap = if ($electionFunction -in @('get','exists')) { $Before } else { $After }
+      $electionValue = $electionMap[$electionRoute]
+      $electionResult = if ($electionFunction -in @('exists','existsAfter')) { @{value=($null -ne $electionValue)} }
+                        elseif ($null -eq $electionValue) { @{undefined=@{}} }
+                        else { @{value=@{data=$electionValue}} }
+      $electionMocks.Add(@{function=$electionFunction;args=@(@{exactValue=($electionPrefix+$electionRoute)});result=$electionResult})
+    }
+  }
+  $electionCase.functionMocks=$electionMocks.ToArray()
+  $electionCases.Add($electionCase);$electionLabels.Add($Label)
+}
+
+function Add-VotingCases([string]$Label,[string]$Expected,$State,[string]$Uid='voter',[string]$Time=$electionNow) {
+  if($Uid -and $Uid -ne 'voter') {
+    $electionOtherRecord='voteRecords/'+$Uid+'_election-1'
+    $State.before[$electionOtherRecord]=$null
+    $State.after[$electionOtherRecord]=Copy-ElectionData $State.after['voteRecords/voter_election-1']
+    $State.after[$electionOtherRecord].voterId=$Uid
+  }
+  foreach ($electionWrite in @(@{route=('votes/'+$State.voteId);method='create'},@{route='voteRecords/voter_election-1';method=$(if($null -eq $State.before['voteRecords/voter_election-1']){'create'}else{'update'})},@{route='candidates/candidate-1';method='update'},@{route='elections/election-1';method='update'})) {
+    $writeExpected=$Expected
+    if ($Expected -eq 'DENY' -and $electionWrite.route -in @('candidates/candidate-1','elections/election-1') -and
+      $Label -in @('Cannot roll back prior participation','Cannot vote twice for same position','A colliding record ID cannot overwrite another owner','A colliding record ID cannot overwrite another election')) { $writeExpected='ALLOW' }
+    Add-ElectionCase "$Label / $($electionWrite.route)" $electionWrite.route $electionWrite.method $writeExpected $State.before $State.after $Uid $Time
+  }
+}
+
+Add-VotingCases 'First atomic ballot accepted' 'ALLOW' (New-VoteState)
+Add-VotingCases 'Second position ballot accepted' 'ALLOW' (New-VoteState -Second)
+foreach ($electionRole in @('CEO','ceo','Administración','Diseño','Secretaría','Programación','Contador','Empleado','employee','candidate','admin','moderator','superadmin')) {
+  $electionState=New-VoteState;$electionState.before['users/voter'].role=$electionRole;$electionState.after['users/voter'].role=$electionRole
+  Add-VotingCases "$electionRole can cast a complete atomic ballot" 'ALLOW' $electionState
+}
+$electionState=New-VoteState;$electionState.before['users/voter'].isActive=$false;$electionState.after['users/voter'].isActive=$false
+Add-VotingCases 'Inactive staff denied' 'DENY' $electionState
+Add-VotingCases 'Anonymous ballot denied' 'DENY' (New-VoteState) ''
+Add-VotingCases 'Another UID cannot submit voter ballot' 'DENY' (New-VoteState) 'intruder'
+
+foreach ($electionFault in @('duplicate','closed','draft','archived','not-started','ended','wrong-election','wrong-position','unapproved','counter-jump','candidate-counter-rollback','election-counter-rollback','no-record','no-vote','no-candidate-increment','no-election-increment','record-other-owner','record-extra-position','record-duplicate-position','wrong-index','vote-forged-time','record-forged-time','vote-extra-field','record-extra-field')) {
+  $electionState=New-VoteState
+  switch ($electionFault) {
+    'duplicate' { $electionState.before['votes/'+$electionState.voteId]=Copy-ElectionData $electionState.after['votes/'+$electionState.voteId];$electionState.before['voteRecords/voter_election-1']=Copy-ElectionData $electionState.after['voteRecords/voter_election-1'] }
+    'closed' { $electionState.before['elections/election-1'].status='closed';$electionState.after['elections/election-1'].status='closed' }
+    'draft' { $electionState.before['elections/election-1'].status='draft';$electionState.after['elections/election-1'].status='draft' }
+    'archived' { $electionState.before['elections/election-1'].status='archived';$electionState.after['elections/election-1'].status='archived' }
+    'not-started' { $electionState.before['elections/election-1'].startDate='2026-10-16T13:00:00Z';$electionState.after['elections/election-1'].startDate='2026-10-16T13:00:00Z' }
+    'ended' { $electionState.before['elections/election-1'].endDate=$electionNow;$electionState.after['elections/election-1'].endDate=$electionNow }
+    'wrong-election' { $electionState.before['candidates/candidate-1'].electionId='another-election';$electionState.after['candidates/candidate-1'].electionId='another-election' }
+    'wrong-position' { $electionState.before['candidates/candidate-1'].position='Tesorería';$electionState.after['candidates/candidate-1'].position='Tesorería' }
+    'unapproved' { $electionState.before['candidates/candidate-1'].status='pending';$electionState.after['candidates/candidate-1'].status='pending' }
+    'counter-jump' { $electionState.after['candidates/candidate-1'].votes=4;$electionState.after['elections/election-1'].totalVotes=7 }
+    'candidate-counter-rollback' { $electionState.after['candidates/candidate-1'].votes=1 }
+    'election-counter-rollback' { $electionState.after['elections/election-1'].totalVotes=4 }
+    'no-record' { $electionState.after['voteRecords/voter_election-1']=$null }
+    'no-vote' { $electionState.after['votes/'+$electionState.voteId]=$null }
+    'no-candidate-increment' { $electionState.after['candidates/candidate-1'].votes=2 }
+    'no-election-increment' { $electionState.after['elections/election-1'].totalVotes=5 }
+    'record-other-owner' { $electionState.after['voteRecords/voter_election-1'].voterId='intruder' }
+    'record-extra-position' { $electionState.after['voteRecords/voter_election-1'].positionsVoted=@('Dirección','Tesorería') }
+    'record-duplicate-position' { $electionState.after['voteRecords/voter_election-1'].positionsVoted=@('Dirección','Dirección') }
+    'wrong-index' { $electionState.after['votes/'+$electionState.voteId].positionIndex=1 }
+    'vote-forged-time' { $electionState.after['votes/'+$electionState.voteId].timestamp=$electionStart }
+    'record-forged-time' { $electionState.after['voteRecords/voter_election-1'].votedAt=$electionStart }
+    'vote-extra-field' { $electionState.after['votes/'+$electionState.voteId].forged=$true }
+    'record-extra-field' { $electionState.after['voteRecords/voter_election-1'].forged=$true }
+  }
+  # The writer being omitted has no write operation in that batch. Its peers
+  # must nevertheless reject the incomplete commit through getAfter checks.
+  $electionSkip = if ($electionFault -eq 'no-record') {'voteRecords/voter_election-1'} elseif ($electionFault -eq 'no-vote') {'votes/'+$electionState.voteId} else {''}
+  foreach ($electionWrite in @(@{route=('votes/'+$electionState.voteId);method='create'},@{route='voteRecords/voter_election-1';method=$(if($null -eq $electionState.before['voteRecords/voter_election-1']){'create'}else{'update'})},@{route='candidates/candidate-1';method='update'},@{route='elections/election-1';method='update'})) {
+    if ($electionWrite.route -ne $electionSkip) {
+      $writeExpected='DENY'
+      if ($electionWrite.route -like 'votes/*' -and $electionFault -in @('counter-jump','candidate-counter-rollback','election-counter-rollback','no-candidate-increment','no-election-increment')) { $writeExpected='ALLOW' }
+      if ($electionWrite.route -in @('candidates/candidate-1','elections/election-1') -and $electionFault -in @('record-extra-position','record-duplicate-position')) { $writeExpected='ALLOW' }
+      Add-ElectionCase "Atomic ballot rejects $electionFault / $($electionWrite.route)" $electionWrite.route $electionWrite.method $writeExpected $electionState.before $electionState.after
+    }
+  }
+}
+
+$electionState=New-VoteState
+Add-ElectionCase 'Non-deterministic vote ID denied' 'votes/random-vote' 'create' 'DENY' $electionState.before (@{ 'votes/random-vote'=$electionState.after['votes/'+$electionState.voteId] }+$electionState.after)
+$electionState=New-VoteState
+Add-ElectionCase 'Non-deterministic vote record ID denied' 'voteRecords/random-record' 'create' 'DENY' $electionState.before (@{'voteRecords/random-record'=$electionState.after['voteRecords/voter_election-1']}+$electionState.after)
+$electionState=New-VoteState
+$electionState.after['votes/'+$electionState.voteId].timestamp=$electionStart
+$electionState.after['voteRecords/voter_election-1'].votedAt=$electionStart
+Add-VotingCases 'Voting at exact start accepted' 'ALLOW' $electionState 'voter' $electionStart
+
+# A legacy record lacks the new last-vote fields. It may append another valid
+# position atomically, but prior participation remains immutable.
+$electionState=New-VoteState -Second
+foreach ($electionKey in @('lastVoteId','lastCandidateId','lastPositionIndex')) { $electionState.before['voteRecords/voter_election-1'].Remove($electionKey) }
+Add-VotingCases 'Legacy record can append unvoted position' 'ALLOW' $electionState
+$electionState=New-VoteState -Second
+$electionState.after['voteRecords/voter_election-1'].positionsVoted=@('Tesorería')
+Add-VotingCases 'Cannot roll back prior participation' 'DENY' $electionState
+$electionState=New-VoteState -Second
+$electionState.before['voteRecords/voter_election-1'].positionsVoted=@('Dirección','Tesorería')
+Add-VotingCases 'Cannot vote twice for same position' 'DENY' $electionState
+
+# Additional v3 access, nomination and lifecycle cases are inserted below.
+$electionNewBefore=@{'users/voter'=@{role='CEO';isActive=$true}}
+$electionNewAfter=Copy-ElectionData $electionNewBefore;$electionNewAfter['elections/new-election']=New-ElectionData
+$electionNewAfter['elections/new-election'].createdBy='voter';$electionNewAfter['elections/new-election'].createdAt=$electionNow
+$electionNewAfter['elections/new-election'].updatedAt=$electionNow;$electionNewAfter['elections/new-election'].status='draft';$electionNewAfter['elections/new-election'].totalVotes=0
+foreach($electionChange in @(
+  @{field='name';value='ab';label='short name'},@{field='name';value=('a'*161);label='oversized name'},
+  @{field='description';value=('a'*3001);label='oversized description'},@{field='startDate';value='invalid-date';label='invalid date'},
+  @{field='endDate';value=$electionStart;label='end at start'},@{field='status';value='active';label='skip draft'},
+  @{field='positions';value=@();label='no positions'},@{field='positions';value=@('Dirección','Dirección');label='duplicate positions'},
+  @{field='positions';value=@('');label='empty position'},@{field='positions';value=@(123);label='non-string position'},
+  @{field='positions';value=@($null);label='null position'},@{field='positions';value=@($true);label='boolean position'},
+  @{field='positions';value=@(@{label='Cargo'});label='map position'},@{field='positions';value=@("Cargo`nOtro cargo");label='embedded position newline'},
+  @{field='positions';value=@(('a'*101));label='oversized position'},
+  @{field='departments';value=@('General','General');label='duplicate departments'},@{field='departments';value=@(123);label='non-string department'},
+  @{field='departments';value=@($null);label='null department'},@{field='departments';value=@($false);label='boolean department'},
+  @{field='departments';value=@(@{label='Área'});label='map department'},@{field='departments';value=@("Área`nOtra área");label='embedded department newline'},
+  @{field='departments';value=@(('a'*101));label='oversized department'},
+  @{field='totalVotes';value=1;label='invented starting votes'},@{field='totalVotes';value=-1;label='negative votes'},
+  @{field='createdBy';value='intruder';label='forged author'},@{field='createdAt';value=$electionStart;label='forged creation time'},
+  @{field='updatedAt';value=$electionStart;label='forged update time'},@{field='admin';value=$true;label='unknown field'}
+)) {
+  $electionAfter=Copy-ElectionData $electionNewAfter;$electionAfter['elections/new-election'][$electionChange.field]=$electionChange.value
+  Add-ElectionCase "Election schema rejects $($electionChange.label)" 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionAfter
+}
+foreach($electionField in @('positions','departments')) {
+  $electionAfter=Copy-ElectionData $electionNewAfter;$electionAfter['elections/new-election'][$electionField]=@(,@('nested','list'))
+  Add-ElectionCase "Election schema rejects nested $electionField list" 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionAfter
+}
+$electionAfter=Copy-ElectionData $electionNewAfter;$electionAfter['elections/new-election'].positions=@(('a'*100));$electionAfter['elections/new-election'].departments=@()
+Add-ElectionCase '100-character position and unrestricted departments accepted' 'elections/new-election' 'create' 'ALLOW' $electionNewBefore $electionAfter
+foreach($electionTransition in @(@{from='draft';to='active';allowed=$true},@{from='active';to='closed';allowed=$true},@{from='closed';to='archived';allowed=$true},
+  @{from='closed';to='active';allowed=$false},@{from='archived';to='active';allowed=$false},@{from='active';to='draft';allowed=$false},@{from='active';to='archived';allowed=$false})) {
+  $electionBefore=Copy-ElectionData $electionNewAfter
+  $electionBefore['elections/new-election'].status=$electionTransition.from
+  $electionAfter=Copy-ElectionData $electionBefore;$electionAfter['elections/new-election'].status=$electionTransition.to
+  $electionExpected=if($electionTransition.allowed){'ALLOW'}else{'DENY'}
+  Add-ElectionCase "CEO transition $($electionTransition.from) to $($electionTransition.to) -> $electionExpected" 'elections/new-election' 'update' $electionExpected $electionBefore $electionAfter
+}
+$electionAfter=Copy-ElectionData $electionNewAfter
+$electionAfter['elections/new-election'].positions=@(1..20 | ForEach-Object {"Cargo $_"})
+$electionAfter['elections/new-election'].departments=@(1..30 | ForEach-Object {"Área $_"})
+Add-ElectionCase 'Exact maximum positions and departments accepted' 'elections/new-election' 'create' 'ALLOW' $electionNewBefore $electionAfter
+$electionLastPosition=Copy-ElectionData $electionAfter;$electionLastPosition['elections/new-election'].positions[19]=123
+Add-ElectionCase 'Last permitted position must also be a non-empty string' 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionLastPosition
+$electionLastDepartment=Copy-ElectionData $electionAfter;$electionLastDepartment['elections/new-election'].departments[29]=''
+Add-ElectionCase 'Last permitted department must also be a non-empty string' 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionLastDepartment
+$electionTooMany=Copy-ElectionData $electionAfter;$electionTooMany['elections/new-election'].positions+=@('Cargo 21')
+Add-ElectionCase 'Too many positions denied' 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionTooMany
+$electionTooMany=Copy-ElectionData $electionAfter;$electionTooMany['elections/new-election'].departments+=@('Área 31')
+Add-ElectionCase 'Too many departments denied' 'elections/new-election' 'create' 'DENY' $electionNewBefore $electionTooMany
+$electionBefore=Copy-ElectionData $electionNewAfter;$electionBefore['elections/new-election'].status='active';$electionBefore['elections/new-election'].totalVotes=5
+$electionAfter=Copy-ElectionData $electionBefore;$electionAfter['elections/new-election'].positions=@('Otro cargo');$electionAfter['elections/new-election'].updatedAt=$electionNow
+Add-ElectionCase 'CEO cannot reconfigure active election positions' 'elections/new-election' 'update' 'DENY' $electionBefore $electionAfter
+$electionAfter=Copy-ElectionData $electionBefore;$electionAfter['elections/new-election'].totalVotes=10;$electionAfter['elections/new-election'].updatedAt=$electionNow
+Add-ElectionCase 'CEO cannot manually invent aggregate votes' 'elections/new-election' 'update' 'DENY' $electionBefore $electionAfter
+
+# Persisted result documents are legacy read models, never a client-controlled
+# authority for tallies. Current results derive from candidates' atomic counters.
+foreach($electionMethod in @('create','update','delete')) {
+  $electionBefore=@{'users/voter'=@{role='CEO'};'electionResults/legacy'=@{electionId='election-1';totalVotes=5}}
+  Add-ElectionCase "CEO cannot forge legacy result documents ($electionMethod)" 'electionResults/legacy' $electionMethod 'DENY' $electionBefore $electionBefore
+}
+
+
+. (Join-Path $PSScriptRoot 'election-rules-v5-cases.ps1')
+. (Join-Path $PSScriptRoot 'election-invitation-rules-v4-cases.ps1')
+. (Join-Path $PSScriptRoot 'company-auth-rules-v3-cases.ps1')
+. (Join-Path $PSScriptRoot 'election-closure-rules-v5-cases.ps1')
+. (Join-Path $PSScriptRoot 'election-atomic-adversarial-v5-cases.ps1')
+
+# Synthetic Rules API tests execute no commits. Request resources and every
+# referenced get/getAfter/exists/existsAfter document are provided as mocks.
+Write-ElectionJson (Join-Path $script:ElectionQa 'test-labels.json') $electionLabels.ToArray()
+$electionResult=@{testResults=[System.Collections.Generic.List[object]]::new();issues=[System.Collections.Generic.List[object]]::new()}
+# Bounded batches avoid a large test-suite response timing out at the API edge.
+# The source is identical in every batch and hashes are rechecked at the end.
+$electionBatches=[System.Collections.Generic.List[object]]::new()
+for($electionOffset=0;$electionOffset -lt $electionCases.Count;$electionOffset+=60) {
+  $electionLast=[Math]::Min($electionOffset+59,$electionCases.Count-1)
+  $electionBody=@{source=@{files=@(@{name='firestore.rules';content=$electionPrepared.source})};testSuite=@{testCases=@($electionCases.ToArray()[$electionOffset..$electionLast])}} | ConvertTo-Json -Depth 70
+  $electionBatches.Add(@{offset=$electionOffset;last=$electionLast;body=$electionBody})
+}
+$electionTestUri=$script:ElectionApi+"projects/$($script:ElectionProject):test"
+$electionBatchResults=@($electionBatches | ForEach-Object -Parallel {
+  $ErrorActionPreference='Stop'
+  $result=Invoke-RestMethod -Method Post -Uri $using:electionTestUri -Headers $using:electionHeaders -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($_.body)) -MaximumRetryCount 2 -RetryIntervalSec 3
+  Write-Host "Rules API evaluated cases $($_.offset+1)-$($_.last+1)."
+  @{offset=$_.offset;result=$result}
+} -ThrottleLimit 4 | Sort-Object offset)
+foreach($electionBatch in $electionBatchResults) {
+  foreach($electionIssue in @($electionBatch.result.issues)) {if($null -ne $electionIssue){$electionResult.issues.Add($electionIssue)}}
+  foreach($electionItem in @($electionBatch.result.testResults)) {if($null -ne $electionItem){$electionResult.testResults.Add($electionItem)}}
+}
+$electionResultPath=Join-Path $script:ElectionQa 'test-result.json'
+Write-ElectionJson $electionResultPath $electionResult
+if ($electionResult.issues | Where-Object {$_.severity -eq 'ERROR'}) { $electionResult.issues | ConvertTo-Json -Depth 10; throw 'Election rules compilation failed.' }
+if (@($electionResult.testResults).Count -ne $electionCases.Count) { throw 'Rules API did not return a result for every case.' }
+$electionFailures=0
+for($electionIndex=0;$electionIndex -lt $electionCases.Count;$electionIndex++) {
+  $electionState=$electionResult.testResults[$electionIndex].state
+  if($electionState -ne 'SUCCESS'){Write-Output "$electionState | $($electionLabels[$electionIndex])"}
+  if($electionState -ne 'SUCCESS') {$electionFailures++;$electionResult.testResults[$electionIndex] | Select-Object state,debugMessages,errorPosition,functionCalls | ConvertTo-Json -Depth 12}
+}
+$electionBudgets=[System.Collections.Generic.List[object]]::new()
+foreach($electionBudgetGroup in (@(@{label='first cargo';offset=0},@{label='second cargo';offset=4},@{label='CEO';offset=8})+@($script:ElectionExtraBudgetGroups.ToArray()))) {
+  $electionBudgetUnion=[System.Collections.Generic.HashSet[string]]::new()
+  foreach($electionBudgetIndex in ($electionBudgetGroup.offset..($electionBudgetGroup.offset+3))) {
+    $electionBudgetCalls=@($electionResult.testResults[$electionBudgetIndex].functionCalls | Where-Object {$_.function -in @('get','exists','getAfter','existsAfter')} | ForEach-Object {$_.function+':'+[string]$_.args[0]} | Sort-Object -Unique)
+    foreach($electionBudgetCall in $electionBudgetCalls){[void]$electionBudgetUnion.Add($electionBudgetCall)}
+    if($electionBudgetCalls.Count -gt 10){throw "Per-write Rules access budget exceeds 10: $($electionLabels[$electionBudgetIndex])"}
+    $electionBudgets.Add(@{case=$electionLabels[$electionBudgetIndex];distinctFunctionPathCount=$electionBudgetCalls.Count;calls=$electionBudgetCalls})
+  }
+  if($electionBudgetUnion.Count -gt 20){throw 'Atomic Rules access budget exceeds 20.'}
+  $electionBudgets.Add(@{commit=$electionBudgetGroup.label;distinctFunctionPathCount=$electionBudgetUnion.Count;calls=@($electionBudgetUnion | Sort-Object)})
+}
+Write-ElectionJson (Join-Path $script:ElectionQa 'ballot-access-budget.json') @{sourceSha256=(Get-ElectionHash $electionSourcePath);note='Synthetic function trace inventory, not a production commit. exists/get remain distinct; identical function/path evaluations are cached.';budgets=$electionBudgets}
+if($electionFailures -gt 0) { throw "$electionFailures election rules cases failed." }
+# Every atomic test is evaluated as separate operations by the Rules API.
+# A commit is permitted only if EVERY included operation is permitted. Consume
+# the proof groups explicitly instead of treating partial ALLOW traces as an
+# authorization of the whole commit.
+$electionProofPrefixes=@($electionLabels | Where-Object {$_ -like 'Atomic ballot rejects *'} | ForEach-Object {($_ -split ' / ')[0]} | Sort-Object -Unique)
+$electionProofPrefixes+=@('Cannot roll back prior participation','Cannot vote twice for same position','A colliding record ID cannot overwrite another owner','A colliding record ID cannot overwrite another election')
+foreach($electionProofPrefix in $electionProofPrefixes) {
+  $electionProofIndices=@(for($i=0;$i -lt $electionLabels.Count;$i++){if($electionLabels[$i].StartsWith($electionProofPrefix+' / ')){$i}})
+  if($electionProofIndices.Count -eq 0){throw "Missing atomic proof cases: $electionProofPrefix"}
+  $script:ElectionProofGroups.Add(@{label=$electionProofPrefix;indices=$electionProofIndices;shouldAllow=$false})
+}
+$electionProofLedger=[System.Collections.Generic.List[object]]::new()
+foreach($electionProofGroup in $script:ElectionProofGroups) {
+  $electionProofWrites=@(foreach($i in $electionProofGroup.indices){
+    if($electionResult.testResults[$i].state -ne 'SUCCESS'){throw 'An atomic proof operation did not match its reviewed expectation.'}
+    @{index=$i;case=$electionLabels[$i];permission=$electionCases[$i].expectation;result=$electionResult.testResults[$i].state}
+  })
+  $electionProofAllowed=@($electionProofWrites | Where-Object {$_.permission -eq 'DENY'}).Count -eq 0
+  if($electionProofAllowed -ne $electionProofGroup.shouldAllow){throw "Atomic cross-proof failed: $($electionProofGroup.label)"}
+  $electionProofLedger.Add(@{label=$electionProofGroup.label;commitAllowed=$electionProofAllowed;expectedAllowed=[bool]$electionProofGroup.shouldAllow;operations=$electionProofWrites})
+}
+$electionProofPath=Join-Path $script:ElectionQa 'atomic-proof-ledger.json'
+Write-ElectionJson $electionProofPath @{sourceSha256=(Get-ElectionHash $electionSourcePath);allPassed=$true;groups=$electionProofLedger}
+$electionHashPaths=@{atomicCasesSha256=(Join-Path $PSScriptRoot 'election-atomic-adversarial-v5-cases.ps1');closureCasesSha256=(Join-Path $PSScriptRoot 'election-closure-rules-v5-cases.ps1');invitationCasesSha256=(Join-Path $PSScriptRoot 'election-invitation-rules-v4-cases.ps1');companyCasesSha256=(Join-Path $PSScriptRoot 'company-auth-rules-v3-cases.ps1');casesFileSha256=(Join-Path $PSScriptRoot 'election-rules-v5-cases.ps1');sourceSha256=$electionSourcePath;fragmentSha256=$script:ElectionFragmentPath;baselineSha256=(Join-Path $script:ElectionQa 'baseline.rules');baselineManifestSha256=(Join-Path $script:ElectionQa 'baseline-manifest.json');testFileSha256=$PSCommandPath;commonFileSha256=(Join-Path $PSScriptRoot 'election-rules-v5-common.ps1')}
+foreach($electionKey in $electionHashPaths.Keys) {if($electionVerifiedHashes[$electionKey] -ne (Get-ElectionHash $electionHashPaths[$electionKey])) {throw 'An input changed during verification. Run the tests again.'}}
+$electionVerifiedHashes.atomicProofSha256=Get-ElectionHash $electionProofPath
+$electionVerifiedHashes.atomicProofCount=$electionProofLedger.Count
+$electionVerifiedHashes.resultSha256=Get-ElectionHash $electionResultPath
+$electionVerifiedHashes.baselineRuleset=$electionPrepared.baseline.ruleset
+$electionVerifiedHashes.caseCount=$electionCases.Count;$electionVerifiedHashes.allPassed=$true;$electionVerifiedHashes.testedAt=[DateTime]::UtcNow.ToString('o')
+Write-ElectionJson $electionManifestPath $electionVerifiedHashes
+Write-Output "Verified $($electionCases.Count) election cases against the authoritative source while preserving the deployed company membership boundary. No Firestore data writes or rules deployment performed."

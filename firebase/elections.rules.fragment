@@ -1,0 +1,390 @@
+    // ===== SISTEMA ELECTORAL =====
+    // CEO approval is per election and required for every voter, including staff.
+    // Electoral participation never creates or changes company roles.
+    function electoralEnabled() {
+      return request.auth != null
+        && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous'
+        && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true);
+    }
+    function electoralManager() {
+      return electoralEnabled() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+    // Absent settings preserve the legacy open portal. Participation checks
+    // the final atomic state so closing cannot race a new ballot or request.
+    function validElectoralSettingsContent(value) {
+      return value.enabled is bool && value.closureTitle is string && value.closureMessage is string
+        && electoralText(value.closureTitle.trim(), 3, 160) && electoralText(value.closureMessage.trim(), 1, 2000)
+        && value.returnYear is int && value.returnYear >= 2000 && value.returnYear <= 2200;
+    }
+    function electoralParticipationOpen() {
+      let settings = /databases/$(database)/documents/electoralSettings/general;
+      return !existsAfter(settings) || (validElectoralSettingsContent(getAfter(settings).data)
+        && getAfter(settings).data.enabled == true);
+    }
+    function electoralText(value, minimum, maximum) {
+      return value is string && value.size() >= minimum && value.size() <= maximum;
+    }
+    function electoralLabels(value, minimum, maximum) {
+      return value is list && value.size() >= minimum && value.size() <= maximum && value.toSet().size() == value.size()
+        // The round trip preserves the actual list types. A coerced number,
+        // null, map or nested list cannot equal the resulting string list.
+        // Labels are individual lines in the editor; embedded newlines fail
+        // the same equality check. This avoids a per-item expression explosion.
+        && (value.size() == 0 || (value == value.join('\n').split('\n')
+          && value.join('\n').matches('[^\\n]{1,100}(\\n[^\\n]{1,100})*')));
+    }
+    function electoralPublished(election) {
+      return election.status in ['active', 'closed', 'archived'];
+    }
+    function validElectoralElection(value) {
+      let registrationStart = value.get('registrationStartDate', value.createdAt);
+      let registrationEnd = value.get('registrationEndDate', value.startDate);
+      return value.keys().hasAll(['name', 'description', 'startDate', 'endDate', 'status', 'positions', 'departments', 'createdBy', 'createdAt', 'totalVotes'])
+        && electoralText(value.name, 3, 160) && electoralText(value.description, 0, 3000)
+        && value.startDate is timestamp && value.endDate is timestamp && value.endDate > value.startDate
+        && value.createdAt is timestamp
+        && (!value.keys().hasAny(['registrationStartDate', 'registrationEndDate'])
+          || (value.keys().hasAll(['registrationStartDate', 'registrationEndDate']) && registrationStart is timestamp && registrationEnd is timestamp
+            && registrationStart < registrationEnd && registrationEnd <= value.startDate))
+        && value.status in ['draft', 'active', 'closed', 'archived', 'deleted']
+        && electoralLabels(value.positions, 1, 20) && electoralLabels(value.departments, 0, 30)
+        && value.totalVotes is int && value.totalVotes >= 0 && value.totalVotes <= 9007199254740991;
+    }
+    function electoralRegistrationWindow(election) {
+      return election.status == 'active' && election.get('registrationStartDate', election.createdAt) <= request.time
+        && request.time < election.get('registrationEndDate', election.startDate) && request.time < election.startDate;
+    }
+    function electoralApprovedRight(uid, electionId, right) {
+      let access = get(/databases/$(database)/documents/electoralAccess/$(uid + '_' + electionId)).data;
+      let requested = right == 'voterStatus' ? access.get('requestedVoter', false) : access.get('requestedCandidate', false);
+      return validElectoralAccess(access, uid + '_' + electionId) && access.uid == uid && access.electionId == electionId
+        && requested == true && access[right] == 'approved' && access.reviewedAt is timestamp && electoralText(access.reviewedBy, 1, 128);
+    }
+    function validElectoralAccess(value, accessId) {
+      return value.keys().hasAll(['uid', 'electionId', 'displayName', 'email', 'photoURL', 'requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'createdAt', 'updatedAt'])
+        && value.keys().hasOnly(['uid', 'electionId', 'displayName', 'email', 'photoURL', 'requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy'])
+        && electoralText(value.uid, 1, 128) && electoralText(value.electionId, 1, 1500) && accessId == value.uid + '_' + value.electionId
+        && electoralText(value.displayName, 1, 160) && electoralText(value.email, 0, 320)
+        && electoralText(value.photoURL, 0, 2048) && (value.photoURL == '' || value.photoURL.matches('https://.*'))
+        && value.requestedVoter is bool && value.requestedCandidate is bool && (value.requestedVoter || value.requestedCandidate)
+        && value.voterStatus in ['none', 'pending', 'approved', 'rejected'] && value.candidateStatus in ['none', 'pending', 'approved', 'rejected']
+        && value.requestedVoter == (value.voterStatus != 'none') && value.requestedCandidate == (value.candidateStatus != 'none')
+        && value.createdAt is timestamp && value.updatedAt is timestamp;
+    }
+    function electoralAccessCreate(accessId) {
+      let value = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && validElectoralAccess(value, accessId) && value.uid == request.auth.uid && value.updatedAt == request.time
+        && value.email == request.auth.token.get('email', request.auth.token.get('electoral_email', ''))
+        && election.status == 'active' && request.time < election.endDate && value.createdAt == request.time
+        && (!value.requestedCandidate || electoralRegistrationWindow(election))
+        && value.voterStatus == (value.requestedVoter ? 'pending' : 'none')
+        && value.candidateStatus == (value.requestedCandidate ? 'pending' : 'none')
+        && !('reviewedAt' in value) && !('reviewedBy' in value);
+    }
+    function electoralSelfAccessUpdate(accessId) {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && previous.uid == request.auth.uid && validElectoralAccess(next, accessId) && next.updatedAt == request.time
+        && next.email == request.auth.token.get('email', request.auth.token.get('electoral_email', ''))
+        && election.status == 'active' && request.time < election.endDate
+        && (next.requestedCandidate == previous.requestedCandidate || electoralRegistrationWindow(election))
+        && next.diff(previous).affectedKeys().hasOnly(['requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'email', 'updatedAt'])
+        && (!previous.requestedVoter || next.requestedVoter) && (!previous.requestedCandidate || next.requestedCandidate)
+        && next.voterStatus == (previous.voterStatus == 'none' && next.requestedVoter ? 'pending' : previous.voterStatus)
+        && next.candidateStatus == (previous.candidateStatus == 'none' && next.requestedCandidate ? 'pending' : previous.candidateStatus);
+    }
+    function electoralReviewAccess(accessId) {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralParticipationOpen() && electoralManager() && validElectoralAccess(next, accessId) && next.updatedAt == request.time && election.status == 'active' && request.time < election.endDate
+        && next.diff(previous).affectedKeys().hasOnly(['voterStatus', 'candidateStatus', 'updatedAt', 'reviewedAt', 'reviewedBy'])
+        && next.reviewedAt == request.time && next.reviewedBy == request.auth.uid
+        && (next.voterStatus == previous.voterStatus || (previous.requestedVoter && next.voterStatus in ['approved', 'rejected']))
+        && (next.candidateStatus == previous.candidateStatus || (previous.requestedCandidate && next.candidateStatus in ['approved', 'rejected'] && request.time < election.startDate));
+    }
+    function validElectoralInvitation(value) {
+      return value.keys().hasAll(['electionId', 'label', 'email', 'requestedVoter', 'requestedCandidate', 'status', 'expiresAt', 'createdAt', 'createdBy', 'updatedAt'])
+        && value.keys().hasOnly(['electionId', 'label', 'email', 'requestedVoter', 'requestedCandidate', 'status', 'expiresAt', 'createdAt', 'createdBy', 'updatedAt', 'acceptedAt', 'acceptedBy'])
+        && electoralText(value.electionId, 1, 1500) && electoralText(value.label, 2, 160)
+        && electoralText(value.email, 0, 320) && value.email == value.email.lower()
+        && (value.email == '' || value.email.matches('[^\\s@]+@[^\\s@]+[.][^\\s@]+'))
+        && value.requestedVoter is bool && value.requestedCandidate is bool && (value.requestedVoter || value.requestedCandidate)
+        && value.status in ['active', 'accepted', 'revoked'] && value.expiresAt is timestamp
+        && value.createdAt is timestamp && electoralText(value.createdBy, 1, 128) && value.updatedAt is timestamp
+        && (value.status == 'accepted'
+          ? value.acceptedAt is timestamp && electoralText(value.acceptedBy, 1, 128)
+          : !value.keys().hasAny(['acceptedAt', 'acceptedBy']));
+    }
+    function electoralInvitationRecipient(value) {
+      // A targeted invitation requires a verified provider email. The Discord
+      // custom claim is issued only after checking Discord's verified flag.
+      return value.email == ''
+        || (request.auth.token.get('email_verified', false) == true
+          && value.email == request.auth.token.get('email', '').lower())
+        || (value.email == request.auth.token.get('electoral_email', '').lower()
+          && electoralText(request.auth.token.get('electoral_email', ''), 1, 320));
+    }
+    function electoralInvitationSchedule(value, election) {
+      return election.status == 'active' && request.time < election.endDate
+        && request.time < value.expiresAt && value.expiresAt <= election.endDate
+        && (!value.requestedCandidate || value.expiresAt <= election.get('registrationEndDate', election.startDate));
+    }
+    function electoralInvitationCreate() {
+      let value = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      return electoralParticipationOpen() && electoralManager() && validElectoralInvitation(value) && value.status == 'active'
+        && value.createdBy == request.auth.uid && value.createdAt == request.time && value.updatedAt == request.time
+        && electoralInvitationSchedule(value, election);
+    }
+    function electoralInvitationManage() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let changed = next.diff(previous).affectedKeys();
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralManager() && previous.status == 'active' && validElectoralInvitation(next) && next.updatedAt == request.time
+        && ((next.status == 'active' && changed.hasOnly(['label', 'expiresAt', 'updatedAt']) && electoralInvitationSchedule(next, election))
+          || (next.status == 'revoked' && changed.hasOnly(['status', 'updatedAt'])));
+    }
+    function electoralInvitationAccept() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      let accessId = request.auth.uid + '_' + previous.electionId;
+      let access = getAfter(/databases/$(database)/documents/electoralAccess/$(accessId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && validElectoralInvitation(next) && previous.status == 'active' && next.status == 'accepted'
+        && electoralInvitationRecipient(previous) && electoralInvitationSchedule(previous, election)
+        && (!previous.requestedCandidate || electoralRegistrationWindow(election))
+        && next.diff(previous).affectedKeys().hasOnly(['status', 'acceptedAt', 'acceptedBy', 'updatedAt'])
+        && next.acceptedBy == request.auth.uid && next.acceptedAt == request.time && next.updatedAt == request.time
+        // Rights remain pending or retain their previous CEO decision. The
+        // access write is independently checked by the existing access rules.
+        && validElectoralAccess(access, accessId) && access.uid == request.auth.uid && access.electionId == previous.electionId
+        && (!previous.requestedVoter || access.requestedVoter) && (!previous.requestedCandidate || access.requestedCandidate);
+    }
+    function validElectoralProposals(value) {
+      return value is list && value.size() >= 1 && value.size() <= 10
+        && electoralText(value[0], 1, 1000)
+        && (value.size() < 2 || electoralText(value[1], 1, 1000))
+        && (value.size() < 3 || electoralText(value[2], 1, 1000))
+        && (value.size() < 4 || electoralText(value[3], 1, 1000))
+        && (value.size() < 5 || electoralText(value[4], 1, 1000))
+        && (value.size() < 6 || electoralText(value[5], 1, 1000))
+        && (value.size() < 7 || electoralText(value[6], 1, 1000))
+        && (value.size() < 8 || electoralText(value[7], 1, 1000))
+        && (value.size() < 9 || electoralText(value[8], 1, 1000))
+        && (value.size() < 10 || electoralText(value[9], 1, 1000));
+    }
+    function validElectoralCandidate(candidateId, value) {
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      let index = value.positionIndex;
+      return value.keys().hasOnly(['uid', 'name', 'photoURL', 'position', 'department', 'proposals', 'party', 'slogan', 'status', 'electionId', 'votes', 'createdAt', 'approvedAt', 'approvedBy', 'positionIndex'])
+        && value.uid == request.auth.uid && electoralText(value.name, 2, 160)
+        && electoralText(value.photoURL, 0, 2048) && (value.photoURL == '' || value.photoURL.matches('https://.*'))
+        && electoralText(value.position, 1, 100) && electoralText(value.department, 0, 100)
+        && electoralText(value.get('party', ''), 0, 120) && electoralText(value.get('slogan', ''), 0, 250)
+        && validElectoralProposals(value.proposals)
+        && electoralRegistrationWindow(election) && electoralApprovedRight(request.auth.uid, value.electionId, 'candidateStatus')
+        && index is int && index >= 0 && index < election.positions.size() && election.positions[index] == value.position
+        && candidateId == request.auth.uid + '_' + value.electionId + '_' + string(index)
+        && (election.departments.size() == 0 || value.department in election.departments);
+    }
+    function electoralWindow(election) {
+      return election.status == 'active' && election.startDate <= request.time && request.time < election.endDate;
+    }
+    function validElectoralBallot(voteId, ballot) {
+      let electionPath = /databases/$(database)/documents/elections/$(ballot.electionId);
+      let candidatePath = /databases/$(database)/documents/candidates/$(ballot.candidateId);
+      let recordPath = /databases/$(database)/documents/voteRecords/$(request.auth.uid + '_' + ballot.electionId);
+      let election = request.path == electionPath ? resource.data : get(electionPath).data;
+      let candidate = request.path == candidatePath ? resource.data : get(candidatePath).data;
+      // Aggregates require a newly-created ballot. Its rule forces a changed
+      // record; that record verifies prior positions and BOTH counters. Old
+      // ballots, stand-alone counters and incomplete commits break this cycle.
+      let previousRecord = request.path == electionPath || request.path == candidatePath ? null
+        : (request.path == recordPath ? (request.method == 'create' ? null : resource.data)
+          : (exists(recordPath) ? get(recordPath).data : null));
+      let previousPositions = previousRecord == null ? [] : previousRecord.positionsVoted;
+      let record = request.path == recordPath ? request.resource.data : getAfter(recordPath).data;
+      // The ballot create delegates the counter checks to the mandatory record
+      // write. Avoid redundant reads to stay within ten accesses even on the
+      // second position and with the public closure document present.
+      let nextCandidate = request.path == candidatePath ? request.resource.data
+        : (request.path == recordPath || request.path == electionPath ? getAfter(candidatePath).data : candidate);
+      let nextElection = request.path == electionPath ? request.resource.data
+        : (request.path == recordPath || request.path == candidatePath ? getAfter(electionPath).data : election);
+      return electoralParticipationOpen() && electoralEnabled() && electoralApprovedRight(request.auth.uid, ballot.electionId, 'voterStatus')
+        && ballot.keys().hasOnly(['voterId', 'candidateId', 'electionId', 'position', 'positionIndex', 'timestamp'])
+        && ballot.voterId == request.auth.uid && ballot.timestamp == request.time
+        && ballot.positionIndex is int && ballot.positionIndex >= 0 && ballot.positionIndex < election.positions.size()
+        && ballot.position is string && election.positions[ballot.positionIndex] == ballot.position
+        && voteId == request.auth.uid + '_' + ballot.electionId + '_' + string(ballot.positionIndex)
+        && electoralWindow(election) && candidate.status == 'approved'
+        && candidate.electionId == ballot.electionId && candidate.position == ballot.position
+        && (request.path == electionPath || request.path == candidatePath
+          ? !exists(/databases/$(database)/documents/votes/$(voteId))
+          : ((previousRecord == null || (previousRecord.voterId == request.auth.uid && previousRecord.electionId == ballot.electionId))
+            && previousPositions is list && !(ballot.position in previousPositions)
+            && record.positionsVoted == previousPositions.concat([ballot.position])))
+        && record.keys().hasOnly(['voterId', 'electionId', 'positionsVoted', 'votedAt', 'lastVoteId', 'lastCandidateId', 'lastPositionIndex'])
+        && record.voterId == request.auth.uid && record.electionId == ballot.electionId && record.votedAt == request.time
+        && record.lastVoteId == voteId && record.lastCandidateId == ballot.candidateId && record.lastPositionIndex == ballot.positionIndex
+        && (request.path != recordPath && request.path != electionPath && request.path != candidatePath
+          || (nextCandidate.diff(candidate).affectedKeys().hasOnly(['votes'])
+            && candidate.get('votes', 0) is int && candidate.get('votes', 0) >= 0 && candidate.get('votes', 0) < 9007199254740991
+            && nextCandidate.votes == candidate.get('votes', 0) + 1
+            && nextElection.diff(election).affectedKeys().hasOnly(['totalVotes'])
+            && election.get('totalVotes', 0) is int && election.get('totalVotes', 0) >= 0 && election.get('totalVotes', 0) < 9007199254740991
+            && nextElection.totalVotes == election.get('totalVotes', 0) + 1));
+    }
+    function electoralAggregateUpdate(electionId, candidateId) {
+      let record = getAfter(/databases/$(database)/documents/voteRecords/$(request.auth.uid + '_' + electionId)).data;
+      let ballot = getAfter(/databases/$(database)/documents/votes/$(record.lastVoteId)).data;
+      return ballot.electionId == electionId && (candidateId == '' || ballot.candidateId == candidateId)
+        && validElectoralBallot(record.lastVoteId, ballot);
+    }
+    function electoralRecordWrite(recordId) {
+      let record = request.resource.data;
+      let ballot = getAfter(/databases/$(database)/documents/votes/$(record.lastVoteId)).data;
+      return recordId == request.auth.uid + '_' + record.electionId && ballot.electionId == record.electionId
+        && validElectoralBallot(record.lastVoteId, ballot);
+    }
+    function electoralManagerElectionUpdate() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let changed = next.diff(previous).affectedKeys();
+      return electoralManager() && next.totalVotes == previous.totalVotes
+        && next.createdBy == previous.createdBy && next.createdAt == previous.createdAt
+        && (!previous.keys().hasAny(['registrationStartDate', 'registrationEndDate']) || next.keys().hasAll(['registrationStartDate', 'registrationEndDate']))
+        && validElectoralElection(next) && next.updatedAt == request.time
+        && ((previous.status == 'draft' && previous.totalVotes == 0 && next.status in ['draft', 'active', 'archived']
+            && changed.hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'positions', 'departments', 'status', 'updatedAt'])
+            && (next.status != 'active' || next.endDate > request.time))
+          || (previous.status == 'active' && next.status == 'active'
+            && (changed.hasOnly(['name', 'description', 'updatedAt'])
+              || (previous.totalVotes == 0 && request.time < previous.startDate && request.time < next.startDate
+                && changed.hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'updatedAt']))))
+          || (previous.status == 'active' && next.status == 'closed' && changed.hasOnly(['status', 'updatedAt']))
+          || (previous.status == 'closed' && next.status == 'archived' && changed.hasOnly(['status', 'updatedAt']))
+          // Trash: keeps the previous status and who/when; votes and files stay intact.
+          || (previous.status != 'deleted' && next.status == 'deleted' && next.get('previousStatus', '') == previous.status
+            && next.get('deletedAt', null) == request.time && next.get('deletedBy', '') == request.auth.uid
+            && changed.hasOnly(['status', 'previousStatus', 'deletedAt', 'deletedBy', 'updatedAt']))
+          // Restore: always as archived, never reopened, without trash metadata.
+          || (previous.status == 'deleted' && next.status == 'archived' && !next.keys().hasAny(['previousStatus', 'deletedAt', 'deletedBy'])
+            && changed.hasOnly(['status', 'previousStatus', 'deletedAt', 'deletedBy', 'updatedAt'])));
+    }
+    match /elections/{electionId} {
+      allow read, list: if electoralEnabled() && (electoralManager() || electoralPublished(resource.data));
+      allow create: if electoralManager() && validElectoralElection(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'status', 'positions', 'departments', 'createdBy', 'createdAt', 'updatedAt', 'totalVotes'])
+        && request.resource.data.keys().hasAll(['registrationStartDate', 'registrationEndDate'])
+        && request.resource.data.status == 'draft' && request.resource.data.totalVotes == 0
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalVotes']) && electoralAggregateUpdate(electionId, ''))
+        || electoralManagerElectionUpdate();
+      allow delete: if false;
+    }
+    match /electoralAccess/{accessId} {
+      allow read, list: if electoralEnabled() && (electoralManager() || resource.data.uid == request.auth.uid);
+      allow get: if electoralEnabled() && !exists(/databases/$(database)/documents/electoralAccess/$(accessId));
+      allow create: if electoralAccessCreate(accessId);
+      allow update: if electoralSelfAccessUpdate(accessId) || electoralReviewAccess(accessId);
+      allow delete: if false;
+    }
+    match /electoralInvitations/{invitationId} {
+      // Random, unguessable IDs are shared by link; participants cannot list
+      // the directory. Reads do not change requests or company membership.
+      allow get: if electoralEnabled() && (electoralManager() || electoralInvitationRecipient(resource.data));
+      allow list: if electoralManager();
+      allow create: if invitationId.matches('[A-Za-z0-9_-]{20,128}') && electoralInvitationCreate();
+      allow update: if (request.resource.data.status == 'accepted' && electoralInvitationAccept())
+        || (request.resource.data.status != 'accepted' && electoralInvitationManage());
+      allow delete: if false;
+    }
+    match /candidates/{candidateId} {
+      allow get: if electoralEnabled() && !exists(/databases/$(database)/documents/candidates/$(candidateId));
+      allow read, list: if electoralEnabled() && (electoralManager() || resource.data.status == 'approved' || resource.data.uid == request.auth.uid);
+      allow create: if electoralParticipationOpen() && electoralEnabled() && validElectoralCandidate(candidateId, request.resource.data)
+        && request.resource.data.status == 'pending' && request.resource.data.votes == 0 && request.resource.data.createdAt == request.time
+        && !('approvedAt' in request.resource.data) && !('approvedBy' in request.resource.data);
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) && electoralAggregateUpdate(resource.data.electionId, candidateId))
+        || (electoralParticipationOpen() && electoralManager() && resource.data.status in ['pending', 'approved', 'rejected'] && resource.data.votes == 0
+          && get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data.status == 'active'
+          && request.time < get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data.startDate
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedAt', 'approvedBy'])
+          && request.resource.data.status in ['approved', 'rejected']
+          && (request.resource.data.status == 'rejected' || electoralApprovedRight(resource.data.uid, resource.data.electionId, 'candidateStatus'))
+          && request.resource.data.approvedBy == request.auth.uid && request.resource.data.approvedAt == request.time);
+      // The CEO may delete a nomination file that never received votes. An
+      // approved option cannot disappear while its ballot is open.
+      allow delete: if electoralManager() && resource.data.get('votes', 0) == 0
+        && (!exists(/databases/$(database)/documents/elections/$(resource.data.electionId))
+          || resource.data.status != 'approved'
+          || !electoralWindow(get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data));
+    }
+    match /votes/{voteId} {
+      // Aggregate results are available through candidates; individual choices
+      // are never listed or exposed by the client, including administrators.
+      allow read, list: if false;
+      allow create: if validElectoralBallot(voteId, request.resource.data);
+      allow update, delete: if false;
+    }
+    match /voteRecords/{recordId} {
+      allow get: if electoralEnabled() && (!exists(/databases/$(database)/documents/voteRecords/$(recordId)) || resource.data.voterId == request.auth.uid);
+      allow list: if false;
+      allow create, update: if electoralRecordWrite(recordId);
+      allow delete: if false;
+    }
+    match /electionResults/{resultId} {
+      allow read, list: if electoralEnabled();
+      allow create, update, delete: if false;
+    }
+    function validElectoralAnnouncement(value) {
+      return value.keys().hasAll(['title', 'body', 'status', 'electionId', 'pinned', 'startsAt', 'endsAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && value.keys().hasOnly(['title', 'body', 'status', 'electionId', 'pinned', 'startsAt', 'endsAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && electoralText(value.title, 3, 160) && electoralText(value.body, 1, 4000)
+        && value.status in ['draft', 'published', 'withdrawn'] && value.pinned is bool
+        && electoralText(value.electionId, 0, 1500)
+        && value.startsAt is timestamp && value.endsAt is timestamp && value.startsAt < value.endsAt
+        && value.createdAt is timestamp && electoralText(value.createdBy, 1, 128)
+        && value.updatedAt == request.time && value.updatedBy == request.auth.uid
+        && (value.electionId == '' || (exists(/databases/$(database)/documents/elections/$(value.electionId))
+          && get(/databases/$(database)/documents/elections/$(value.electionId)).data.status != 'deleted'
+          && (value.status != 'published' || get(/databases/$(database)/documents/elections/$(value.electionId)).data.status != 'draft')));
+    }
+    match /electoralAnnouncements/{announcementId} {
+      // Published notices also appear on the public closure/login screen.
+      // Notices are withdrawn instead of deleted, so the history is preserved.
+      allow get, list: if resource.data.status == 'published' || electoralManager();
+      allow create: if electoralManager() && validElectoralAnnouncement(request.resource.data)
+        && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid;
+      allow update: if electoralManager() && validElectoralAnnouncement(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if false;
+    }
+    match /electoralSettings/{settingsId} {
+      // The closure screen is shown before sign-in, so it is publicly readable.
+      allow get: if settingsId == 'general';
+      allow list: if false;
+      allow create, update: if settingsId == 'general' && electoralManager()
+        && request.resource.data.keys().hasOnly(['enabled', 'closureTitle', 'closureMessage', 'returnYear', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasAll(['enabled', 'closureTitle', 'closureMessage', 'returnYear', 'updatedAt', 'updatedBy'])
+        && validElectoralSettingsContent(request.resource.data)
+        && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /auditLogs/{logId} {
+      allow read, list: if electoralManager();
+      allow create: if electoralEnabled() && request.resource.data.keys().hasOnly(['action', 'userId', 'userName', 'details', 'timestamp'])
+        && request.resource.data.userId == request.auth.uid && request.resource.data.timestamp == request.time
+        && electoralText(request.resource.data.userName, 1, 160) && request.resource.data.details is map
+        && ((electoralManager() && request.resource.data.action in ['ELECTION_CREATED', 'ELECTION_UPDATED', 'ELECTION_STATUS_CHANGED', 'CANDIDATE_APPROVED', 'CANDIDATE_REJECTED', 'CANDIDATE_DELETED', 'ELECTORAL_ACCESS_REVIEWED', 'INVITATION_CREATED', 'INVITATION_UPDATED', 'INVITATION_REVOKED', 'ELECTION_DELETED', 'ELECTION_RESTORED', 'ANNOUNCEMENT_CREATED', 'ANNOUNCEMENT_UPDATED', 'SETTINGS_UPDATED'])
+          || request.resource.data.action in ['CANDIDATE_REGISTERED', 'ELECTORAL_ACCESS_REQUESTED', 'INVITATION_ACCEPTED']);
+      allow update, delete: if false;
+    }
+

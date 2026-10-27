@@ -1,100 +1,106 @@
-// src/hooks/useAutoLogout.ts
-//
-// Detecta inactividad y cierra sesión automáticamente.
-//
-// Flujo:
-//   - El usuario no hace nada por IDLE_MINUTES → aparece modal de advertencia
-//   - El modal tiene un contador regresivo de WARNING_SECONDS
-//   - Si el usuario hace click/tecla → se resetea el timer silenciosamente
-//   - Si el contador llega a 0 → logout automático
-//
-// Para cambiar los tiempos, edita IDLE_MINUTES y WARNING_SECONDS abajo.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getSessionDeadlineState, SESSION_IDLE_MS, SESSION_WARNING_SECONDS } from '@/lib/sessionDeadline';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-
-// ── Configuración ─────────────────────────────────────────────────────────────
-const IDLE_MINUTES    = 30;  // minutos sin actividad antes de mostrar advertencia
-const WARNING_SECONDS = 60;  // segundos del contador regresivo antes de cerrar sesión
-
-// Eventos que cuentan como "actividad"
-const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel'];
+const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel'] as const;
 
 interface UseAutoLogoutResult {
-  showWarning:    boolean;
-  countdown:      number;
+  showWarning: boolean;
+  countdown: number;
   handleStayActive: () => void;
 }
 
-export function useAutoLogout(
-  isAuthenticated: boolean,
-  onLogout: () => Promise<void>
-): UseAutoLogoutResult {
-  const [showWarning, setShowWarning]   = useState(false);
-  const [countdown,   setCountdown]     = useState(WARNING_SECONDS);
+/** Thirty minutes idle, then sixty seconds to explicitly keep the session alive. */
+export function useAutoLogout(isAuthenticated: boolean, onLogout: () => Promise<void>): UseAutoLogoutResult {
+  const [showWarning, setShowWarning] = useState(false);
+  const [countdown, setCountdown] = useState(SESSION_WARNING_SECONDS);
+  const logoutRef = useRef(onLogout);
+  const keepAliveRef = useRef<(() => void) | null>(null);
 
-  const idleTimerRef     = useRef<ReturnType<typeof setTimeout>  | null>(null);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isWarningRef     = useRef(false);
-
-  const clearTimers = () => {
-    if (idleTimerRef.current)      clearTimeout(idleTimerRef.current);
-    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-  };
-
-  const startCountdown = useCallback(() => {
-    isWarningRef.current = true;
-    setCountdown(WARNING_SECONDS);
-    setShowWarning(true);
-
-    let remaining = WARNING_SECONDS;
-    countdownTimerRef.current = setInterval(() => {
-      remaining -= 1;
-      setCountdown(remaining);
-      if (remaining <= 0) {
-        clearInterval(countdownTimerRef.current!);
-        setShowWarning(false);
-        onLogout();
-      }
-    }, 1000);
-  }, [onLogout]);
-
-  const resetIdleTimer = useCallback(() => {
-    // Si el modal ya está abierto, no resetear con movimiento de mouse
-    // (el usuario debe hacer clic explícitamente en "Seguir conectado")
-    if (isWarningRef.current) return;
-
-    clearTimers();
-    idleTimerRef.current = setTimeout(() => {
-      startCountdown();
-    }, IDLE_MINUTES * 60 * 1000);
-  }, [startCountdown]);
-
-  const handleStayActive = useCallback(() => {
-    clearTimers();
-    isWarningRef.current = false;
-    setShowWarning(false);
-    setCountdown(WARNING_SECONDS);
-    // Reinicia el timer de inactividad
-    idleTimerRef.current = setTimeout(() => {
-      startCountdown();
-    }, IDLE_MINUTES * 60 * 1000);
-  }, [startCountdown]);
+  useEffect(() => { logoutRef.current = onLogout; }, [onLogout]);
 
   useEffect(() => {
+    setShowWarning(false);
+    setCountdown(SESSION_WARNING_SECONDS);
     if (!isAuthenticated) return;
 
-    // Arranca el timer inicial
-    resetIdleTimer();
+    let idleDeadline = Date.now() + SESSION_IDLE_MS;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let warningVisible = false;
+    let logoutStarted = false;
+    let disposed = false;
 
-    // Escucha actividad del usuario
-    const onActivity = () => resetIdleTimer();
-    ACTIVITY_EVENTS.forEach(evt => window.addEventListener(evt, onActivity, { passive: true }));
+    const clearTimer = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+    };
+
+    const synchronize = () => {
+      clearTimer();
+      if (disposed || logoutStarted) return;
+
+      const state = getSessionDeadlineState(Date.now(), idleDeadline);
+      if (state.phase === 'expired') {
+        // Mark this before calling the async handler: focus, activity and a late
+        // timeout may all arrive together when a sleeping window wakes up.
+        logoutStarted = true;
+        setCountdown(0);
+        setShowWarning(false);
+        try {
+          void Promise.resolve(logoutRef.current()).catch(error => {
+            console.error('No se pudo completar el cierre automático de sesión.', error);
+          });
+        } catch (error) {
+          console.error('No se pudo completar el cierre automático de sesión.', error);
+        }
+        return;
+      }
+
+      warningVisible = state.phase === 'warning';
+      setShowWarning(warningVisible);
+      setCountdown(state.countdown);
+      timer = setTimeout(synchronize, state.nextCheckIn);
+    };
+
+    const onActivity = () => {
+      if (disposed || logoutStarted || warningVisible) return;
+      const now = Date.now();
+      // Activity cannot revive an already expired idle period if the browser
+      // postponed its timer in the background. Only the explicit button can.
+      if (now >= idleDeadline) {
+        synchronize();
+        return;
+      }
+      // Do not allocate a timeout for every mousemove. The existing timeout
+      // reads the latest deadline and reschedules itself when necessary.
+      idleDeadline = now + SESSION_IDLE_MS;
+    };
+
+    const keepAlive = () => {
+      if (disposed || logoutStarted) return;
+      if (getSessionDeadlineState(Date.now(), idleDeadline).phase === 'expired') {
+        synchronize();
+        return;
+      }
+      idleDeadline = Date.now() + SESSION_IDLE_MS;
+      synchronize();
+    };
+
+    keepAliveRef.current = keepAlive;
+    synchronize();
+    ACTIVITY_EVENTS.forEach(event => window.addEventListener(event, onActivity, { passive: true, capture: true }));
+    window.addEventListener('focus', synchronize);
+    document.addEventListener('visibilitychange', synchronize);
 
     return () => {
-      clearTimers();
-      ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, onActivity));
+      disposed = true;
+      clearTimer();
+      if (keepAliveRef.current === keepAlive) keepAliveRef.current = null;
+      ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, onActivity, true));
+      window.removeEventListener('focus', synchronize);
+      document.removeEventListener('visibilitychange', synchronize);
     };
-  }, [isAuthenticated, resetIdleTimer]);
+  }, [isAuthenticated]);
 
+  const handleStayActive = useCallback(() => { keepAliveRef.current?.(); }, []);
   return { showWarning, countdown, handleStayActive };
 }

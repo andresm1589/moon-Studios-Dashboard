@@ -1,3 +1,7 @@
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { EmojiText } from '@/components/discord/EmojiText';
+import { panelInk } from '@/lib/panelColors';
+import { EnterpriseFocus } from '@/components/EnterpriseFocus';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -16,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import {
   Bot, Server, XCircle, RefreshCw, Send, MessageSquare,
-  Hash, CheckCircle, Wifi, Clock, Users, Activity, Zap, Shield,
+  Hash, CheckCircle, Clock, Users, Activity, Zap, Shield,
   AlertCircle, Settings, BarChart3, Terminal, Eye, EyeOff,
   Command, ChevronDown, ChevronRight, Key, Link, Wrench,
   AlertTriangle, CheckCircle2, TrendingUp,
@@ -87,7 +91,7 @@ const formatUptime = (ms?: number) => {
 };
 
 const getPingColor = (p?: number) =>
-  !p ? 'var(--text-muted)' : p < 80 ? '#4ade80' : p < 200 ? '#facc15' : '#f87171';
+  !p ? 'var(--moon-muted)' : p < 80 ? '#4ade80' : p < 200 ? '#facc15' : '#f87171';
 
 const maskToken = (t?: string) =>
   !t ? 'No disponible' : t.substring(0, 10) + '••••••' + t.slice(-5);
@@ -166,7 +170,7 @@ const BUG_TRANSITIONS: Record<string, string[]> = {
 const Skel: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div
     className={`animate-pulse rounded-xl ${className}`}
-    style={{ background: 'var(--overlay-bg)' }}
+    style={{ background: 'var(--moon-surface-raised)' }}
   />
 );
 
@@ -176,7 +180,7 @@ const StatusPill: React.FC<{ online: boolean }> = ({ online }) => (
     style={{
       background: online ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
       border: `1px solid ${online ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}`,
-      color: online ? '#4ade80' : '#f87171',
+      color: panelInk(online ? '#4ade80' : '#f87171'),
     }}
   >
     <span
@@ -190,61 +194,39 @@ const StatusPill: React.FC<{ online: boolean }> = ({ online }) => (
   </span>
 );
 
-const MiniStat: React.FC<{
-  label: string; value: React.ReactNode;
-  icon: React.ReactNode; accent?: string;
-}> = ({ label, value, icon, accent }) => (
-  <div
-    className="p-4 rounded-2xl border"
-    style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}
-  >
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-[10px] uppercase tracking-widest font-light mb-2" style={{ color: 'var(--text-muted)' }}>
-          {label}
-        </p>
-        <p className="text-2xl font-light" style={{ color: accent ?? 'var(--text-primary)' }}>
-          {value}
-        </p>
-      </div>
-      <div style={{ color: 'var(--content-quaternary)' }}>{icon}</div>
-    </div>
-  </div>
-);
-
 const CommandCard: React.FC<{ cmd: BotCommand }> = ({ cmd }) => {
   const [open, setOpen] = useState(false);
   const tc = cmd.type === 'slash' ? '#818cf8' : '#38bdf8';
   const aliases = cmd.aliases ?? [];
   return (
-    <div className="rounded-2xl overflow-hidden border transition-colors" style={{ borderColor: 'var(--border-main)', background: 'var(--sidebar-card-bg)' }}>
+    <div className="rounded-2xl overflow-hidden border transition-colors" style={{ borderColor: 'var(--moon-line)', background: 'var(--moon-surface)' }}>
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${tc}15`, border: `1px solid ${tc}25` }}>
-            <span className="text-sm font-light" style={{ color: tc }}>{cmd.type === 'slash' ? '/' : '·'}</span>
+            <span className="text-sm font-light" style={{ color: panelInk(tc) }}>{cmd.type === 'slash' ? '/' : '·'}</span>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <span style={{ color: 'var(--text-primary)' }} className="font-light text-sm">{cmd.name}</span>
-              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: `${tc}15`, color: tc }}>{cmd.type === 'slash' ? 'Slash' : 'Prefijo'}</span>
-              {cmd.category && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'var(--overlay-bg)', color: 'var(--text-muted)' }}>{cmd.category}</span>}
-              {cmd.premium && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15' }}>Premium</span>}
-              {cmd.nsfw && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">NSFW</span>}
+              <span style={{ color: 'var(--moon-ink)' }} className="font-light text-sm">{cmd.name}</span>
+              <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: `${tc}15`, color: panelInk(tc) }}>{cmd.type === 'slash' ? 'Slash' : 'Prefijo'}</span>
+              {cmd.category && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'var(--moon-surface-raised)', color: 'var(--moon-muted)' }}>{cmd.category}</span>}
+              {cmd.premium && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(250,204,21,0.1)', color: panelInk('#facc15') }}>Premium</span>}
+              {cmd.nsfw && <span className="text-[10px] font-light px-1.5 py-0.5 rounded-full bg-red-500/10 moon-panel-tone-red">NSFW</span>}
             </div>
-            <p className="text-xs font-light truncate" style={{ color: 'var(--text-muted)' }}>{cmd.description}</p>
+            <p className="text-xs font-light truncate" style={{ color: 'var(--moon-muted)' }}>{cmd.description}</p>
           </div>
         </div>
-        <span className="flex-shrink-0 ml-3" style={{ color: 'var(--text-muted)' }}>
+        <span className="flex-shrink-0 ml-3" style={{ color: 'var(--moon-muted)' }}>
           {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </span>
       </button>
       {open && (
-        <div className="border-t px-4 py-3 space-y-1.5" style={{ borderColor: 'var(--border-main)' }}>
+        <div className="border-t px-4 py-3 space-y-1.5" style={{ borderColor: 'var(--moon-line)' }}>
           <div className="flex items-start gap-3">
-            <Hash className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
-            <span className="text-sm font-light font-mono break-all" style={{ color: 'var(--content-secondary)' }}>{cmd.usage}</span>
+            <Hash className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--moon-muted)' }} />
+            <span className="text-sm font-light font-mono break-all" style={{ color: 'var(--moon-muted)' }}>{cmd.usage}</span>
           </div>
-          <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>
             Espera: {cmd.cooldown ?? 3} s{aliases.length ? ` · Alias: ${aliases.join(', ')}` : ''}
           </p>
         </div>
@@ -263,6 +245,10 @@ function mensajeApi(e: unknown): string {
 }
 
 const DiscordBot: React.FC = () => {
+  const messageEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const incidentEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const incidentUpdateEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const maintenanceEmojiRef = useRef<HTMLTextAreaElement>(null);
   const { isCEO, userProfile } = useAuth();
   const { settings } = useSettings();
   const accentColor = settings.accentColor || '#6366f1';
@@ -658,19 +644,19 @@ const DiscordBot: React.FC = () => {
   const cardStyle: React.CSSProperties = {
     borderRadius: 16,
     padding: isCompact ? '14px' : '20px',
-    border: '1px solid var(--border-main)',
-    background: 'var(--sidebar-card-bg)',
+    border: '1px solid var(--moon-line)',
+    background: 'var(--moon-surface)',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    background: 'var(--overlay-bg)',
-    border: '1px solid var(--border-main)',
+    background: 'var(--moon-surface-raised)',
+    border: '1px solid var(--moon-line)',
     borderRadius: 10,
     padding: '10px 12px',
     fontSize: 14,
     fontWeight: 300,
-    color: 'var(--text-primary)',
+    color: 'var(--moon-ink)',
     outline: 'none',
   };
 
@@ -701,12 +687,12 @@ const DiscordBot: React.FC = () => {
 
   const sectionTitle: React.CSSProperties = {
     fontSize: 10, textTransform: 'uppercase' as const,
-    letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14,
+    letterSpacing: '0.08em', color: 'var(--moon-muted)', marginBottom: 14,
   };
 
   /* ── Loading ── */
   if (loading) return (
-    <div className="space-y-5">
+    <div className="moon-module moon-module--discord-bot space-y-5">
       <Skel className="h-8 w-48" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skel key={i} className="h-24" />)}</div>
       <Skel className="h-10" /><Skel className="h-48" />
@@ -716,32 +702,32 @@ const DiscordBot: React.FC = () => {
   /* ── Sin conexión con la API / bot apagado ── */
   const reintentar = () => { setLoading(true); fetchAllData(); };
   const pantallaEstado = (tipo: 'api' | 'offline') => (
-    <div className={`space-y-5 ${hasAnimations ? 'animate-fade-in' : ''}`}>
+    <div className="moon-module moon-module--discord-bot space-y-5">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center"
           style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}30` }}>
-          <Bot className="w-4 h-4" style={{ color: accentColor }} strokeWidth={1.5} />
+          <Bot className="w-4 h-4" style={{ color: panelInk(accentColor) }} strokeWidth={1.5} />
         </div>
-        <h1 className="text-xl font-light tracking-tight" style={{ color: 'var(--text-primary)' }}>Discord Bot</h1>
+        <h1 className="moon-page-title text-xl font-light tracking-tight" style={{ color: 'var(--moon-ink)' }}>Discord Bot</h1>
       </div>
-      <div className="rounded-2xl p-12 text-center border" style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+      <div className="rounded-2xl p-12 text-center border" style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
         <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
           style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
           {tipo === 'api'
-            ? <AlertCircle className="w-10 h-10" style={{ color: '#f87171' }} strokeWidth={1} />
-            : <XCircle className="w-10 h-10" style={{ color: '#f87171' }} strokeWidth={1} />}
+            ? <AlertCircle className="w-10 h-10" style={{ color: panelInk('#f87171') }} strokeWidth={1} />
+            : <XCircle className="w-10 h-10" style={{ color: panelInk('#f87171') }} strokeWidth={1} />}
         </div>
-        <h3 className="text-xl font-light mb-1" style={{ color: 'var(--text-primary)' }}>
+        <h3 className="text-xl font-light mb-1" style={{ color: 'var(--moon-ink)' }}>
           {tipo === 'api' ? 'No se pudo conectar con Luna NET' : 'Bot desconectado'}
         </h3>
-        <p className="text-sm font-light mb-8 max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm font-light mb-8 max-w-md mx-auto" style={{ color: 'var(--moon-muted)' }}>
           {tipo === 'api'
             ? apiError
             : 'La API responde, pero el bot no está conectado a Discord. Reinícialo desde el panel del hosting (Pterodactyl).'}
         </p>
         <button onClick={reintentar}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-light hover:opacity-90 transition-all"
-          style={{ background: accentColor, color: 'white', border: 'none' }}>
+          className="moon-panel-action inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-light hover:opacity-90 transition-all"
+          style={{ background: accentColor, color: 'var(--accent-on-user, var(--moon-accent-ink))', border: 'none' }}>
           <RefreshCw className="w-4 h-4" /> Reintentar
         </button>
       </div>
@@ -755,77 +741,42 @@ const DiscordBot: React.FC = () => {
   const botTag   = botData.discriminator ? `${botName}#${botData.discriminator}` : botName;
 
   return (
-    <>
+    <section className="moon-module moon-module--discord-bot">
       {/* ── Estilos globales del componente ── */}
       <style>{`
-        .db-fadeIn { animation: dbFadeIn 0.25s ease forwards; }
+        .db-fadeIn { animation: none; }
         @keyframes dbFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .db-tab-btn { transition: all 0.18s ease; }
-        .db-tab-btn:hover { background: var(--overlay-bg) !important; }
-        .db-row-hover:hover { background: var(--overlay-bg); }
-        .db-input { background: var(--overlay-bg) !important; border: 1px solid var(--border-main) !important; color: var(--text-primary) !important; }
+        .db-tab-btn:hover { background: var(--moon-surface-raised) !important; }
+        .db-row-hover:hover { background: var(--moon-surface-raised); }
+        .db-input { background: var(--moon-surface-raised) !important; border: 1px solid var(--moon-line) !important; color: var(--moon-ink) !important; }
         .db-input:focus { outline: none; border-color: var(--accent-color, #6366f1) !important; }
-        .db-input::placeholder { color: var(--content-quaternary); }
-        .db-select option { background: var(--bg-sidebar, #0d0d0d); color: var(--text-primary); }
+        .db-input::placeholder { color: var(--moon-muted); }
+        .db-select option { background: var(--moon-surface, #0d0d0d); color: var(--moon-ink); }
         .db-scroll::-webkit-scrollbar { width: 3px; }
         .db-scroll::-webkit-scrollbar-track { background: transparent; }
-        .db-scroll::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 4px; }
+        .db-scroll::-webkit-scrollbar-thumb { background: var(--moon-line); border-radius: 4px; }
       `}</style>
 
       <div className="space-y-5" style={{ '--accent-color': accentColor } as React.CSSProperties}>
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center"
-                style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
-                {botData.avatar
-                  ? <img src={botData.avatar} alt={botName} className="w-full h-full object-cover" />
-                  : <Bot className="w-6 h-6" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />}
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2"
-                style={{ borderColor: 'var(--bg-main, #080808)' }} />
-            </div>
-            <div>
-              <h2 className="text-lg font-light leading-tight" style={{ color: 'var(--text-primary)' }}>{botTag}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <StatusPill online={isOnline} />
-                {maintenance?.active && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-light"
-                    style={{ background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.2)', color: '#fb923c' }}>
-                    <Wrench className="w-2.5 h-2.5" strokeWidth={2} /> Mantenimiento
-                  </span>
-                )}
-                {botData.id && (
-                  <span className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>ID: {botData.id}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-light" style={{ color: 'var(--content-tertiary)' }}>Auto-refresh 30s</span>
-            <button onClick={handleRefresh} disabled={refreshing}
-              className="w-9 h-9 rounded-xl flex items-center justify-center border transition-all"
-              style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent' }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--overlay-bg)'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}>
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Stats rápidas ── */}
-        <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 ${hasAnimations ? 'db-fadeIn' : ''}`}>
-          <MiniStat label="Uptime"     value={formatUptime(botData.uptime)}                           icon={<Clock className="w-5 h-5" />} />
-          <MiniStat label="Latencia"   value={botData.ping ? `${botData.ping}ms` : '—'}               icon={<Wifi className="w-5 h-5" />}  accent={getPingColor(botData.ping)} />
-          <MiniStat label="Servidores" value={botData.servers ?? botData.serversList?.length ?? 0}     icon={<Server className="w-5 h-5" />} accent={accentColor} />
-          <MiniStat label="Usuarios"   value={(botData.users ?? 0).toLocaleString('es-PE')}           icon={<Users className="w-5 h-5" />} />
-        </div>
+        <EnterpriseFocus eyebrow="Comunidad · Automatización" title={botTag}
+          description="Supervisa la conexión de tu bot, revisa su actividad y administra la comunidad desde este centro."
+          metrics={[
+            { label: 'Servidores', value: botData.servers ?? botData.serversList?.length ?? 0, detail: 'Administrar comunidad', onClick: () => setActiveTab('servers') },
+            { label: 'Tiempo conectado', value: formatUptime(botData.uptime), detail: 'Consultar disponibilidad', onClick: () => setActiveTab('uptime') },
+            { label: 'Latencia', value: botData.ping != null ? botData.ping + ' ms' : '—', detail: 'Estado de la conexión', onClick: () => setActiveTab('status') },
+          ]}>
+          {botData.avatar && <img src={botData.avatar} alt="" className="w-9 h-9 rounded-xl" />}
+          <StatusPill online={isOnline} />
+          {maintenance?.active && <span className="enterprise-pill"><Wrench className="w-3 h-3" />Mantenimiento activo</span>}
+          <button type="button" className="enterprise-action" onClick={handleRefresh} disabled={refreshing}><RefreshCw className={refreshing ? 'animate-spin' : ''} />Actualizar</button>
+          <button type="button" className="enterprise-action" onClick={() => setActiveTab('incidents')}><AlertTriangle />Revisar incidencias</button>
+        </EnterpriseFocus>
 
         {/* ── Tabs ── */}
-        <div className="flex gap-1 flex-wrap rounded-2xl p-1.5"
-          style={{ background: 'var(--sidebar-card-bg)', border: '1px solid var(--border-main)' }}>
+        <div data-moon-reveal="card" className="moon-panel flex gap-1 flex-wrap rounded-2xl p-1.5"
+          style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.value;
@@ -834,16 +785,16 @@ const DiscordBot: React.FC = () => {
                 className="db-tab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-light"
                 style={{
                   background: isActive ? `${accentColor}20` : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  color: panelInk(isActive ? 'var(--moon-ink)' : 'var(--moon-muted)'),
                   border: isActive ? `1px solid ${accentColor}35` : '1px solid transparent',
                 }}>
-                <Icon className="w-3.5 h-3.5" strokeWidth={1.5} style={{ color: isActive ? accentColor : undefined }} />
+                <Icon className="w-3.5 h-3.5" strokeWidth={1.5} style={{ color: panelInk(isActive ? accentColor : undefined) }} />
                 {tab.label}
                 {'badge' in tab && tab.badge !== undefined && (tab.badge as number) > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full text-[10px]"
                     style={{
                       background: tab.value === 'incidents' ? 'rgba(248,113,113,0.2)' : `${accentColor}25`,
-                      color: tab.value === 'incidents' ? '#f87171' : accentColor,
+                      color: panelInk(tab.value === 'incidents' ? '#f87171' : accentColor),
                     }}>
                     {tab.badge}
                   </span>
@@ -861,7 +812,7 @@ const DiscordBot: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Info bot */}
-                <div style={cardStyle}>
+                <div data-moon-reveal="card" style={cardStyle}>
                   <p style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Bot className="w-3.5 h-3.5" /> Información del Bot
                   </p>
@@ -874,10 +825,10 @@ const DiscordBot: React.FC = () => {
                     { label: 'Memoria',   value: botData.memoryUsage ? `${botData.memoryUsage} MB` : null },
                   ].map(({ label, value, mono }) => (
                     <div key={label} className="flex justify-between items-center py-2.5 border-b last:border-0"
-                      style={{ borderColor: 'var(--border-main)' }}>
-                      <span className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                      style={{ borderColor: 'var(--moon-line)' }}>
+                      <span className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>{label}</span>
                       <span className={`text-sm font-light ${mono ? 'font-mono text-xs' : ''}`}
-                        style={{ color: value ? 'var(--text-primary)' : 'var(--content-tertiary)' }}>
+                        style={{ color: panelInk(value ? 'var(--moon-ink)' : 'var(--moon-muted)') }}>
                         {value || '—'}
                       </span>
                     </div>
@@ -885,7 +836,7 @@ const DiscordBot: React.FC = () => {
                 </div>
 
                 {/* Rendimiento */}
-                <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div data-moon-reveal="card" style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <p style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <BarChart3 className="w-3.5 h-3.5" /> Rendimiento
                   </p>
@@ -899,12 +850,12 @@ const DiscordBot: React.FC = () => {
                     return (
                       <div key={label} className="space-y-1.5">
                         <div className="flex justify-between text-xs font-light">
-                          <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-                          <span style={{ color: 'var(--content-secondary)' }}>
-                            {value}{unit} <span style={{ color: 'var(--text-muted)' }}>/ {max}{unit}</span>
+                          <span style={{ color: 'var(--moon-muted)' }}>{label}</span>
+                          <span style={{ color: 'var(--moon-muted)' }}>
+                            {value}{unit} <span style={{ color: 'var(--moon-muted)' }}>/ {max}{unit}</span>
                           </span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{ background: 'var(--overlay-bg)' }}>
+                        <div className="h-1.5 rounded-full" style={{ background: 'var(--moon-surface-raised)' }}>
                           <div className="h-full rounded-full transition-all duration-700"
                             style={{ width: `${pct}%`, background: barColor }} />
                         </div>
@@ -912,12 +863,12 @@ const DiscordBot: React.FC = () => {
                     );
                   })}
                   <div className="pt-2 border-t flex items-center justify-between"
-                    style={{ borderColor: 'var(--border-main)' }}>
-                    <span className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                      <Zap className="w-4 h-4" style={{ color: accentColor }} strokeWidth={1.5} />
+                    style={{ borderColor: 'var(--moon-line)' }}>
+                    <span className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--moon-muted)' }}>
+                      <Zap className="w-4 h-4" style={{ color: panelInk(accentColor) }} strokeWidth={1.5} />
                       Comandos registrados
                     </span>
-                    <span className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>
+                    <span className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>
                       {commandsData?.total ?? '—'}
                     </span>
                   </div>
@@ -925,7 +876,7 @@ const DiscordBot: React.FC = () => {
               </div>
 
               {/* Seguridad */}
-              <div style={cardStyle}>
+              <div data-moon-reveal="card" style={cardStyle}>
                 <p style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Shield className="w-3.5 h-3.5" /> Seguridad & Capacidades
                 </p>
@@ -933,8 +884,8 @@ const DiscordBot: React.FC = () => {
                   {['Token encriptado', 'Modo privilegiado', 'Rate limit activo', 'Auto-reconnect'].map(label => (
                     <div key={label} className="flex items-center gap-2 p-3 rounded-xl"
                       style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
-                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} strokeWidth={1.5} />
-                      <span className="text-xs font-light" style={{ color: 'var(--content-secondary)' }}>{label}</span>
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: panelInk('#4ade80') }} strokeWidth={1.5} />
+                      <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>{label}</span>
                     </div>
                   ))}
                 </div>
@@ -945,59 +896,59 @@ const DiscordBot: React.FC = () => {
           {/* ── SERVIDORES ── */}
           {activeTab === 'servers' && (
             <div className="space-y-3">
-              <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--moon-muted)' }}>
                 {botData.serversList?.length ?? 0} servidores conectados
               </p>
               {!botData.serversList?.length ? (
-                <div className="rounded-2xl border py-16 text-center"
-                  style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                  <Server className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                  <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin servidores conectados</p>
+                <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-16 text-center"
+                  style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                  <Server className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                  <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin servidores conectados</p>
                 </div>
               ) : (
-                <div className="rounded-2xl overflow-hidden border"
-                  style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                <div data-moon-reveal="card" className="moon-panel rounded-2xl overflow-hidden border"
+                  style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                   <div className="grid grid-cols-12 gap-3 px-4 py-3 border-b"
-                    style={{ background: 'var(--overlay-bg)', borderColor: 'var(--border-main)' }}>
+                    style={{ background: 'var(--moon-surface-raised)', borderColor: 'var(--moon-line)' }}>
                     {['Servidor', 'Miembros', 'Boosts', 'ID'].map((h, i) => (
                       <span key={h}
                         className={`text-[10px] uppercase tracking-widest font-light ${i === 0 ? 'col-span-5' : i === 1 ? 'col-span-2 hidden sm:block' : i === 2 ? 'col-span-2 hidden md:block' : 'col-span-3'}`}
-                        style={{ color: 'var(--text-muted)' }}>
+                        style={{ color: 'var(--moon-muted)' }}>
                         {h}
                       </span>
                     ))}
                   </div>
-                  <div className="divide-y" style={{ borderColor: 'var(--border-main)' }}>
+                  <div className="divide-y" style={{ borderColor: 'var(--moon-line)' }}>
                     {botData.serversList.map(server => (
                       <div key={server.id}
                         className="db-row-hover grid grid-cols-12 gap-3 px-4 py-3 items-center transition-colors">
                         <div className="col-span-5 flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                            style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                            style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                             {server.icon
                               ? <img src={server.icon} alt={server.name} className="w-full h-full object-cover" />
-                              : <Server className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />}
+                              : <Server className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-light truncate" style={{ color: 'var(--text-primary)' }}>{server.name}</p>
+                            <p className="text-sm font-light truncate" style={{ color: 'var(--moon-ink)' }}>{server.name}</p>
                             {server.boostLevel && server.boostLevel > 0 && (
-                              <span className="text-[10px] font-light" style={{ color: '#c084fc' }}>Nivel {server.boostLevel}</span>
+                              <span className="text-[10px] font-light" style={{ color: panelInk('#c084fc') }}>Nivel {server.boostLevel}</span>
                             )}
                           </div>
                         </div>
                         <div className="col-span-2 hidden sm:flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-                          <span className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>
+                          <Users className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
+                          <span className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>
                             {server.memberCount?.toLocaleString('es-PE') ?? '—'}
                           </span>
                         </div>
                         <div className="col-span-2 hidden md:block">
-                          <span className="text-sm font-light" style={{ color: server.boostCount ? '#c084fc' : 'var(--text-muted)' }}>
+                          <span className="text-sm font-light" style={{ color: panelInk(server.boostCount ? '#c084fc' : 'var(--moon-muted)') }}>
                             {server.boostCount ?? 0}
                           </span>
                         </div>
                         <div className="col-span-3">
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--content-quaternary)' }}>{server.id}</span>
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>{server.id}</span>
                         </div>
                       </div>
                     ))}
@@ -1011,10 +962,10 @@ const DiscordBot: React.FC = () => {
           {activeTab === 'uptime' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Historial 90 días</p>
+                <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--moon-muted)' }}>Historial 90 días</p>
                 <button onClick={fetchUptime} disabled={loadingUptime}
                   className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all"
-                  style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent' }}>
+                  style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent' }}>
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingUptime ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                 </button>
               </div>
@@ -1023,7 +974,7 @@ const DiscordBot: React.FC = () => {
                 <Skel className="h-20" />
               ) : uptimeData.length > 0 ? (
                 <>
-                  <div style={cardStyle}>
+                  <div data-moon-reveal="card" style={cardStyle}>
                     <div className="flex items-end gap-px overflow-hidden" style={{ height: '48px' }}>
                       {uptimeData.map((day) => {
                         const color = UPTIME_STATUS_COLOR[day.status] ?? '#3f3f46';
@@ -1035,7 +986,7 @@ const DiscordBot: React.FC = () => {
                               style={{ height: `${h}px`, background: color }} />
                             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
                               <div className="text-[10px] font-light px-2 py-1 rounded-lg whitespace-nowrap"
-                                style={{ background: 'var(--bg-sidebar, #0d0d0d)', border: '1px solid var(--border-main)', color: 'var(--text-primary)' }}>
+                                style={{ background: 'var(--moon-surface, #0d0d0d)', border: '1px solid var(--moon-line)', color: 'var(--moon-ink)' }}>
                                 {day.date}<br />
                                 {day.uptimePct !== null ? `${day.uptimePct}%` : 'Sin datos'}
                                 {day.avgPing ? ` · ${day.avgPing}ms` : ''}
@@ -1046,8 +997,8 @@ const DiscordBot: React.FC = () => {
                       })}
                     </div>
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>90 días atrás</span>
-                      <span className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>Hoy</span>
+                      <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>90 días atrás</span>
+                      <span className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>Hoy</span>
                     </div>
                   </div>
 
@@ -1055,7 +1006,7 @@ const DiscordBot: React.FC = () => {
                     {Object.entries(UPTIME_STATUS_COLOR).filter(([k]) => k !== 'desconocido').map(([status, color]) => (
                       <div key={status} className="flex items-center gap-1.5">
                         <div className="w-3 h-3 rounded-sm" style={{ background: color }} />
-                        <span className="text-xs font-light capitalize" style={{ color: 'var(--text-muted)' }}>
+                        <span className="text-xs font-light capitalize" style={{ color: 'var(--moon-muted)' }}>
                           {status.replace('_', ' ')}
                         </span>
                       </div>
@@ -1076,21 +1027,21 @@ const DiscordBot: React.FC = () => {
                         { label: 'Latencia media',  value: avgPing > 0 ? `${Math.round(avgPing)}ms` : '—',    color: getPingColor(avgPing) },
                       ];
                     })().map(({ label, value, color }) => (
-                      <div key={label} className="p-4 rounded-2xl border text-center"
-                        style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                        <p className="text-2xl font-light" style={{ color }}>{value}</p>
-                        <p className="text-[10px] uppercase tracking-widest font-light mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                      <div data-moon-reveal="card" key={label} className="moon-panel p-4 rounded-2xl border text-center"
+                        style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                        <p className="text-2xl font-light" style={{ color: panelInk(color) }}>{value}</p>
+                        <p className="text-[10px] uppercase tracking-widest font-light mt-1" style={{ color: 'var(--moon-muted)' }}>{label}</p>
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                <div className="rounded-2xl border py-16 text-center"
-                  style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                  <TrendingUp className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                  <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>No hay datos de uptime</p>
+                <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-16 text-center"
+                  style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                  <TrendingUp className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                  <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>No hay datos de uptime</p>
                   <button onClick={fetchUptime} className="mt-3 px-4 py-2 rounded-xl text-xs font-light"
-                    style={{ background: 'var(--overlay-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-main)' }}>
+                    style={{ background: 'var(--moon-surface-raised)', color: 'var(--moon-ink)', border: '1px solid var(--moon-line)' }}>
                     Cargar
                   </button>
                 </div>
@@ -1103,7 +1054,7 @@ const DiscordBot: React.FC = () => {
             <div className="space-y-4">
               {/* Sub-nav */}
               <div className="flex gap-1 p-1 rounded-xl"
-                style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                 {[
                   { k: 'sistema' as const, label: 'Sistema',          icon: AlertTriangle, count: incidents.filter(i => i.status !== 'resuelto').length },
                   { k: 'bugs'   as const, label: 'Reportes de Bugs',  icon: Terminal,      count: bugReports.filter(b => b.estado === 'abierto').length },
@@ -1113,15 +1064,15 @@ const DiscordBot: React.FC = () => {
                     className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-light transition-all"
                     style={{
                       background: incidentView === k ? `${accentColor}18` : 'transparent',
-                      color: incidentView === k ? 'var(--text-primary)' : 'var(--text-muted)',
+                      color: panelInk(incidentView === k ? 'var(--moon-ink)' : 'var(--moon-muted)'),
                       border: incidentView === k ? `1px solid ${accentColor}30` : '1px solid transparent',
                     }}>
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.5}
-                      style={{ color: incidentView === k ? accentColor : undefined }} />
+                      style={{ color: panelInk(incidentView === k ? accentColor : undefined) }} />
                     {label}
                     {count > 0 && (
                       <span className="px-1.5 py-0.5 rounded-full text-[10px]"
-                        style={{ background: k === 'sistema' ? 'rgba(248,113,113,0.2)' : 'rgba(251,146,60,0.2)', color: k === 'sistema' ? '#f87171' : '#fb923c' }}>
+                        style={{ background: k === 'sistema' ? 'rgba(248,113,113,0.2)' : 'rgba(251,146,60,0.2)', color: panelInk(k === 'sistema' ? '#f87171' : '#fb923c') }}>
                         {count}
                       </span>
                     )}
@@ -1133,7 +1084,7 @@ const DiscordBot: React.FC = () => {
               {incidentView === 'sistema' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--moon-muted)' }}>
                       {incidents.length} incidentes
                     </p>
                     {isCEO && (
@@ -1141,7 +1092,7 @@ const DiscordBot: React.FC = () => {
                         className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-light transition-all hover:opacity-90"
                         style={{
                           background: showIncidentForm ? 'rgba(248,113,113,0.1)' : accentColor,
-                          color: showIncidentForm ? '#f87171' : 'white',
+                          color: panelInk(showIncidentForm ? '#f87171' : 'white'),
                           border: showIncidentForm ? '1px solid rgba(248,113,113,0.3)' : 'none',
                         }}>
                         {showIncidentForm
@@ -1152,10 +1103,10 @@ const DiscordBot: React.FC = () => {
                   </div>
 
                   {isCEO && showIncidentForm && (
-                    <div className="rounded-2xl border p-5 space-y-4"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'rgba(248,113,113,0.3)' }}>
-                      <p className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        <AlertTriangle className="w-4 h-4 text-red-400" strokeWidth={1.5} /> Reportar Incidente
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border p-5 space-y-4"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'rgba(248,113,113,0.3)' }}>
+                      <p className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--moon-ink)' }}>
+                        <AlertTriangle className="w-4 h-4 moon-panel-tone-red" strokeWidth={1.5} /> Reportar Incidente
                       </p>
                       <input value={incidentForm.title}
                         onChange={e => setIncidentForm(f => ({ ...f, title: e.target.value }))}
@@ -1166,18 +1117,19 @@ const DiscordBot: React.FC = () => {
                         <select value={incidentForm.impact}
                           onChange={e => setIncidentForm(f => ({ ...f, impact: e.target.value }))}
                           className="db-select w-full rounded-xl text-sm font-light outline-none pr-9"
-                          style={{ ...selectStyle, color: IMPACT_CONFIG[incidentForm.impact]?.color ?? 'var(--text-primary)' }}>
+                          style={{ ...selectStyle, color: panelInk(IMPACT_CONFIG[incidentForm.impact]?.color ?? 'var(--moon-ink)') }}>
                           {Object.entries(IMPACT_CONFIG).map(([k, v]) => (
                             <option key={k} value={k}>{v.label}</option>
                           ))}
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
                       </div>
-                      <textarea value={incidentForm.message}
+                      <textarea ref={incidentEmojiRef} value={incidentForm.message}
                         onChange={e => setIncidentForm(f => ({ ...f, message: e.target.value }))}
                         rows={3} placeholder="Descripción..."
                         className="db-input rounded-xl text-sm font-light outline-none resize-none w-full"
                         style={{ ...inputStyle }} />
+                      <EmojiButton value={incidentForm.message} onChange={message => setIncidentForm(f => ({ ...f, message }))} inputRef={incidentEmojiRef} disabled={savingIncident} unicodeOnly label="Añadir emoji al aviso del incidente" />
                       <button onClick={handleCreateIncident} disabled={savingIncident || !incidentForm.title.trim()}
                         className="px-5 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
                         style={{ background: '#f87171', color: '#000', border: 'none' }}>
@@ -1189,10 +1141,10 @@ const DiscordBot: React.FC = () => {
                   {loadingIncidents ? (
                     <div className="space-y-2">{[...Array(3)].map((_, i) => <Skel key={i} className="h-20" />)}</div>
                   ) : incidents.length === 0 ? (
-                    <div className="rounded-2xl border py-16 text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#4ade80', opacity: 0.4 }} strokeWidth={1} />
-                      <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin incidentes activos</p>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-16 text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: panelInk('#4ade80'), opacity: 0.4 }} strokeWidth={1} />
+                      <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin incidentes activos</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1201,22 +1153,22 @@ const DiscordBot: React.FC = () => {
                         const ic  = IMPACT_CONFIG[incident.impact]   ?? { label: incident.impact,  color: '#9ca3af' };
                         const isOpen = selectedIncident?.id === incident.id;
                         return (
-                          <div key={incident.id} className="rounded-2xl border overflow-hidden"
-                            style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                          <div data-moon-reveal="card" key={incident.id} className="moon-panel rounded-2xl border overflow-hidden"
+                            style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                             <div className="flex items-start justify-between p-4 gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <span className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>{incident.title}</span>
+                                  <span className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>{incident.title}</span>
                                   <span className="text-[10px] font-light px-2 py-0.5 rounded-full"
-                                    style={{ background: sc2.color + '18', color: sc2.color, border: `1px solid ${sc2.color}30` }}>
+                                    style={{ background: sc2.color + '18', color: panelInk(sc2.color), border: `1px solid ${sc2.color}30` }}>
                                     {sc2.label}
                                   </span>
                                   <span className="text-[10px] font-light px-2 py-0.5 rounded-full"
-                                    style={{ background: ic.color + '18', color: ic.color, border: `1px solid ${ic.color}30` }}>
+                                    style={{ background: ic.color + '18', color: panelInk(ic.color), border: `1px solid ${ic.color}30` }}>
                                     {ic.label}
                                   </span>
                                 </div>
-                                <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>
+                                <p className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>
                                   {new Date(incident.createdAt).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                   {incident.resolvedAt && ` · Resuelto ${new Date(incident.resolvedAt).toLocaleDateString('es-PE', { hour: '2-digit', minute: '2-digit' })}`}
                                 </p>
@@ -1225,12 +1177,12 @@ const DiscordBot: React.FC = () => {
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   <button onClick={() => { setSelectedIncident(isOpen ? null : incident); setUpdateForm({ status: 'monitoreando', message: '' }); }}
                                     className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
-                                    style={{ color: 'var(--text-muted)', background: isOpen ? `${accentColor}18` : 'transparent' }}>
+                                    style={{ color: 'var(--moon-muted)', background: isOpen ? `${accentColor}18` : 'transparent' }}>
                                     <Edit3 className="w-3.5 h-3.5" strokeWidth={1.5} />
                                   </button>
                                   <button onClick={() => handleDeleteIncident(incident.id)}
                                     className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-red-500/10"
-                                    style={{ color: 'var(--text-muted)' }}>
+                                    style={{ color: 'var(--moon-muted)' }}>
                                     <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                                   </button>
                                 </div>
@@ -1238,14 +1190,14 @@ const DiscordBot: React.FC = () => {
                             </div>
                             {incident.updates?.length > 0 && (
                               <div className="border-t px-4 py-3 space-y-2"
-                                style={{ borderColor: 'var(--border-main)', background: 'var(--overlay-bg)' }}>
+                                style={{ borderColor: 'var(--moon-line)', background: 'var(--moon-surface-raised)' }}>
                                 {incident.updates.slice(0, 2).map(u => (
                                   <div key={u.id} className="flex items-start gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                                       style={{ background: INCIDENT_STATUS[u.status]?.color ?? '#6b7280' }} />
                                     <div>
-                                      <p className="text-xs font-light" style={{ color: 'var(--content-secondary)' }}>{u.body}</p>
-                                      <p className="text-[10px] font-light mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                      <p className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}><EmojiText text={u.body} /></p>
+                                      <p className="text-[10px] font-light mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                                         {new Date(u.createdAt).toLocaleDateString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                                       </p>
                                     </div>
@@ -1255,26 +1207,27 @@ const DiscordBot: React.FC = () => {
                             )}
                             {isCEO && isOpen && (
                               <div className="border-t p-4 space-y-3"
-                                style={{ borderColor: 'var(--border-main)', background: 'var(--overlay-bg)' }}>
+                                style={{ borderColor: 'var(--moon-line)', background: 'var(--moon-surface-raised)' }}>
                                 <div className="relative">
                                   <select value={updateForm.status}
                                     onChange={e => setUpdateForm(f => ({ ...f, status: e.target.value }))}
                                     className="db-select w-full rounded-xl text-sm font-light outline-none pr-9"
-                                    style={{ ...selectStyle, color: INCIDENT_STATUS[updateForm.status]?.color ?? 'var(--text-primary)' }}>
+                                    style={{ ...selectStyle, color: panelInk(INCIDENT_STATUS[updateForm.status]?.color ?? 'var(--moon-ink)') }}>
                                     {Object.entries(INCIDENT_STATUS).map(([k, v]) => (
                                       <option key={k} value={k}>{v.label}</option>
                                     ))}
                                   </select>
-                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
                                 </div>
-                                <textarea value={updateForm.message}
+                                <textarea ref={incidentUpdateEmojiRef} value={updateForm.message}
                                   onChange={e => setUpdateForm(f => ({ ...f, message: e.target.value }))}
                                   rows={2} placeholder="Actualización del incidente..."
                                   className="db-input w-full rounded-xl text-sm font-light outline-none resize-none"
                                   style={inputStyle} />
+                      <EmojiButton value={updateForm.message} onChange={message => setUpdateForm(f => ({ ...f, message }))} inputRef={incidentUpdateEmojiRef} disabled={savingIncident} unicodeOnly label="Añadir emoji a la actualización" />
                                 <button onClick={handleUpdateIncident} disabled={savingIncident || !updateForm.message.trim()}
-                                  className="px-4 py-2 rounded-xl text-xs font-light hover:opacity-90 disabled:opacity-40 transition-all"
-                                  style={{ background: accentColor, color: 'white', border: 'none' }}>
+                                  className="moon-panel-action px-4 py-2 rounded-xl text-xs font-light hover:opacity-90 disabled:opacity-40 transition-all"
+                                  style={{ background: accentColor, color: 'var(--accent-on-user, var(--moon-accent-ink))', border: 'none' }}>
                                   {savingIncident ? 'Guardando...' : 'Publicar actualización'}
                                 </button>
                               </div>
@@ -1306,14 +1259,14 @@ const DiscordBot: React.FC = () => {
                           <button key={k} onClick={() => setBugFilter(k)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-light transition-all"
                             style={{
-                              background: isActive ? `${accentColor}18` : 'var(--overlay-bg)',
-                              color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                              border: `1px solid ${isActive ? accentColor + '35' : 'var(--border-main)'}`,
+                              background: isActive ? `${accentColor}18` : 'var(--moon-surface-raised)',
+                              color: panelInk(isActive ? 'var(--moon-ink)' : 'var(--moon-muted)'),
+                              border: `1px solid ${isActive ? accentColor + '35' : 'var(--moon-line)'}`,
                             }}>
                             {label}
                             {count > 0 && (
                               <span className="text-[10px] px-1.5 rounded-full"
-                                style={{ background: isActive ? `${accentColor}25` : 'var(--overlay-bg)', color: isActive ? accentColor : 'var(--text-muted)' }}>
+                                style={{ background: isActive ? `${accentColor}25` : 'var(--moon-surface-raised)', color: panelInk(isActive ? accentColor : 'var(--moon-muted)') }}>
                                 {count}
                               </span>
                             )}
@@ -1323,7 +1276,7 @@ const DiscordBot: React.FC = () => {
                     </div>
                     <button onClick={fetchBugReports} disabled={loadingBugs}
                       className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all ml-auto"
-                      style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent' }}>
+                      style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent' }}>
                       <RefreshCw className={`w-3.5 h-3.5 ${loadingBugs ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                     </button>
                   </div>
@@ -1337,11 +1290,11 @@ const DiscordBot: React.FC = () => {
                           <div key={k} className="p-3 rounded-xl text-center cursor-pointer transition-all hover:opacity-80"
                             onClick={() => setBugFilter(bugFilter === k ? 'all' : k)}
                             style={{
-                              background: isActive ? v.color + '18' : 'var(--overlay-bg)',
-                              border: `1px solid ${isActive ? v.color + '40' : 'var(--border-main)'}`,
+                              background: isActive ? v.color + '18' : 'var(--moon-surface-raised)',
+                              border: `1px solid ${isActive ? v.color + '40' : 'var(--moon-line)'}`,
                             }}>
-                            <p className="text-xl font-light" style={{ color: v.color }}>{count}</p>
-                            <p className="text-[9px] uppercase tracking-widest font-light mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            <p className="text-xl font-light" style={{ color: panelInk(v.color) }}>{count}</p>
+                            <p className="text-[9px] uppercase tracking-widest font-light mt-0.5" style={{ color: 'var(--moon-muted)' }}>
                               {v.label}
                             </p>
                           </div>
@@ -1353,11 +1306,11 @@ const DiscordBot: React.FC = () => {
                   {loadingBugs ? (
                     <div className="space-y-2">{[...Array(4)].map((_, i) => <Skel key={i} className="h-14" />)}</div>
                   ) : bugReports.length === 0 ? (
-                    <div className="rounded-2xl border py-16 text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <Terminal className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                      <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin reportes de bugs</p>
-                      <p className="text-xs font-light mt-1" style={{ color: 'var(--content-quaternary)' }}>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-16 text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <Terminal className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                      <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin reportes de bugs</p>
+                      <p className="text-xs font-light mt-1" style={{ color: 'var(--moon-muted)' }}>
                         Los usuarios usan /bugreport en Discord
                       </p>
                     </div>
@@ -1366,30 +1319,30 @@ const DiscordBot: React.FC = () => {
                     <div className="space-y-4">
                       <button onClick={() => { setSelectedBug(null); setBugImageIndex(0); }}
                         className="flex items-center gap-2 text-xs font-light transition-all hover:opacity-80"
-                        style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        style={{ color: 'var(--moon-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
                         <ChevronRight className="w-3.5 h-3.5 rotate-180" strokeWidth={1.5} /> Volver a la lista
                       </button>
-                      <div className="rounded-2xl border overflow-hidden"
-                        style={{ background: 'var(--sidebar-card-bg)', borderColor: (BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280') + '40' }}>
-                        <div className="p-5 border-b" style={{ borderColor: 'var(--border-main)' }}>
+                      <div data-moon-reveal="card" className="moon-panel rounded-2xl border overflow-hidden"
+                        style={{ background: 'var(--moon-surface)', borderColor: (BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280') + '40' }}>
+                        <div className="p-5 border-b" style={{ borderColor: 'var(--moon-line)' }}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-2">
                                 <span className="text-xs font-mono px-2 py-0.5 rounded-lg"
-                                  style={{ background: 'var(--overlay-bg)', color: 'var(--text-muted)' }}>
+                                  style={{ background: 'var(--moon-surface-raised)', color: 'var(--moon-muted)' }}>
                                   {selectedBug.reportId}
                                 </span>
                                 <span className="text-[10px] font-light px-2 py-1 rounded-full"
-                                  style={{ background: (BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280') + '18', color: BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280', border: `1px solid ${BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280'}30` }}>
+                                  style={{ background: (BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280') + '18', color: panelInk(BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280'), border: `1px solid ${BUG_SEVERIDAD[selectedBug.severidad]?.color ?? '#6b7280'}30` }}>
                                   {BUG_SEVERIDAD[selectedBug.severidad]?.label ?? selectedBug.severidad}
                                 </span>
                                 <span className="text-[10px] font-light px-2 py-1 rounded-full"
-                                  style={{ background: (BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280') + '18', color: BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280', border: `1px solid ${BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280'}30` }}>
+                                  style={{ background: (BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280') + '18', color: panelInk(BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280'), border: `1px solid ${BUG_ESTADO[selectedBug.estado]?.color ?? '#6b7280'}30` }}>
                                   {BUG_ESTADO[selectedBug.estado]?.label ?? selectedBug.estado}
                                 </span>
                               </div>
-                              <h3 className="font-light text-base" style={{ color: 'var(--text-primary)' }}>{selectedBug.titulo}</h3>
-                              <div className="flex items-center gap-3 mt-2 text-xs font-light flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                              <h3 className="font-light text-base" style={{ color: 'var(--moon-ink)' }}>{selectedBug.titulo}</h3>
+                              <div className="flex items-center gap-3 mt-2 text-xs font-light flex-wrap" style={{ color: 'var(--moon-muted)' }}>
                                 <span>👤 {selectedBug.usuarioTag}</span>
                                 {selectedBug.servidorNombre && <span>🏠 {selectedBug.servidorNombre}</span>}
                                 <span>📅 {toDate(selectedBug.createdAt)?.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) ?? '—'}</span>
@@ -1398,7 +1351,7 @@ const DiscordBot: React.FC = () => {
                             {isCEO && (
                               <button onClick={() => handleDeleteBugReport(selectedBug.reportId)}
                                 className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-red-500/10 flex-shrink-0"
-                                style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                style={{ color: 'var(--moon-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                               </button>
                             )}
@@ -1407,13 +1360,13 @@ const DiscordBot: React.FC = () => {
                         <div className="p-5 space-y-4">
                           <div>
                             <p style={{ ...sectionTitle }}>Descripción</p>
-                            <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--content-secondary)' }}>{selectedBug.descripcion}</p>
+                            <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--moon-muted)' }}>{selectedBug.descripcion}</p>
                           </div>
                           {selectedBug.pasos && (
                             <div>
                               <p style={{ ...sectionTitle }}>Pasos para reproducir</p>
                               <pre className="text-xs font-light leading-relaxed whitespace-pre-wrap px-3 py-2.5 rounded-xl"
-                                style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--content-secondary)' }}>
+                                style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-muted)' }}>
                                 {selectedBug.pasos}
                               </pre>
                             </div>
@@ -1422,7 +1375,7 @@ const DiscordBot: React.FC = () => {
                             <div>
                               <p style={{ ...sectionTitle }}>Esperado vs Actual</p>
                               <pre className="text-xs font-light leading-relaxed whitespace-pre-wrap px-3 py-2.5 rounded-xl"
-                                style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--content-secondary)' }}>
+                                style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-muted)' }}>
                                 {selectedBug.esperadoVsActual}
                               </pre>
                             </div>
@@ -1432,28 +1385,28 @@ const DiscordBot: React.FC = () => {
                               <p style={{ ...sectionTitle }}>
                                 Capturas ({bugImageIndex + 1} / {selectedBug.imagenes.length})
                               </p>
-                              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-main)' }}>
+                              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--moon-line)' }}>
                                 <img src={selectedBug.imagenes[bugImageIndex]} alt={`Captura ${bugImageIndex + 1}`}
-                                  className="w-full object-contain max-h-72" style={{ background: 'var(--overlay-bg)' }} />
+                                  className="w-full object-contain max-h-72" style={{ background: 'var(--moon-surface-raised)' }} />
                               </div>
                               {selectedBug.imagenes.length > 1 && (
                                 <div className="flex items-center gap-2 mt-2">
                                   <button onClick={() => setBugImageIndex(i => Math.max(0, i - 1))} disabled={bugImageIndex === 0}
                                     className="flex-1 py-2 rounded-xl text-xs font-light transition-all disabled:opacity-30"
-                                    style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-ink)', cursor: 'pointer' }}>
                                     ◀ Anterior
                                   </button>
                                   <div className="flex gap-1">
                                     {selectedBug.imagenes.map((_, i) => (
                                       <button key={i} onClick={() => setBugImageIndex(i)}
                                         className="w-2 h-2 rounded-full transition-all"
-                                        style={{ background: i === bugImageIndex ? accentColor : 'var(--content-quaternary)', border: 'none', cursor: 'pointer' }} />
+                                        style={{ background: i === bugImageIndex ? accentColor : 'var(--moon-muted)', border: 'none', cursor: 'pointer' }} />
                                     ))}
                                   </div>
                                   <button onClick={() => setBugImageIndex(i => Math.min(selectedBug.imagenes!.length - 1, i + 1))}
                                     disabled={bugImageIndex >= selectedBug.imagenes.length - 1}
                                     className="flex-1 py-2 rounded-xl text-xs font-light transition-all disabled:opacity-30"
-                                    style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-ink)', cursor: 'pointer' }}>
                                     Siguiente ▶
                                   </button>
                                 </div>
@@ -1461,7 +1414,7 @@ const DiscordBot: React.FC = () => {
                             </div>
                           )}
                           {isCEO && (
-                            <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--border-main)' }}>
+                            <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--moon-line)' }}>
                               <p style={{ ...sectionTitle }}>Cambiar estado</p>
                               <div className="flex flex-wrap gap-2">
                                 {(BUG_TRANSITIONS[selectedBug.estado] ?? []).map(nuevoEstado => {
@@ -1471,7 +1424,7 @@ const DiscordBot: React.FC = () => {
                                       onClick={() => handleBugStatusChange(selectedBug, nuevoEstado)}
                                       disabled={savingBugStatus}
                                       className="px-3.5 py-2 rounded-xl text-xs font-light transition-all hover:opacity-90 disabled:opacity-40"
-                                      style={{ background: meta.color + '15', color: meta.color, border: `1px solid ${meta.color}30`, cursor: 'pointer' }}>
+                                      style={{ background: meta.color + '15', color: panelInk(meta.color), border: `1px solid ${meta.color}30`, cursor: 'pointer' }}>
                                       {savingBugStatus ? '...' : `→ ${meta.label}`}
                                     </button>
                                   );
@@ -1484,10 +1437,10 @@ const DiscordBot: React.FC = () => {
                     </div>
                   ) : (
                     /* Lista bugs */
-                    <div className="rounded-2xl overflow-hidden border"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl overflow-hidden border"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                       <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b"
-                        style={{ background: 'var(--overlay-bg)', borderColor: 'var(--border-main)' }}>
+                        style={{ background: 'var(--moon-surface-raised)', borderColor: 'var(--moon-line)' }}>
                         {[
                           { label: 'Sev', span: 1 }, { label: 'Título', span: 4 },
                           { label: 'Usuario', span: 2, hide: 'sm' }, { label: 'Estado', span: 2 },
@@ -1495,12 +1448,12 @@ const DiscordBot: React.FC = () => {
                         ].map(({ label, span, hide }) => (
                           <span key={label}
                             className={`col-span-${span} text-[10px] uppercase tracking-widest font-light ${hide === 'sm' ? 'hidden sm:block' : hide === 'md' ? 'hidden md:block' : ''}`}
-                            style={{ color: 'var(--text-muted)' }}>
+                            style={{ color: 'var(--moon-muted)' }}>
                             {label}
                           </span>
                         ))}
                       </div>
-                      <div className="divide-y" style={{ borderColor: 'var(--border-main)' }}>
+                      <div className="divide-y" style={{ borderColor: 'var(--moon-line)' }}>
                         {bugReports.filter(b => bugFilter === 'all' || b.estado === bugFilter).map(bug => {
                           const sev  = BUG_SEVERIDAD[bug.severidad] ?? BUG_SEVERIDAD['medio'];
                           const est  = BUG_ESTADO[bug.estado]       ?? BUG_ESTADO['abierto'];
@@ -1513,27 +1466,27 @@ const DiscordBot: React.FC = () => {
                                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: sev.color }} title={sev.label} />
                               </div>
                               <div className="col-span-4 min-w-0">
-                                <p className="text-xs font-light truncate" style={{ color: 'var(--text-primary)' }}>{bug.titulo}</p>
-                                <p className="text-[10px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>{bug.reportId}</p>
+                                <p className="text-xs font-light truncate" style={{ color: 'var(--moon-ink)' }}>{bug.titulo}</p>
+                                <p className="text-[10px] font-mono truncate" style={{ color: 'var(--moon-muted)' }}>{bug.reportId}</p>
                               </div>
                               <div className="col-span-2 hidden sm:block">
-                                <p className="text-xs font-light truncate" style={{ color: 'var(--text-muted)' }}>{bug.usuarioTag}</p>
+                                <p className="text-xs font-light truncate" style={{ color: 'var(--moon-muted)' }}>{bug.usuarioTag}</p>
                               </div>
                               <div className="col-span-2">
                                 <span className="text-[10px] font-light px-2 py-0.5 rounded-full"
-                                  style={{ background: est.color + '18', color: est.color }}>
+                                  style={{ background: est.color + '18', color: panelInk(est.color) }}>
                                   {est.label}
                                 </span>
                               </div>
                               <div className="col-span-2 hidden md:block">
-                                <p className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                                <p className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                                   {toDate(bug.createdAt)?.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) ?? '—'}
                                 </p>
                               </div>
                               <div className="col-span-1">
                                 {imgs > 0
-                                  ? <span className="text-[10px] font-light" style={{ color: accentColor }}>📷 {imgs}</span>
-                                  : <span style={{ color: 'var(--content-quaternary)' }}>—</span>}
+                                  ? <span className="text-[10px] font-light" style={{ color: panelInk(accentColor) }}>📷 {imgs}</span>
+                                  : <span style={{ color: 'var(--moon-muted)' }}>—</span>}
                               </div>
                             </div>
                           );
@@ -1552,14 +1505,14 @@ const DiscordBot: React.FC = () => {
               {commandsData && (
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Total',   value: commandsData.total,  color: 'var(--text-primary)' },
+                    { label: 'Total',   value: commandsData.total,  color: 'var(--moon-ink)' },
                     { label: 'Slash',   value: commandsData.slash,  color: '#818cf8' },
                     { label: 'Prefijo', value: commandsData.prefix, color: '#38bdf8' },
                   ].map(({ label, value, color }) => (
-                    <div key={label} className="p-4 rounded-2xl border text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <p className="text-3xl font-light mb-1" style={{ color }}>{value}</p>
-                      <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                    <div data-moon-reveal="card" key={label} className="moon-panel p-4 rounded-2xl border text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <p className="text-3xl font-light mb-1" style={{ color: panelInk(color) }}>{value}</p>
+                      <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--moon-muted)' }}>{label}</p>
                     </div>
                   ))}
                 </div>
@@ -1574,9 +1527,9 @@ const DiscordBot: React.FC = () => {
                     <button key={f} onClick={() => setCommandFilter(f)}
                       className="px-3 py-1.5 rounded-xl text-xs font-light transition-all"
                       style={{
-                        background: commandFilter === f ? accentColor : 'var(--overlay-bg)',
-                        color: commandFilter === f ? 'white' : 'var(--text-muted)',
-                        border: `1px solid ${commandFilter === f ? accentColor : 'var(--border-main)'}`,
+                        background: commandFilter === f ? accentColor : 'var(--moon-surface-raised)',
+                        color: panelInk(commandFilter === f ? 'white' : 'var(--moon-muted)'),
+                        border: `1px solid ${commandFilter === f ? accentColor : 'var(--moon-line)'}`,
                         cursor: 'pointer',
                       }}>
                       {f === 'all' ? 'Todos' : f === 'slash' ? 'Slash' : `Prefijo (${commandsData?.prefixChar ?? 'l.'})`}
@@ -1585,7 +1538,7 @@ const DiscordBot: React.FC = () => {
                 </div>
                 <button onClick={() => fetchCommands()} disabled={loadingCommands}
                   className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all ml-auto"
-                  style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent' }}>
+                  style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent' }}>
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingCommands ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                 </button>
               </div>
@@ -1593,8 +1546,8 @@ const DiscordBot: React.FC = () => {
                 <div className="space-y-2">{[...Array(4)].map((_, i) => <Skel key={i} className="h-16" />)}</div>
               ) : filteredCommands.length === 0 ? (
                 <div className="text-center py-12">
-                  <Command className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                  <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>
+                  <Command className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                  <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>
                     {!commandsData ? 'Cargando...' : commandSearch ? `Sin resultados para "${commandSearch}"` : 'Sin comandos'}
                   </p>
                 </div>
@@ -1603,7 +1556,7 @@ const DiscordBot: React.FC = () => {
                   {filteredCommands.map(cmd => (
                     <CommandCard key={`${cmd.type}:${cmd.name}`} cmd={cmd} />
                   ))}
-                  <p className="text-xs font-light text-right pt-2" style={{ color: 'var(--content-quaternary)' }}>
+                  <p className="text-xs font-light text-right pt-2" style={{ color: 'var(--moon-muted)' }}>
                     {filteredCommands.length} de {commandsData?.total ?? 0} comandos
                   </p>
                 </div>
@@ -1614,12 +1567,12 @@ const DiscordBot: React.FC = () => {
           {/* ── MENSAJES (CEO) ── */}
           {isCEO && activeTab === 'messages' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              <div className="lg:col-span-2 space-y-4" style={cardStyle}>
-                <p className="font-light flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
-                  <Send className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} /> Enviar Mensaje
+              <div data-moon-reveal="card" className="lg:col-span-2 space-y-4" style={cardStyle}>
+                <p className="font-light flex items-center gap-2 text-sm" style={{ color: 'var(--moon-ink)' }}>
+                  <Send className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} /> Enviar Mensaje
                 </p>
                 <div className="space-y-1.5">
-                  <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block' }}>
+                  <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--moon-muted)', display: 'block' }}>
                     Servidor
                   </label>
                   <div className="relative">
@@ -1629,12 +1582,12 @@ const DiscordBot: React.FC = () => {
                       <option value="">Seleccionar servidor...</option>
                       {botData.serversList?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
                   </div>
                 </div>
                 {selectedServer && (
                   <div className="space-y-1.5">
-                    <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--moon-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Hash className="w-3 h-3" /> Canal {loadingChannels && <RefreshCw className="w-3 h-3 animate-spin ml-1" />}
                     </label>
                     <div className="relative">
@@ -1647,24 +1600,25 @@ const DiscordBot: React.FC = () => {
                           <option key={ch.id} value={ch.id}>#{ch.name}{ch.parent ? ` (${ch.parent})` : ''}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
                     </div>
                   </div>
                 )}
                 {selectedChannel && (
                   <>
                     <div className="space-y-1.5">
-                      <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block' }}>
+                      <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--moon-muted)', display: 'block' }}>
                         Mensaje
                       </label>
-                      <textarea value={messageText} onChange={e => setMessageText(e.target.value)} rows={4}
+                      <textarea ref={messageEmojiRef} value={messageText} onChange={e => setMessageText(e.target.value)} rows={4}
                         placeholder="Escribe tu mensaje..."
                         className="db-input w-full rounded-xl text-sm font-light outline-none resize-none"
                         style={inputStyle} />
+                      <EmojiButton value={messageText} onChange={setMessageText} inputRef={messageEmojiRef} disabled={sending} label="Añadir emoji al mensaje de Discord" />
                     </div>
                     <button onClick={handleSendMessage} disabled={sending || !messageText.trim()}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
-                      style={{ background: accentColor, color: 'white', border: 'none', cursor: 'pointer' }}>
+                      className="moon-panel-action flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
+                      style={{ background: accentColor, color: 'var(--accent-on-user, var(--moon-accent-ink))', border: 'none', cursor: 'pointer' }}>
                       {sending
                         ? <><RefreshCw className="w-4 h-4 animate-spin" />Enviando...</>
                         : <><Send className="w-4 h-4" />Enviar</>}
@@ -1674,39 +1628,39 @@ const DiscordBot: React.FC = () => {
                 {error && (
                   <div className="p-3 rounded-xl flex items-start gap-2"
                     style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
-                    <p className="text-red-400 text-sm font-light">{error}</p>
+                    <AlertCircle className="w-4 h-4 moon-panel-tone-red flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                    <p className="moon-panel-tone-red text-sm font-light">{error}</p>
                   </div>
                 )}
                 {sendResult && (
                   <div className="p-3 rounded-xl flex items-center gap-2"
                     style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)' }}>
-                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" strokeWidth={1.5} />
-                    <p className="text-green-400 text-sm font-light">Mensaje enviado correctamente</p>
+                    <CheckCircle className="w-4 h-4 moon-panel-tone-green flex-shrink-0" strokeWidth={1.5} />
+                    <p className="moon-panel-tone-green text-sm font-light">Mensaje enviado correctamente</p>
                   </div>
                 )}
               </div>
               {/* Preview */}
-              <div style={cardStyle}>
+              <div data-moon-reveal="card" style={cardStyle}>
                 <p style={{ ...sectionTitle }}>Vista previa</p>
                 {messageText ? (
                   <div className="p-3 rounded-xl"
                     style={{ background: `${accentColor}10`, border: `1px solid ${accentColor}20` }}>
                     <div className="flex items-start gap-2.5">
                       <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                        style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                        style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                         {botData.avatar
                           ? <img src={botData.avatar} alt="" className="w-full h-full object-cover" />
-                          : <Bot className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />}
+                          : <Bot className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />}
                       </div>
                       <div>
-                        <p className="text-sm font-light mb-0.5" style={{ color: accentColor }}>{botName}</p>
-                        <p className="text-sm font-light whitespace-pre-wrap" style={{ color: 'var(--content-secondary)' }}>{messageText}</p>
+                        <p className="text-sm font-light mb-0.5" style={{ color: panelInk(accentColor) }}>{botName}</p>
+                        <p className="text-sm font-light whitespace-pre-wrap" style={{ color: 'var(--moon-muted)' }}><EmojiText text={messageText} /></p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs font-light italic" style={{ color: 'var(--content-quaternary)' }}>
+                  <p className="text-xs font-light italic" style={{ color: 'var(--moon-muted)' }}>
                     El mensaje aparecerá aquí...
                   </p>
                 )}
@@ -1718,13 +1672,13 @@ const DiscordBot: React.FC = () => {
           {isCEO && activeTab === 'maintenance' && (
             <div className="space-y-4">
               <div className="flex gap-1 p-1 rounded-xl"
-                style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                 {(['control', 'history', 'stats'] as const).map(tab => (
                   <button key={tab} onClick={() => setMaintView(tab)}
                     className="flex-1 py-2 rounded-lg text-xs font-light transition-all"
                     style={{
                       background: maintView === tab ? `${accentColor}18` : 'transparent',
-                      color: maintView === tab ? 'var(--text-primary)' : 'var(--text-muted)',
+                      color: panelInk(maintView === tab ? 'var(--moon-ink)' : 'var(--moon-muted)'),
                       border: maintView === tab ? `1px solid ${accentColor}30` : '1px solid transparent',
                       cursor: 'pointer',
                     }}>
@@ -1736,22 +1690,22 @@ const DiscordBot: React.FC = () => {
               {/* CONTROL */}
               {maintView === 'control' && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border p-5"
+                  <div data-moon-reveal="card" className="moon-panel rounded-2xl border p-5"
                     style={{
-                      background: 'var(--sidebar-card-bg)',
+                      background: 'var(--moon-surface)',
                       borderColor: maintenance?.active ? 'rgba(248,113,113,0.35)' : 'rgba(74,222,128,0.25)',
                     }}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                           style={{ background: maintenance?.active ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.1)' }}>
-                          <Wrench className="w-5 h-5" style={{ color: maintenance?.active ? '#f87171' : '#4ade80' }} strokeWidth={1.5} />
+                          <Wrench className="w-5 h-5" style={{ color: panelInk(maintenance?.active ? '#f87171' : '#4ade80') }} strokeWidth={1.5} />
                         </div>
                         <div>
-                          <p className="font-light text-sm" style={{ color: 'var(--text-primary)' }}>
+                          <p className="font-light text-sm" style={{ color: 'var(--moon-ink)' }}>
                             {maintenance?.active ? 'Mantenimiento Activo' : 'Sistema Operativo'}
                           </p>
-                          <p className="text-xs font-light" style={{ color: 'var(--text-muted)' }}>
+                          <p className="text-xs font-light" style={{ color: 'var(--moon-muted)' }}>
                             {maintenance?.active
                               ? `Desde ${toDate(maintenance.startDate)?.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) ?? '—'}`
                               : 'Todos los comandos disponibles'}
@@ -1767,26 +1721,26 @@ const DiscordBot: React.FC = () => {
                         {maintenance.reason && (
                           <div className="flex items-start gap-2.5 p-3 rounded-xl"
                             style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                            <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                            <AlertTriangle className="w-3.5 h-3.5 moon-panel-tone-red flex-shrink-0 mt-0.5" strokeWidth={1.5} />
                             <div>
-                              <p className="text-xs font-light text-red-300">{maintenance.reason}</p>
+                              <p className="text-xs font-light moon-panel-tone-red">{maintenance.reason}</p>
                               {maintenance.description && (
-                                <p className="text-xs font-light mt-1" style={{ color: 'var(--text-muted)' }}>{maintenance.description}</p>
+                                <p className="text-xs font-light mt-1" style={{ color: 'var(--moon-muted)' }}><EmojiText text={maintenance.description} /></p>
                               )}
                             </div>
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-2">
                           {maintenance.authorTag && (
-                            <div className="p-3 rounded-xl" style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                            <div className="p-3 rounded-xl" style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                               <p style={{ ...sectionTitle, marginBottom: 4 }}>Activado por</p>
-                              <p className="text-xs font-light" style={{ color: 'var(--text-primary)' }}>{maintenance.authorTag}</p>
+                              <p className="text-xs font-light" style={{ color: 'var(--moon-ink)' }}>{maintenance.authorTag}</p>
                             </div>
                           )}
                           {maintenance.endDate && (
-                            <div className="p-3 rounded-xl" style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)' }}>
+                            <div className="p-3 rounded-xl" style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                               <p style={{ ...sectionTitle, marginBottom: 4 }}>Fin estimado</p>
-                              <p className="text-xs font-light" style={{ color: 'var(--text-primary)' }}>
+                              <p className="text-xs font-light" style={{ color: 'var(--moon-ink)' }}>
                                 {toDate(maintenance.endDate)?.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) ?? '—'}
                               </p>
                             </div>
@@ -1794,7 +1748,7 @@ const DiscordBot: React.FC = () => {
                         </div>
                         <button onClick={handleDeactivateMaintenance} disabled={togglingMaint}
                           className="w-full py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
-                          style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)', cursor: 'pointer' }}>
+                          style={{ background: 'rgba(74,222,128,0.1)', color: panelInk('#4ade80'), border: '1px solid rgba(74,222,128,0.2)', cursor: 'pointer' }}>
                           {togglingMaint
                             ? <><RefreshCw className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Desactivando...</>
                             : <><CheckCircle2 className="w-4 h-4" strokeWidth={1.5} /> Desactivar mantenimiento</>}
@@ -1804,9 +1758,9 @@ const DiscordBot: React.FC = () => {
                   </div>
 
                   {!maintenance?.active && (
-                    <div style={cardStyle} className="space-y-4">
-                      <p className="font-light text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                        <Wrench className="w-4 h-4" style={{ color: '#fb923c' }} strokeWidth={1.5} />
+                    <div data-moon-reveal="card" style={cardStyle} className="space-y-4">
+                      <p className="font-light text-sm flex items-center gap-2" style={{ color: 'var(--moon-ink)' }}>
+                        <Wrench className="w-4 h-4" style={{ color: panelInk('#fb923c') }} strokeWidth={1.5} />
                         Activar modo mantenimiento
                       </p>
                       <div className="space-y-1.5">
@@ -1816,9 +1770,9 @@ const DiscordBot: React.FC = () => {
                             <button key={key} onClick={() => setMaintForm(f => ({ ...f, reasonKey: key }))}
                               className="px-3 py-2.5 rounded-xl text-xs font-light text-left transition-all"
                               style={{
-                                background: maintForm.reasonKey === key ? 'rgba(251,146,60,0.12)' : 'var(--overlay-bg)',
-                                border: `1px solid ${maintForm.reasonKey === key ? 'rgba(251,146,60,0.35)' : 'var(--border-main)'}`,
-                                color: maintForm.reasonKey === key ? '#fb923c' : 'var(--text-muted)',
+                                background: maintForm.reasonKey === key ? 'rgba(251,146,60,0.12)' : 'var(--moon-surface-raised)',
+                                border: `1px solid ${maintForm.reasonKey === key ? 'rgba(251,146,60,0.35)' : 'var(--moon-line)'}`,
+                                color: panelInk(maintForm.reasonKey === key ? '#fb923c' : 'var(--moon-muted)'),
                                 cursor: 'pointer',
                               }}>
                               {label}
@@ -1828,11 +1782,12 @@ const DiscordBot: React.FC = () => {
                       </div>
                       <div className="space-y-1.5">
                         <label style={{ ...sectionTitle, marginBottom: 6 }}>Descripción detallada *</label>
-                        <textarea value={maintForm.description}
+                        <textarea ref={maintenanceEmojiRef} value={maintForm.description}
                           onChange={e => setMaintForm(f => ({ ...f, description: e.target.value }))}
                           rows={3} placeholder="Describe qué se está haciendo..."
                           className="db-input w-full rounded-xl text-sm font-light outline-none resize-none"
                           style={inputStyle} />
+                      <EmojiButton value={maintForm.description} onChange={description => setMaintForm(f => ({ ...f, description }))} inputRef={maintenanceEmojiRef} disabled={togglingMaint} unicodeOnly label="Añadir emoji al aviso de mantenimiento" />
                       </div>
                       <div className="space-y-1.5">
                         <label style={{ ...sectionTitle, marginBottom: 6 }}>
@@ -1847,7 +1802,7 @@ const DiscordBot: React.FC = () => {
                       <button onClick={handleActivateMaintenance}
                         disabled={togglingMaint || !maintForm.description.trim()}
                         className="w-full py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
-                        style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer' }}>
+                        style={{ background: 'rgba(248,113,113,0.12)', color: panelInk('#f87171'), border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer' }}>
                         {togglingMaint
                           ? <><RefreshCw className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Activando...</>
                           : <><Wrench className="w-4 h-4" strokeWidth={1.5} /> Activar mantenimiento</>}
@@ -1856,25 +1811,25 @@ const DiscordBot: React.FC = () => {
                   )}
 
                   {/* Invite */}
-                  <div style={cardStyle} className="space-y-3">
-                    <p className="font-light flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
-                      <Link className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} /> Link de Invitación
+                  <div data-moon-reveal="card" style={cardStyle} className="space-y-3">
+                    <p className="font-light flex items-center gap-2 text-sm" style={{ color: 'var(--moon-ink)' }}>
+                      <Link className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} /> Link de Invitación
                     </p>
                     {inviteUrl ? (
                       <div className="flex items-center gap-2">
                         <input readOnly value={inviteUrl}
                           className="flex-1 rounded-xl text-xs font-mono font-light outline-none"
-                          style={{ ...inputStyle, color: 'var(--content-secondary)' }} />
+                          style={{ ...inputStyle, color: 'var(--moon-muted)' }} />
                         <a href={inviteUrl} target="_blank" rel="noopener noreferrer"
                           className="w-9 h-9 rounded-xl flex items-center justify-center border transition-all"
-                          style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent' }}>
+                          style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent' }}>
                           <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
                         </a>
                       </div>
                     ) : (
                       <button onClick={handleGetInvite}
                         className="px-4 py-2.5 rounded-xl text-sm font-light hover:opacity-90 transition-all"
-                        style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                        style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-ink)', cursor: 'pointer' }}>
                         Generar link
                       </button>
                     )}
@@ -1886,27 +1841,27 @@ const DiscordBot: React.FC = () => {
               {maintView === 'history' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--moon-muted)' }}>
                       Últimos {maintHistory.length} registros
                     </p>
                     <button onClick={fetchMaintHistory} disabled={loadingMaintHist}
                       className="w-8 h-8 rounded-xl flex items-center justify-center border"
-                      style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer' }}>
+                      style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent', cursor: 'pointer' }}>
                       <RefreshCw className={`w-3.5 h-3.5 ${loadingMaintHist ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                     </button>
                   </div>
                   {loadingMaintHist ? (
                     <div className="space-y-2">{[...Array(4)].map((_, i) => <Skel key={i} className="h-20" />)}</div>
                   ) : maintHistory.length === 0 ? (
-                    <div className="rounded-2xl border py-14 text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <Clock className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                      <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin historial de mantenimiento</p>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-14 text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <Clock className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                      <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin historial de mantenimiento</p>
                     </div>
                   ) : (
-                    <div className="rounded-2xl overflow-hidden border"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <div className="divide-y" style={{ borderColor: 'var(--border-main)' }}>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl overflow-hidden border"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <div className="divide-y" style={{ borderColor: 'var(--moon-line)' }}>
                         {maintHistory.map((entry, i) => {
                           const startD = toDate(entry.startDate);
                           return (
@@ -1915,15 +1870,15 @@ const DiscordBot: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs font-light px-2 py-0.5 rounded-full"
-                                      style={{ background: `${accentColor}15`, color: accentColor, border: `1px solid ${accentColor}25` }}>
+                                      style={{ background: `${accentColor}15`, color: panelInk(accentColor), border: `1px solid ${accentColor}25` }}>
                                       #{maintHistory.length - i}
                                     </span>
-                                    <p className="font-light truncate text-sm" style={{ color: 'var(--text-primary)' }}>{entry.reason ?? '—'}</p>
+                                    <p className="font-light truncate text-sm" style={{ color: 'var(--moon-ink)' }}>{entry.reason ?? '—'}</p>
                                   </div>
                                   {entry.description && (
-                                    <p className="text-xs font-light mb-2 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{entry.description}</p>
+                                    <p className="text-xs font-light mb-2 line-clamp-2" style={{ color: 'var(--moon-muted)' }}><EmojiText text={entry.description} /></p>
                                   )}
-                                  <div className="flex items-center gap-4 text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                                  <div className="flex items-center gap-4 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                                     {startD && <span>{startD.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
                                     {entry.duration && <span>⏱ {formatDuration(entry.duration)}</span>}
                                     {entry.authorTag && <span>Por {entry.authorTag}</span>}
@@ -1943,50 +1898,50 @@ const DiscordBot: React.FC = () => {
               {maintView === 'stats' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-xs font-light uppercase tracking-widest" style={{ color: 'var(--moon-muted)' }}>
                       Estadísticas históricas
                     </p>
                     <button onClick={() => { setMaintStats(null); fetchMaintStats(); }}
                       className="w-8 h-8 rounded-xl flex items-center justify-center border"
-                      style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer' }}>
+                      style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent', cursor: 'pointer' }}>
                       <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                   </div>
                   {!maintStats ? (
-                    <div className="rounded-2xl border py-14 text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-14 text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                       <div className="w-6 h-6 border-2 rounded-full animate-spin mx-auto mb-3"
-                        style={{ borderColor: 'var(--border-main)', borderTopColor: accentColor }} />
-                      <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Cargando estadísticas...</p>
+                        style={{ borderColor: 'var(--moon-line)', borderTopColor: accentColor }} />
+                      <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Cargando estadísticas...</p>
                     </div>
                   ) : maintStats.total === 0 ? (
-                    <div className="rounded-2xl border py-14 text-center"
-                      style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                      <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                      <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>Sin mantenimientos registrados aún</p>
-                      <p className="text-xs font-light mt-1" style={{ color: 'var(--content-quaternary)' }}>
+                    <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-14 text-center"
+                      style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                      <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                      <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>Sin mantenimientos registrados aún</p>
+                      <p className="text-xs font-light mt-1" style={{ color: 'var(--moon-muted)' }}>
                         Las estadísticas aparecerán tras el primer ciclo
                       </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { label: 'Total mantenimientos', value: maintStats.total.toString(),                 color: 'var(--text-primary)' },
+                        { label: 'Total mantenimientos', value: maintStats.total.toString(),                 color: 'var(--moon-ink)' },
                         { label: 'Duración promedio',    value: formatDuration(maintStats.averageDuration),  color: accentColor },
                         { label: 'Duración mayor',       value: formatDuration(maintStats.longestDuration),  color: '#f87171' },
                         { label: 'Duración menor',       value: formatDuration(maintStats.shortestDuration), color: '#4ade80' },
                       ].map(({ label, value, color }) => (
-                        <div key={label} className="rounded-2xl border p-4 text-center"
-                          style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                          <p className="text-2xl font-light mb-1" style={{ color }}>{value}</p>
-                          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                        <div data-moon-reveal="card" key={label} className="moon-panel rounded-2xl border p-4 text-center"
+                          style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                          <p className="text-2xl font-light mb-1" style={{ color: panelInk(color) }}>{value}</p>
+                          <p className="text-[10px] uppercase tracking-widest font-light" style={{ color: 'var(--moon-muted)' }}>{label}</p>
                         </div>
                       ))}
                       {maintStats.lastMaintenance && (
-                        <div className="col-span-2 rounded-2xl border p-4"
-                          style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                        <div data-moon-reveal="card" className="moon-panel col-span-2 rounded-2xl border p-4"
+                          style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                           <p style={{ ...sectionTitle, marginBottom: 4 }}>Último mantenimiento</p>
-                          <p className="font-light text-sm" style={{ color: 'var(--text-primary)' }}>
+                          <p className="font-light text-sm" style={{ color: 'var(--moon-ink)' }}>
                             {maintStats.lastMaintenance.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                           </p>
                         </div>
@@ -2009,55 +1964,55 @@ const DiscordBot: React.FC = () => {
                     <option value="">Seleccionar servidor...</option>
                     {botData.serversList?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} />
                 </div>
                 <button onClick={handleFetchAudit} disabled={!auditGuildId || loadingAudit}
-                  className="px-4 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
-                  style={{ background: accentColor, color: 'white', border: 'none', cursor: 'pointer' }}>
+                  className="moon-panel-action px-4 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
+                  style={{ background: accentColor, color: 'var(--accent-on-user, var(--moon-accent-ink))', border: 'none', cursor: 'pointer' }}>
                   {loadingAudit ? <RefreshCw className="w-4 h-4 animate-spin" strokeWidth={1.5} /> : 'Cargar'}
                 </button>
               </div>
               {loadingAudit ? (
                 <div className="space-y-2">{[...Array(6)].map((_, i) => <Skel key={i} className="h-14" />)}</div>
               ) : auditEntries.length > 0 ? (
-                <div className="rounded-2xl overflow-hidden border"
-                  style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+                <div data-moon-reveal="card" className="moon-panel rounded-2xl overflow-hidden border"
+                  style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
                   <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b"
-                    style={{ background: 'var(--overlay-bg)', borderColor: 'var(--border-main)' }}>
+                    style={{ background: 'var(--moon-surface-raised)', borderColor: 'var(--moon-line)' }}>
                     {[
                       { h: 'Acción', span: 2 }, { h: 'Ejecutor', span: 3 },
                       { h: 'Objetivo', span: 2 }, { h: 'Razón', span: 3 }, { h: 'Fecha', span: 2 },
                     ].map(({ h, span }) => (
                       <span key={h} className={`col-span-${span} text-[10px] uppercase tracking-widest font-light`}
-                        style={{ color: 'var(--text-muted)' }}>
+                        style={{ color: 'var(--moon-muted)' }}>
                         {h}
                       </span>
                     ))}
                   </div>
-                  <div className="divide-y" style={{ borderColor: 'var(--border-main)' }}>
+                  <div className="divide-y" style={{ borderColor: 'var(--moon-line)' }}>
                     {auditEntries.map(entry => (
                       <div key={entry.id} className="db-row-hover grid grid-cols-12 gap-3 px-5 py-3 items-center transition-colors">
                         <div className="col-span-2">
                           <span className="text-xs font-mono px-2 py-0.5 rounded-lg"
-                            style={{ background: 'var(--overlay-bg)', color: 'var(--content-secondary)' }}>
+                            style={{ background: 'var(--moon-surface-raised)', color: 'var(--moon-muted)' }}>
                             {entry.action}
                           </span>
                         </div>
                         <div className="col-span-3">
-                          <p className="text-xs font-light truncate" style={{ color: 'var(--text-primary)' }}>{entry.executor ?? '—'}</p>
-                          {entry.executorId && <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{entry.executorId}</p>}
+                          <p className="text-xs font-light truncate" style={{ color: 'var(--moon-ink)' }}>{entry.executor ?? '—'}</p>
+                          {entry.executorId && <p className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>{entry.executorId}</p>}
                         </div>
                         <div className="col-span-2">
-                          <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{entry.targetId ?? '—'}</p>
+                          <p className="text-xs font-mono" style={{ color: 'var(--moon-muted)' }}>{entry.targetId ?? '—'}</p>
                         </div>
                         <div className="col-span-3">
-                          <p className="text-xs font-light truncate" style={{ color: 'var(--text-muted)' }}>{entry.reason ?? '—'}</p>
+                          <p className="text-xs font-light truncate" style={{ color: 'var(--moon-muted)' }}>{entry.reason ?? '—'}</p>
                         </div>
                         <div className="col-span-2">
-                          <p className="text-[10px] font-light" style={{ color: 'var(--text-muted)' }}>
+                          <p className="text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>
                             {new Date(entry.createdAt).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
                           </p>
-                          <p className="text-[10px] font-mono" style={{ color: 'var(--content-quaternary)' }}>
+                          <p className="text-[10px] font-mono" style={{ color: 'var(--moon-muted)' }}>
                             {new Date(entry.createdAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
@@ -2066,10 +2021,10 @@ const DiscordBot: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border py-14 text-center"
-                  style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
-                  <Shield className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--content-quaternary)' }} strokeWidth={1} />
-                  <p className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>
+                <div data-moon-reveal="card" className="moon-panel rounded-2xl border py-14 text-center"
+                  style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
+                  <Shield className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--moon-muted)' }} strokeWidth={1} />
+                  <p className="text-sm font-light" style={{ color: 'var(--moon-muted)' }}>
                     {auditGuildId ? 'Sin entradas en el audit log' : 'Selecciona un servidor para cargar el audit log'}
                   </p>
                 </div>
@@ -2079,31 +2034,31 @@ const DiscordBot: React.FC = () => {
 
           {/* ── ACTIVIDAD (CEO) ── */}
           {isCEO && activeTab === 'logs' && (
-            <div className="rounded-2xl overflow-hidden border"
-              style={{ background: 'var(--sidebar-card-bg)', borderColor: 'var(--border-main)' }}>
+            <div data-moon-reveal="card" className="moon-panel rounded-2xl overflow-hidden border"
+              style={{ background: 'var(--moon-surface)', borderColor: 'var(--moon-line)' }}>
               <div className="flex items-center justify-between px-5 py-4 border-b"
-                style={{ borderColor: 'var(--border-main)' }}>
-                <p className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <Terminal className="w-4 h-4" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} /> Log de Actividad
+                style={{ borderColor: 'var(--moon-line)' }}>
+                <p className="text-sm font-light flex items-center gap-2" style={{ color: 'var(--moon-ink)' }}>
+                  <Terminal className="w-4 h-4" style={{ color: 'var(--moon-muted)' }} strokeWidth={1.5} /> Log de Actividad
                 </p>
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-light" style={{ color: 'var(--text-muted)' }}>{activityLog.length} entradas</span>
+                  <span className="text-[11px] font-light" style={{ color: 'var(--moon-muted)' }}>{activityLog.length} entradas</span>
                   <button onClick={() => setActivityLog([])}
                     className="text-[11px] font-light transition-colors hover:opacity-80"
-                    style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    style={{ color: 'var(--moon-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
                     Limpiar
                   </button>
                 </div>
               </div>
               <div className="db-scroll p-4 font-mono text-xs space-y-1.5 max-h-[400px] overflow-y-auto">
                 {activityLog.length === 0 ? (
-                  <p className="text-center py-10" style={{ color: 'var(--text-muted)' }}>Sin actividad registrada aún</p>
+                  <p className="text-center py-10" style={{ color: 'var(--moon-muted)' }}>Sin actividad registrada aún</p>
                 ) : activityLog.map((entry, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <span style={{ color: 'var(--content-quaternary)' }}>{entry.time}</span>
+                    <span style={{ color: 'var(--moon-muted)' }}>{entry.time}</span>
                     <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                      style={{ background: entry.type === 'success' ? '#4ade80' : entry.type === 'error' ? '#f87171' : 'var(--content-quaternary)' }} />
-                    <span style={{ color: entry.type === 'success' ? '#4ade80' : entry.type === 'error' ? '#f87171' : 'var(--content-secondary)' }}>
+                      style={{ background: entry.type === 'success' ? '#4ade80' : entry.type === 'error' ? '#f87171' : 'var(--moon-muted)' }} />
+                    <span style={{ color: panelInk(entry.type === 'success' ? '#4ade80' : entry.type === 'error' ? '#f87171' : 'var(--moon-muted)') }}>
                       {entry.text}
                     </span>
                   </div>
@@ -2120,10 +2075,10 @@ const DiscordBot: React.FC = () => {
           {/* ── CONFIG (CEO) ── */}
           {isCEO && activeTab === 'config' && (
             <div className="space-y-5 max-w-lg">
-              <div style={cardStyle} className="space-y-4">
-                <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>Configuración del Bot</p>
+              <div data-moon-reveal="card" style={cardStyle} className="space-y-4">
+                <p className="text-sm font-light" style={{ color: 'var(--moon-ink)' }}>Configuración del Bot</p>
                 <div className="space-y-1.5">
-                  <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block' }}>
+                  <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--moon-muted)', display: 'block' }}>
                     Nombre del Bot
                   </label>
                   <div className="flex gap-2">
@@ -2134,25 +2089,25 @@ const DiscordBot: React.FC = () => {
                       style={inputStyle} />
                     <button onClick={handleUpdateBotName}
                       disabled={savingName || !config.botName || config.botName === botData.username}
-                      className="px-4 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
-                      style={{ background: accentColor, color: 'white', border: 'none', cursor: 'pointer' }}>
+                      className="moon-panel-action px-4 py-2.5 rounded-xl text-sm font-light hover:opacity-90 disabled:opacity-40 transition-all"
+                      style={{ background: accentColor, color: 'var(--accent-on-user, var(--moon-accent-ink))', border: 'none', cursor: 'pointer' }}>
                       {savingName ? <RefreshCw className="w-4 h-4 animate-spin" strokeWidth={1.5} /> : 'Guardar'}
                     </button>
                   </div>
                 </div>
                 {botData.token && (
                   <div className="space-y-1.5">
-                    <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--moon-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Key className="w-3 h-3" /> Token actual
                     </label>
                     <div className="flex items-center gap-2">
                       <span className="flex-1 text-xs font-mono px-3.5 py-2.5 rounded-xl"
-                        style={{ background: 'var(--overlay-bg)', border: '1px solid var(--border-main)', color: 'var(--content-tertiary)' }}>
+                        style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)', color: 'var(--moon-muted)' }}>
                         {showToken ? botData.token : maskToken(botData.token)}
                       </span>
                       <button onClick={() => setShowToken(s => !s)}
                         className="w-9 h-9 rounded-xl flex items-center justify-center border transition-all"
-                        style={{ borderColor: 'var(--border-main)', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer' }}>
+                        style={{ borderColor: 'var(--moon-line)', color: 'var(--moon-muted)', background: 'transparent', cursor: 'pointer' }}>
                         {showToken
                           ? <EyeOff className="w-4 h-4" strokeWidth={1.5} />
                           : <Eye className="w-4 h-4" strokeWidth={1.5} />}
@@ -2166,7 +2121,7 @@ const DiscordBot: React.FC = () => {
 
         </div>
       </div>
-    </>
+    </section>
   );
 };
 

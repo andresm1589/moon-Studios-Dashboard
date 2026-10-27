@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useRef, useState } from 'react';
 import { Bold, Italic, Heading2, List, Quote, Code2, Link2, ImagePlus, Eye, PenLine, Columns2 } from 'lucide-react';
 import { Area, BotonIcono, Etiqueta, VistaPrevia } from './ui';
@@ -102,7 +103,7 @@ export const EditorTexto: React.FC<{
             {MODOS.map(({ id, t, Icon, clase }) => (
               <button key={id} type="button" onClick={() => setModo(id)} title={t}
                 className={`items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-light transition-all ${clase ?? 'flex'}`}
-                style={{ background: modo === id ? 'rgba(255,255,255,0.09)' : 'transparent', color: modo === id ? 'white' : mt }}>
+                style={{ background: modo === id ? 'color-mix(in srgb, var(--moon-ink) 9%, transparent)' : 'transparent', color: panelInk(modo === id ? 'var(--moon-ink)' : mt) }}>
                 <Icon className="w-3 h-3" strokeWidth={1.5} /> <span className="hidden sm:inline">{t}</span>
               </button>
             ))}

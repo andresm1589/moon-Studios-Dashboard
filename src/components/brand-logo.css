@@ -1,0 +1,5 @@
+.moon-dashboard-brand { display: block; width: 164px; max-width: 100%; height: auto; object-fit: contain; flex-shrink: 0; filter: brightness(0) invert(1); }
+.moon-dashboard-brand-symbol { width: 28px; aspect-ratio: 1; }
+.light .moon-dashboard-brand { filter: none; }
+.moon-dashboard-brand[data-variant="light"] { filter: brightness(0) invert(1); }
+.moon-dashboard-brand[data-variant="dark"] { filter: none; }

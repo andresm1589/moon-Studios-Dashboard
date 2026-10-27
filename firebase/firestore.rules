@@ -1,0 +1,1666 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Corporate membership is independent of a Firebase or electoral sign-in.
+    // Missing isActive preserves current staff; explicit false/nonboolean denies.
+    function moonCompanyStaff() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Empleado', 'Contador', 'Diseño', 'Secretaría', 'Programación']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true;
+    }
+    function moonCompanyCEO() {
+      return moonCompanyStaff()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+    function moonCompanyAdmin() {
+      return moonCompanyStaff()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'];
+    }
+    function moonSelfProfileUpdate(userId) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return request.auth != null && request.auth.uid == userId
+        && resource.data.get('isActive', true) == true
+        && changed.hasOnly(['name', 'displayName', 'phone', 'bio', 'website', 'avatar', 'avatarHistory', 'settings', 'dispositivos', 'isFirstLogin', 'notifEstado'])
+        && (!changed.hasAny(['isFirstLogin']) || request.resource.data.isFirstLogin == false);
+    }
+
+    // ===== COLECCIÓN: USERS =====
+    match /users/{userId} {
+      // The public customer portal may create a client profile; employment
+      // roles are assigned only through an active corporate operator.
+      allow create: if (request.auth != null && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'role', 'createdAt'])
+          && request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'createdAt'])
+          && request.resource.data.uid == userId && request.resource.data.role == 'client'
+          && request.resource.data.email == request.auth.token.get('email', null)
+          && request.resource.data.email is string
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 320
+          && request.resource.data.createdAt == request.time)
+        || moonCompanyCEO()
+        || (moonCompanyAdmin() && request.resource.data.role == 'Empleado');
+      // Includes the authenticated account's missing profile for verification.
+      allow get: if request.auth != null && request.auth.uid == userId;
+      // Corporate UI uses this directory for assignment and internal messages.
+      allow get, list: if moonCompanyStaff();
+      allow update: if moonSelfProfileUpdate(userId) || moonCompanyCEO();
+      allow delete: if moonCompanyCEO();
+    }
+
+    // ===== INTEGRACIONES: NADIE, NI SU DUEÑO =====
+    // Guardan los tokens de acceso de las cuentas de GitHub y Google que cada
+    // empleado conecta. Un token de esos es, en la práctica, una llave de su
+    // cuenta. Solo los escribe la API de Luna con el SDK de administración,
+    // que se salta estas reglas; el dashboard nunca los pide, pide los datos
+    // ya resueltos a /api/moon/integraciones.
+    //
+    // Firestore ya niega lo que no tiene regla, así que esto no cambia nada
+    // hoy. Está escrito para que se vea la intención: si alguien añade más
+    // adelante un comodín que permita leer, estas dos colecciones seguirán
+    // cerradas.
+    match /integraciones/{docId} {
+      allow read, write: if false;
+    }
+    match /integraciones_estados/{docId} {
+      allow read, write: if false;
+    }
+
+    // ===== COLECCIÓN: DISCORD (Bot Data) =====
+    match /discord/{document} {
+      allow read: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+
+    // ===== COLECCIÓN: TASKS =====
+    match /tasks/{taskId} {
+      allow read: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: ANNOUNCEMENTS =====
+    match /announcements/{announcementId} {
+      allow read: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: FORMS =====
+    match /forms/{formId} {
+      allow create: if moonCompanyStaff() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow read: if moonCompanyStaff() &&
+                     (resource.data.userId == request.auth.uid ||
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración']);
+      allow update, delete: if moonCompanyStaff() &&
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: ACTIVITY LOGS =====
+    match /activityLogs/{logId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow create: if moonCompanyStaff();
+    }
+
+    // ===== COLECCIÓN: USER ACTIVITY LOGS =====
+    match /userActivityLogs/{logId} {
+      allow read, list: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // ===== COLECCIÓN: USER SESSIONS =====
+    match /userSessions/{sessionId} {
+      allow read: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+      allow list: if moonCompanyStaff();
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+      allow delete: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+    }
+
+    // ===== COLECCIÓN: SESSIONS =====
+    match /sessions/{sessionId} {
+      allow read: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+      allow list: if moonCompanyStaff();
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update, delete: if moonCompanyStaff() && (
+        resource.data.uid == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración']
+      );
+    }
+
+    // ===== COLECCIÓN: TASK REPORTS =====
+    match /taskReports/{reportId} {
+      allow read: if moonCompanyStaff() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'] ||
+        resource.data.reportedBy == request.auth.uid
+      );
+      allow list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO', 'Administración'];
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.reportedBy == request.auth.uid;
+      allow update: if moonCompanyStaff() &&
+        resource.data.reportedBy == request.auth.uid;
+      allow delete: if moonCompanyStaff() && (
+        resource.data.reportedBy == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO'
+      );
+    }
+
+    // ===== COLECCIÓN: CORREOS =====
+    match /correos/{correoId} {
+      allow get: if moonCompanyStaff() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid
+      );
+      allow list: if moonCompanyStaff();
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.fromUid == request.auth.uid;
+      allow update: if moonCompanyStaff() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid
+      );
+      allow delete: if moonCompanyStaff() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.deletedBy == request.auth.uid
+      );
+    }
+
+    // ===== COLECCIÓN: MENSAJERIA =====
+    match /mensajeria/{mensajeId} {
+      allow read, list: if moonCompanyStaff() &&
+        (resource.data.toUid == request.auth.uid ||
+         resource.data.fromUid == request.auth.uid);
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.fromUid == request.auth.uid;
+      allow update: if moonCompanyStaff() &&
+        (resource.data.toUid == request.auth.uid ||
+         resource.data.fromUid == request.auth.uid);
+      allow delete: if moonCompanyStaff() &&
+        (resource.data.toUid == request.auth.uid ||
+         resource.data.fromUid == request.auth.uid);
+    }
+
+    // ===== COLECCIÓN: HILOS =====
+    match /hilos/{hiloId} {
+      allow get: if moonCompanyStaff();
+      allow list: if moonCompanyStaff();
+
+      allow create: if moonCompanyStaff() &&
+        !request.auth.token.firebase.sign_in_provider.matches('anonymous') &&
+        request.resource.data.authorUid == request.auth.uid;
+
+      allow update: if moonCompanyStaff() &&
+        !request.auth.token.firebase.sign_in_provider.matches('anonymous') && (
+          resource.data.authorUid == request.auth.uid ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            in ['CEO', 'Administración', 'Moderador'] ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'viewCount', 'subscribers', 'reactions',
+            'replyCount', 'updatedAt', 'lastReplyAt'
+          ])
+        );
+
+      allow delete: if moonCompanyStaff() &&
+        !request.auth.token.firebase.sign_in_provider.matches('anonymous') && (
+          resource.data.authorUid == request.auth.uid ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            in ['CEO', 'Administración']
+        );
+
+      match /replies/{replyId} {
+        allow get: if moonCompanyStaff();
+        allow list: if moonCompanyStaff();
+
+        allow create: if moonCompanyStaff() &&
+          !request.auth.token.firebase.sign_in_provider.matches('anonymous') &&
+          request.resource.data.authorUid == request.auth.uid;
+
+        allow update: if moonCompanyStaff() &&
+          !request.auth.token.firebase.sign_in_provider.matches('anonymous') && (
+            resource.data.authorUid == request.auth.uid ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+              in ['CEO', 'Administración', 'Moderador'] ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          );
+
+        allow delete: if moonCompanyStaff() &&
+          !request.auth.token.firebase.sign_in_provider.matches('anonymous') && (
+            resource.data.authorUid == request.auth.uid ||
+            get(/databases/$(database)/documents/hilos/$(hiloId)).data.authorUid == request.auth.uid ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+              in ['CEO', 'Administración', 'Moderador']
+          );
+      }
+
+      match /presence/{userId} {
+        allow read, list: if moonCompanyStaff();
+        allow write: if moonCompanyStaff() &&
+          !request.auth.token.firebase.sign_in_provider.matches('anonymous') &&
+          request.auth.uid == userId;
+      }
+    }
+
+    // ===== COLECCIÓN: NOTIFICATIONS =====
+    match /notifications/{notifId} {
+      allow read, list: if moonCompanyStaff();
+      allow create: if moonCompanyStaff();
+      allow update: if moonCompanyStaff();
+    }
+
+    // ===== COLECCIÓN: CONTABILIDAD =====
+    match /contabilidad_transacciones/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    match /contabilidad_facturas/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    match /contabilidad_presupuestos/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    match /contabilidad_sueldos/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    match /contabilidad_config/{docId} {
+      allow read: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    match /contabilidad_asientos/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    // ===== COLECCIÓN: BANNERS =====
+    match /dashboard_banners/{docId} {
+      allow read, list: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    match /dashboard_config/{docId} {
+      allow read, get: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    match /contracts/{contractId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: CORREOS PANEL MOON STUDIOS =====
+    // OJO: esta colección recibe mensajes de DOS formularios distintos del sitio público:
+    //  - Contact.tsx (home)              -> origen = 'web_contacto'
+    //  - Contact.tsx (portal de soporte) -> origen = 'web_soporte_interno'
+    // Por eso 'origen' valida contra una LISTA de valores válidos, no un solo string.
+    // Si agregan un formulario nuevo con otro origen, hay que sumarlo acá también,
+    // o el create va a fallar con "Missing or insufficient permissions" igual que ahora.
+    match /correos_panel_moonstudios/{correoId} {
+      allow create: if true
+        && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje', 'fecha', 'leido', 'origen'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 2
+        && request.resource.data.nombre.size() <= 100
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.mensaje is string
+        && request.resource.data.mensaje.size() >= 10
+        && request.resource.data.mensaje.size() <= 2000
+        && request.resource.data.leido == false
+        && request.resource.data.origen in ['web_contacto', 'web_soporte_interno'];
+
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+
+      allow update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== MOON STUDIOS - MOON FEST MULTIEVENTO =====
+    // Los índices privados y el contador se enlazan con getAfter en la misma
+    // transacción. El QR es una capacidad de lectura, nunca contiene contacto.
+    function mfSigned() { return request.auth != null; }
+    function mfManager() {
+      return mfSigned() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive',true) == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['CEO','Administración']
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO'
+          || !exists(/databases/$(database)/documents/moon_acceso/administracion)
+          || get(/databases/$(database)/documents/moon_acceso/administracion).data.get('modulos',{}).get('webs',true) == true);
+    }
+    function mfText(s, lo, hi) {
+      return s is string && s.size() >= lo && s.size() <= hi
+        && (lo == 0 || s.matches('(?s).*\\S.*'));
+    }
+    function mfUrl(s) {
+      return s is string && s.size() <= 2048 && (s == '' || s.matches('https://[^\\s/@]+([/?#][^\\s]*)?'));
+    }
+    function mfEventShape(e) {
+      return e.keys().hasOnly(['title','slug','summary','description','coverUrl','location','format','streamUrl','startsAt','endsAt','registrationOpensAt','registrationClosesAt','capacity','registeredCount','counterTicketId','publication','cancelled','createdAt','updatedAt','createdBy','updatedBy'])
+        && mfText(e.title, 3, 120) && mfText(e.slug, 3, 80)
+        && e.slug.matches('[a-z0-9][a-z0-9-]{1,78}[a-z0-9]')
+        && mfText(e.summary, 10, 240) && mfText(e.description, 20, 8000)
+        && mfUrl(e.coverUrl) && mfText(e.location, 3, 200) && mfUrl(e.streamUrl)
+        && e.format in ['presencial','virtual','hibrido']
+        && e.startsAt is timestamp && e.endsAt is timestamp
+        && e.registrationOpensAt is timestamp && e.registrationClosesAt is timestamp
+        && e.registrationOpensAt <= e.registrationClosesAt
+        && e.registrationClosesAt <= e.startsAt && e.startsAt < e.endsAt
+        && e.capacity is int && e.capacity >= 0 && e.capacity <= 1000000
+        && e.registeredCount is int && e.registeredCount >= 0
+        && (e.capacity == 0 || e.registeredCount <= e.capacity)
+        && mfText(e.counterTicketId, 0, 220)
+        && e.publication in ['draft','published','archived'] && e.cancelled is bool
+        && e.createdAt is timestamp && e.updatedAt is timestamp
+        && mfText(e.createdBy, 1, 128) && mfText(e.updatedBy, 1, 128);
+    }
+    function mfOpen(e) {
+      return e.publication == 'published' && e.cancelled == false
+        && request.time >= e.registrationOpensAt && request.time < e.registrationClosesAt
+        && (e.capacity == 0 || e.registeredCount < e.capacity);
+    }
+    function mfCheckInOpen(e) {
+      return e.publication == 'published' && e.cancelled == false
+        && request.time >= e.startsAt && request.time <= e.endsAt;
+    }
+    function mfEvent(eventId) {
+      return get(/databases/$(database)/documents/moon_fest_eventos/$(eventId)).data;
+    }
+    function mfAfterEvent(eventId) {
+      return getAfter(/databases/$(database)/documents/moon_fest_eventos/$(eventId)).data;
+    }
+    function mfTicket(ticketId) {
+      return get(/databases/$(database)/documents/moon_fest_registros/$(ticketId)).data;
+    }
+    function mfAfterTicket(ticketId) {
+      return getAfter(/databases/$(database)/documents/moon_fest_registros/$(ticketId)).data;
+    }
+    function mfSummary(t, ticketId) {
+      return {'eventId': t.eventId, 'ticketId': ticketId, 'code': t.code,
+        'state': t.state, 'firstName': t.firstName, 'lastName': t.lastName,
+        'createdAt': t.createdAt, 'checkedInAt': t.checkedInAt};
+    }
+    function mfEmailIndex(t, ticketId) {
+      return {'ownerUid': t.ownerUid, 'ticketId': ticketId, 'email': t.email,
+        'eventId': t.eventId, 'createdAt': t.createdAt};
+    }
+    function mfSummaryLinked(t, ticketId) {
+      return getAfter(/databases/$(database)/documents/moon_fest_entradas/$(t.qrToken)).data == mfSummary(t, ticketId);
+    }
+    function mfCounterUp(eventId, e) {
+      let id = eventId + '_' + request.auth.uid;
+      let t = mfAfterTicket(id);
+      return e.diff(resource.data).affectedKeys().hasOnly(['registeredCount','counterTicketId','updatedAt'])
+        && e.registeredCount == resource.data.registeredCount + 1 && mfOpen(resource.data)
+        && e.counterTicketId == id && e.updatedAt == request.time
+        && !exists(/databases/$(database)/documents/moon_fest_registros/$(id))
+        && t.eventId == eventId && t.ownerUid == request.auth.uid
+        && t.createdAt == request.time && t.state == 'active';
+    }
+    function mfCounterDown(eventId, e) {
+      let id = e.counterTicketId;
+      let before = mfTicket(id);
+      let after = mfAfterTicket(id);
+      return e.diff(resource.data).affectedKeys().hasOnly(['registeredCount','counterTicketId','updatedAt'])
+        && resource.data.registeredCount > 0 && e.registeredCount == resource.data.registeredCount - 1
+        && e.updatedAt == request.time && before.eventId == eventId && before.state == 'active'
+        && after.diff(before).affectedKeys().hasOnly(['state','checkedInAt'])
+        && after.state == 'cancelled' && after.checkedInAt == before.checkedInAt
+        && mfSummaryLinked(after, id);
+    }
+    match /moon_fest_eventos/{eventId} {
+      allow read: if resource.data.publication in ['published','archived'] || mfManager();
+      allow create: if mfManager() && eventId.matches('[A-Za-z0-9_-]{1,60}')
+        && mfEventShape(request.resource.data) && request.resource.data.registeredCount == 0
+        && request.resource.data.counterTicketId == ''
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.updatedBy == request.auth.uid;
+      allow update: if mfSigned() && (
+        (mfManager()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','slug','summary','description','coverUrl','location','format','streamUrl','startsAt','endsAt','registrationOpensAt','registrationClosesAt','capacity','publication','cancelled','updatedAt','updatedBy'])
+          && mfEventShape(request.resource.data)
+          && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid)
+        || mfCounterUp(eventId, request.resource.data)
+        || (mfManager() && mfCounterDown(eventId, request.resource.data)));
+      allow delete: if false;
+    }
+
+    function mfTicketShape(t, ticketId) {
+      return t.keys().hasOnly(['eventId','ownerUid','email','firstName','lastName','phone','code','qrToken','state','createdAt','checkedInAt'])
+        && mfText(t.eventId,1,60) && t.eventId.matches('[A-Za-z0-9_-]{1,60}')
+        && mfText(t.ownerUid,1,128) && ticketId == t.eventId + '_' + t.ownerUid
+        && t.email is string && t.email.size() <= 254
+        && t.email.matches('[a-z0-9._%+\\-]+@[a-z0-9]([a-z0-9\\-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9\\-]*[a-z0-9])?)+')
+        && mfText(t.firstName,2,80) && mfText(t.lastName,2,80)
+        && mfText(t.phone,7,30) && t.phone.matches('[+0-9() .\\-]+')
+        && t.qrToken is string && t.qrToken.matches('[a-f0-9]{32}')
+        && t.code == 'MF-' + t.qrToken.upper()
+        && t.state == 'active' && t.createdAt == request.time && t.checkedInAt == null;
+    }
+    // Inscribirse exige cuenta con correo verificado: la entrada queda en la
+    // cuenta (visible desde cualquier dispositivo y en el portal de conferencias)
+    // y siempre con el correo de esa cuenta.
+    function mfAccount(t) {
+      return request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', null) is string
+        && t.email == request.auth.token.email.lower();
+    }
+    // La cuenta verificada con el correo de una entrada también la ve: así quien se
+    // inscribió antes con la sesión invisible recupera su entrada al iniciar sesión.
+    function mfEmailOwner(d) {
+      return mfSigned() && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', null) is string
+        && d.email == request.auth.token.email.lower();
+    }
+    function mfCreateTicket(ticketId, t) {
+      let e = mfEvent(t.eventId);
+      let after = mfAfterEvent(t.eventId);
+      let emailId = t.eventId + '_' + t.email;
+      return mfTicketShape(t,ticketId) && t.ownerUid == request.auth.uid && mfAccount(t) && mfOpen(e)
+        && !exists(/databases/$(database)/documents/moon_fest_correos/$(emailId))
+        && !exists(/databases/$(database)/documents/moon_fest_entradas/$(t.qrToken))
+        && getAfter(/databases/$(database)/documents/moon_fest_correos/$(emailId)).data == mfEmailIndex(t,ticketId)
+        && mfSummaryLinked(t,ticketId) && after.registeredCount == e.registeredCount + 1
+        && after.counterTicketId == ticketId && after.updatedAt == request.time;
+    }
+    function mfChangeTicket(ticketId, t) {
+      let before = resource.data;
+      let e = mfEvent(before.eventId);
+      let after = mfAfterEvent(before.eventId);
+      return before.state == 'active'
+        && t.diff(before).affectedKeys().hasOnly(['state','checkedInAt'])
+        && mfSummaryLinked(t,ticketId)
+        && ((t.state == 'cancelled' && t.checkedInAt == before.checkedInAt
+              && after.registeredCount == e.registeredCount - 1
+              && after.counterTicketId == ticketId && after.updatedAt == request.time)
+          || (t.state == 'checked-in' && mfCheckInOpen(e) && t.checkedInAt == request.time));
+    }
+    match /moon_fest_registros/{ticketId} {
+      allow get: if mfManager() || (mfSigned() && (!exists(/databases/$(database)/documents/moon_fest_registros/$(ticketId)) || resource.data.ownerUid == request.auth.uid || mfEmailOwner(resource.data)));
+      allow list: if mfManager() || (mfSigned() && (resource.data.ownerUid == request.auth.uid || mfEmailOwner(resource.data)));
+      allow create: if mfSigned() && mfCreateTicket(ticketId, request.resource.data);
+      allow update: if mfManager() && mfChangeTicket(ticketId, request.resource.data);
+      allow delete: if false;
+    }
+    match /moon_fest_correos/{emailId} {
+      allow get: if mfManager() || (mfSigned() && (!exists(/databases/$(database)/documents/moon_fest_correos/$(emailId)) || resource.data.ownerUid == request.auth.uid || mfEmailOwner(resource.data)));
+      allow list: if mfManager();
+      allow create: if mfSigned()
+        && request.resource.data.ownerUid == request.auth.uid
+        && emailId == request.resource.data.eventId + '_' + request.resource.data.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data == mfEmailIndex(mfAfterTicket(request.resource.data.ticketId), request.resource.data.ticketId);
+      allow update, delete: if false;
+    }
+    match /moon_fest_entradas/{token} {
+      allow get: if token.matches('[a-f0-9]{32}');
+      allow list: if false;
+      allow create: if mfSigned() && token.matches('[a-f0-9]{32}')
+        && request.resource.data.createdAt == request.time
+        && mfAfterTicket(request.resource.data.ticketId).ownerUid == request.auth.uid
+        && mfAfterTicket(request.resource.data.ticketId).qrToken == token
+        && request.resource.data == mfSummary(mfAfterTicket(request.resource.data.ticketId), request.resource.data.ticketId);
+      allow update: if mfManager()
+        && mfAfterTicket(resource.data.ticketId).qrToken == token
+        && request.resource.data == mfSummary(mfAfterTicket(resource.data.ticketId), resource.data.ticketId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state','checkedInAt'])
+        && resource.data.state == 'active' && request.resource.data.state in ['cancelled','checked-in'];
+      allow delete: if false;
+    }
+
+    // Conservación histórica: nunca se expone el padrón legado de 2026.
+    match /moon_studios_fest_2026/{registroId} {
+      allow read: if mfManager();
+      allow write: if false;
+    }
+    // ===== FIN MOON FEST MULTIEVENTO =====
+
+    // ===== COLECCIÓN: CONFIG =====
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: CONFERENCES =====
+    match /conferences/{conferenceId} {
+      allow read, list: if moonCompanyStaff();
+
+      allow create: if moonCompanyStaff() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+
+      allow update: if moonCompanyStaff() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'] ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees'])
+      );
+
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+
+      match /messages/{messageId} {
+        allow read, list: if moonCompanyStaff();
+        allow create: if moonCompanyStaff() &&
+          request.resource.data.userId == request.auth.uid;
+      }
+
+      match /participants/{participantId} {
+        allow read, list: if moonCompanyStaff();
+        allow create, update: if moonCompanyStaff() && (
+          request.auth.uid == participantId ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            in ['CEO', 'Administración']
+        );
+        allow delete: if moonCompanyStaff() && (
+          request.auth.uid == participantId ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            in ['CEO', 'Administración']
+        );
+      }
+
+      match /calls/{callId} {
+        allow read, list: if moonCompanyStaff();
+        allow create, update, delete: if moonCompanyStaff();
+
+        match /callerCandidates/{candidateId} {
+          allow read, list: if moonCompanyStaff();
+          allow create, delete: if moonCompanyStaff();
+        }
+
+        match /calleeCandidates/{candidateId} {
+          allow read, list: if moonCompanyStaff();
+          allow create, delete: if moonCompanyStaff();
+        }
+      }
+
+      match /requests/{requestId} {
+        allow read, list: if moonCompanyStaff();
+        allow create: if moonCompanyStaff() &&
+          request.resource.data.uid == request.auth.uid;
+        allow update: if moonCompanyStaff() &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            in ['CEO', 'Administración'];
+      }
+    }
+
+    // ===== COLECCIÓN: USER INVITATIONS =====
+    match /userInvitations/{email} {
+      allow read, write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+
+    // ===== COLECCIÓN: DISEÑO MEDIA =====
+    match /diseno_media/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Diseño'];
+      allow create: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Diseño'] &&
+        request.resource.data.uploadedBy == request.auth.uid;
+      allow update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Diseño'];
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Diseño'];
+    }
+
+    // ===== COLECCIÓN: SECRETARÍA DOCUMENTOS =====
+    match /secretaria_docs/{docId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Secretaría'];
+      allow create: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Secretaría'] &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Secretaría'];
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: PROYECTOS DE PROGRAMACIÓN =====
+    match /dev_projects/{projectId} {
+      allow read, list: if moonCompanyStaff();
+      allow create, update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Programación'];
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: CHANGELOG DE VERSIONES =====
+    match /dev_changelog/{changeId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Programación'];
+      allow create: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Programación'] &&
+        request.resource.data.author == request.auth.uid;
+    }
+
+    // ===== COLECCIÓN: TAREAS DE PROGRAMACIÓN =====
+    match /dev_tasks/{taskId} {
+      allow read, list: if moonCompanyStaff();
+      allow create, update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración', 'Programación'];
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: LOGS DEL SISTEMA =====
+    match /system_logs/{logId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow create: if moonCompanyStaff();
+    }
+
+    // ===== COLECCIÓN: LIBRO DIARIO =====
+    match /libro_diario/{entryId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+      allow create: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'] &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Contador'];
+    }
+
+    // ===== COLECCIÓN: MANTENIMIENTO DEL BOT =====
+    match /maintenance/{docId} {
+      allow read, get, list: if moonCompanyStaff();
+      allow write: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+
+    match /maintenance/history/records/{recordId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+      allow create: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+
+    // ===== COLECCIÓN: UPTIME SNAPSHOTS =====
+    match /uptime_snapshots/{dateDoc} {
+      allow read, get: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: INCIDENTES =====
+    // Lectura pública: los incidentes se muestran en la página de status pública de Luna NET.
+    // Escritura abierta: el dashboard escribe sin auth de Luna NET; el server usa Admin SDK
+    // que bypasea estas reglas de todas formas.
+    match /incidents/{incidentId} {
+      allow read, write: if true;
+    }
+
+    // ===== COLECCIÓN: _SYSTEM (health check interno) =====
+    // Usada por recordAllSnapshots() para medir latencia de Firestore.
+    // No contiene datos sensibles, solo timestamps de heartbeat.
+    match /_system/{docId} {
+      allow read, write: if true;
+    }
+
+    // ===== COLECCIÓN: BUG REPORTS =====
+    match /bug_reports/{reportId} {
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow update: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+
+    // ===== MOON STUDIOS - TRÁMITES Y ACCESO =====
+    // Límites de Administración: solo el CEO escribe moon_acceso/administracion.
+    // Sin documento rigen los valores iniciales (resolver y catálogo habilitados).
+    function moonAccesoTramites(clave) {
+      return !exists(/databases/$(database)/documents/moon_acceso/administracion)
+        || get(/databases/$(database)/documents/moon_acceso/administracion).data.get('tramites', {}).get(clave, true) == true;
+    }
+    function moonTramitesCatalogo() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && moonAccesoTramites('catalogo'));
+    }
+    function moonTramitesRevisor() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && moonAccesoTramites('resolver'));
+    }
+    function moonTipoTramiteValido(data) {
+      return data.keys().hasOnly(['nombre', 'descripcion', 'icono', 'campos', 'activo', 'soloCeo', 'orden', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.keys().hasAll(['nombre', 'descripcion', 'icono', 'campos', 'activo', 'soloCeo', 'orden', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.nombre is string && data.nombre.size() >= 3 && data.nombre.size() <= 80
+        && data.descripcion is string && data.descripcion.size() <= 400
+        && data.icono in ['vacaciones', 'permiso', 'tarjeta', 'datos', 'constancia', 'equipos', 'dinero', 'general']
+        && data.campos is list && data.campos.size() >= 1 && data.campos.size() <= 12
+        && data.activo is bool && data.soloCeo is bool
+        && data.orden is int && data.orden >= 0 && data.orden <= 999
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid;
+    }
+
+    // La identidad impresa procede del perfil vigente, nunca de un formulario.
+    function moonTramiteNombre(uid) {
+      let p = get(/databases/$(database)/documents/users/$(uid)).data;
+      return moonTramiteNombreDePerfil(p);
+    }
+    function moonTramiteNombreDePerfil(p) {
+      let n = p.get('displayName', '') is string && p.get('displayName', '').trim().size() > 0
+        ? p.displayName.trim()
+        : (p.get('email', '') is string && p.get('email', '').trim().size() > 0 ? p.email.trim() : 'Equipo Moon');
+      return n.size() <= 120 ? n : n[0:120];
+    }
+    function moonTramiteDestinatarioActivo(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.role
+          in ['CEO', 'Administración', 'Empleado', 'Contador', 'Diseño', 'Secretaría', 'Programación']
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('isActive', true) == true;
+    }
+
+    // Calendario real, incluidos los bisiestos, en el mismo rango que el panel.
+    function moonTramiteFechaValida(v) {
+      return v.matches('^((19|20|21)[0-9]{2}|2200)-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$|^((19|20|21)(0[48]|[2468][048]|[13579][26])|2000)-02-29$');
+    }
+    function moonTramiteValorCapturado(c, f, respuestas, patrones) {
+      let v = respuestas.get(f.id, patrones.ausente);
+      let t = f.tipo;
+      return c == {'id': f.id, 'etiqueta': f.etiqueta, 'tipo': t, 'valor': v}
+        && (v.matches(patrones[t])
+          ? (t == 'numero' ? (v.size() <= 1500 && float(v) * 0 == 0)
+            : (t != 'opcion' || v in f.opciones))
+          : v == '' && !f.requerido);
+    }
+    function moonTramiteCapturaValida(data, campos) {
+      let n = campos.size();
+      let capturas = data.camposRespuesta;
+      let respuestas = data.respuestas;
+      let completas = respuestas.size() == n;
+      let vacio = campos[0];
+      let ids = n == 12 ? campos : campos.concat([vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio]);
+      let texto = '(?s)^[^\\s\\p{Z}\\x{FEFF}](.{0,999}.{0,499}[^\\s\\p{Z}\\x{FEFF}])?$';
+      let fecha = '^((19|20|21)[0-9]{2}|2200)-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$|^((19|20|21)(0[48]|[2468][048]|[13579][26])|2000)-02-29$';
+      let numero = '^[-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?$';
+      let patrones = {'texto': texto, 'parrafo': texto, 'fecha': fecha, 'opcion': texto, 'numero': numero, 'ausente': completas ? null : ''};
+      return capturas is list && capturas.size() == n
+        && n >= 1 && n <= 12
+        // v69 omite opcionales vacíos; v70 los guarda. Ambos formatos se
+        // contrastan con el catálogo y nunca admiten claves ajenas.
+        && (completas || respuestas.keys().hasOnly([ids[0].id, ids[1].id, ids[2].id, ids[3].id, ids[4].id, ids[5].id,
+          ids[6].id, ids[7].id, ids[8].id, ids[9].id, ids[10].id, ids[11].id]))
+        && moonTramiteValorCapturado(capturas[0], campos[0], respuestas, patrones) && (n <= 1 || moonTramiteValorCapturado(capturas[1], campos[1], respuestas, patrones))
+        && (n <= 2 || moonTramiteValorCapturado(capturas[2], campos[2], respuestas, patrones)) && (n <= 3 || moonTramiteValorCapturado(capturas[3], campos[3], respuestas, patrones))
+        && (n <= 4 || moonTramiteValorCapturado(capturas[4], campos[4], respuestas, patrones)) && (n <= 5 || moonTramiteValorCapturado(capturas[5], campos[5], respuestas, patrones))
+        && (n <= 6 || moonTramiteValorCapturado(capturas[6], campos[6], respuestas, patrones)) && (n <= 7 || moonTramiteValorCapturado(capturas[7], campos[7], respuestas, patrones))
+        && (n <= 8 || moonTramiteValorCapturado(capturas[8], campos[8], respuestas, patrones)) && (n <= 9 || moonTramiteValorCapturado(capturas[9], campos[9], respuestas, patrones))
+        && (n <= 10 || moonTramiteValorCapturado(capturas[10], campos[10], respuestas, patrones)) && (n <= 11 || moonTramiteValorCapturado(capturas[11], campos[11], respuestas, patrones));
+    }
+    function moonTramiteSolicitudValida(data) {
+      let tipo = get(/databases/$(database)/documents/tramites_tipos/$(data.tipoId)).data;
+      let perfil = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return perfil.role in ['CEO', 'Administración', 'Empleado', 'Contador', 'Diseño', 'Secretaría', 'Programación']
+        && perfil.get('isActive', true) == true
+        && data.diff({'tipoNombre': tipo.nombre,
+          'solicitanteUid': request.auth.uid, 'solicitanteNombre': moonTramiteNombreDePerfil(perfil), 'solicitanteRol': perfil.role,
+          'estado': 'pendiente', 'comentario': '', 'soloCeo': tipo.soloCeo, 'createdAt': request.time, 'updatedAt': request.time})
+          .affectedKeys().hasOnly(['tipoId', 'respuestas', 'camposRespuesta'])
+        && data.respuestas is map && data.tipoId is string && tipo.activo == true
+        && moonTramiteCapturaValida(data, tipo.campos);
+    }
+    function moonTramiteDocumentoValido(solicitudId, data) {
+      let d = data.documento;
+      let uid = data.solicitanteUid;
+      return d is map
+        && d.keys().hasOnly(['version', 'plantilla', 'titulo', 'contenido', 'cargo', 'area', 'vigenteHasta', 'folio', 'solicitudId', 'destinatarioUid', 'destinatarioNombre', 'destinatarioCodigo', 'emitidoPor', 'emitidoPorNombre', 'emitidoAt'])
+        && d.keys().hasAll(['version', 'plantilla', 'titulo', 'contenido', 'cargo', 'area', 'vigenteHasta', 'folio', 'solicitudId', 'destinatarioUid', 'destinatarioNombre', 'destinatarioCodigo', 'emitidoPor', 'emitidoPorNombre', 'emitidoAt'])
+        && d.version == 1 && d.plantilla in ['constancia', 'credencial', 'respuesta']
+        && d.titulo is string && d.titulo.size() >= 3 && d.titulo.size() <= 100
+        && d.contenido is string && d.contenido.size() >= 1 && d.contenido.size() <= 6000
+        && (d.plantilla != 'credencial' || (d.titulo.size() <= 60 && d.contenido.size() <= 240))
+        && d.cargo is string && d.cargo.size() <= 100 && d.area is string && d.area.size() <= 100
+        && d.vigenteHasta is string && (d.vigenteHasta == '' || moonTramiteFechaValida(d.vigenteHasta))
+        && d.folio == 'MS-DOC-' + solicitudId.upper() && d.solicitudId == solicitudId
+        && d.destinatarioUid == uid && moonTramiteDestinatarioActivo(uid)
+        && d.destinatarioNombre == moonTramiteNombre(uid)
+        && d.destinatarioCodigo == 'MS-' + uid[0:(uid.size() < 8 ? uid.size() : 8)].upper()
+        && d.emitidoPor == request.auth.uid && d.emitidoPorNombre == moonTramiteNombre(request.auth.uid)
+        && d.emitidoAt == request.time;
+    }
+    function moonTramitePuedeResolver() {
+      return moonTramitesRevisor()
+        && (resource.data.solicitanteUid != request.auth.uid || moonCompanyCEO())
+        && (resource.data.soloCeo == false || moonCompanyCEO());
+    }
+    // Al eliminar: su tarjeta o constancia no queda «vigente» en la consulta pública.
+    function moonTramiteSinVerificacionVigente(solicitudId) {
+      let d = resource.data.get('documento', {});
+      return !(d.get('plantilla', '') in ['credencial', 'constancia'])
+        || moonTramiteVerificacionRetirada(solicitudId, d.destinatarioCodigo + '_' + d.plantilla);
+    }
+    function moonTramiteVerificacionRetirada(solicitudId, verifId) {
+      let ruta = /databases/$(database)/documents/moon_verificacion/$(verifId);
+      return !existsAfter(ruta) || getAfter(ruta).data.solicitudId != solicitudId
+        || getAfter(ruta).data.estado == 'baja';
+    }
+
+    match /moon_acceso/{docId} {
+      allow get: if moonCompanyStaff();
+      allow list, delete: if false;
+      allow create, update: if moonCompanyCEO() && docId == 'administracion'
+        && request.resource.data.keys().hasOnly(['modulos', 'tramites', 'updatedAt', 'updatedBy', 'updatedByName'])
+        && request.resource.data.keys().hasAll(['modulos', 'tramites', 'updatedAt', 'updatedBy', 'updatedByName'])
+        && request.resource.data.modulos is map
+        // «conferencias» es opcional: las versiones anteriores del panel no la envían.
+        && request.resource.data.modulos.keys().hasOnly(['admin', 'roles', 'webs', 'diseno', 'secretaria', 'programacion', 'conferencias'])
+        && request.resource.data.modulos.keys().hasAll(['admin', 'roles', 'webs', 'diseno', 'secretaria', 'programacion'])
+        && request.resource.data.modulos.admin is bool && request.resource.data.modulos.roles is bool
+        && request.resource.data.modulos.webs is bool && request.resource.data.modulos.diseno is bool
+        && request.resource.data.modulos.secretaria is bool && request.resource.data.modulos.programacion is bool
+        && request.resource.data.modulos.get('conferencias', true) is bool
+        && request.resource.data.tramites is map
+        && request.resource.data.tramites.keys().hasOnly(['resolver', 'catalogo'])
+        && request.resource.data.tramites.keys().hasAll(['resolver', 'catalogo'])
+        && request.resource.data.tramites.resolver is bool && request.resource.data.tramites.catalogo is bool
+        && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedByName is string && request.resource.data.updatedByName.size() <= 120;
+    }
+
+    match /tramites_tipos/{tipoId} {
+      allow get, list: if moonCompanyStaff();
+      allow create: if moonTramitesCatalogo() && tipoId.matches('^[a-z0-9-]{2,40}$')
+        && moonTipoTramiteValido(request.resource.data)
+        && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid;
+      // «Solo CEO» es un límite: Administración no puede quitarlo ni ponerlo.
+      allow update: if moonTramitesCatalogo() && moonTipoTramiteValido(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy
+        && (moonCompanyCEO() || request.resource.data.soloCeo == resource.data.soloCeo);
+      allow delete: if moonCompanyCEO();
+    }
+
+    match /tramites_solicitudes/{solicitudId} {
+      allow get, list: if moonCompanyStaff()
+        && (resource.data.solicitanteUid == request.auth.uid || moonTramitesRevisor());
+      allow create: if moonTramiteSolicitudValida(request.resource.data);
+      allow update: if moonCompanyStaff() && (
+        // Quien lo pidió solo puede cancelarlo mientras nadie lo atiende.
+        (resource.data.solicitanteUid == request.auth.uid
+          && resource.data.estado == 'pendiente'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'updatedAt'])
+          && request.resource.data.estado == 'cancelado'
+          && request.resource.data.updatedAt == request.time)
+        // Revisión: nunca lo propio (salvo el CEO) ni lo reservado al CEO.
+        || (moonTramitePuedeResolver()
+          && resource.data.estado in ['pendiente', 'en_revision']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'comentario', 'resueltoPor', 'resueltoPorNombre', 'resueltoAt', 'updatedAt', 'documento'])
+          && request.resource.data.estado in ['en_revision', 'aprobado', 'rechazado']
+          && request.resource.data.comentario is string && request.resource.data.comentario.size() <= 1000
+          && (request.resource.data.estado != 'rechazado' || request.resource.data.comentario.size() > 0)
+          && request.resource.data.resueltoPor == request.auth.uid
+          && request.resource.data.resueltoPorNombre == moonTramiteNombre(request.auth.uid)
+          && request.resource.data.resueltoAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && (!request.resource.data.keys().hasAny(['documento'])
+            || (request.resource.data.estado == 'aprobado'
+              && !resource.data.keys().hasAny(['documento'])
+              && moonTramiteDocumentoValido(solicitudId, request.resource.data))))
+        // Las aprobaciones históricas admiten una sola emisión, sin reescribir la resolución.
+        || (moonTramitePuedeResolver() && resource.data.estado == 'aprobado'
+          && !resource.data.keys().hasAny(['documento'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['documento', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time
+          && moonTramiteDocumentoValido(solicitudId, request.resource.data))
+      );
+      // Eliminar: solo lo ya resuelto o cancelado, y quien puede resolverlo.
+      // Su tarjeta o constancia no puede quedar «vigente» en la consulta pública.
+      allow delete: if moonCompanyStaff() && moonTramitePuedeResolver()
+        && resource.data.estado in ['aprobado', 'rechazado', 'cancelado']
+        && moonTramiteSinVerificacionVigente(solicitudId);
+    }
+
+    // Consulta pública «Información» (web oficial): por ID de equipo y tipo de
+    // documento. Solo la tarjeta y la constancia, y solo sus datos impresos:
+    // nunca correo, UID, respuestas del formulario ni quién la emitió.
+    // Copia exacta de los datos impresos del documento emitido «d».
+    function moonVerificacionCopia(verifId, v, d) {
+      return v.keys().hasOnly(['codigo', 'plantilla', 'titulo', 'nombre', 'cargo', 'area', 'folio', 'vigenteHasta', 'emitidoAt', 'estado', 'solicitudId'])
+        && v.keys().hasAll(['codigo', 'plantilla', 'titulo', 'nombre', 'cargo', 'area', 'folio', 'vigenteHasta', 'emitidoAt', 'estado', 'solicitudId'])
+        && v.solicitudId is string && v.solicitudId.size() > 0
+        && d.plantilla in ['credencial', 'constancia'] && d.solicitudId == v.solicitudId
+        && verifId == d.destinatarioCodigo + '_' + d.plantilla
+        && v.codigo == d.destinatarioCodigo && v.plantilla == d.plantilla && v.titulo == d.titulo
+        && v.nombre == d.destinatarioNombre && v.cargo == d.cargo && v.area == d.area
+        && v.folio == d.folio && v.vigenteHasta == d.vigenteHasta
+        && v.emitidoAt == d.emitidoAt && v.estado == 'vigente';
+    }
+    // Emitido en esta misma operación.
+    function moonVerificacionDeEmision(verifId, v) {
+      let d = getAfter(/databases/$(database)/documents/tramites_solicitudes/$(v.solicitudId)).data.documento;
+      return moonVerificacionCopia(verifId, v, d) && d.emitidoAt == request.time;
+    }
+    // Emitido antes de existir la consulta: se publica tal como se emitió.
+    function moonVerificacionHistorica(verifId, v) {
+      let s = get(/databases/$(database)/documents/tramites_solicitudes/$(v.solicitudId)).data;
+      return s.estado == 'aprobado' && moonVerificacionCopia(verifId, v, s.documento);
+    }
+    match /moon_verificacion/{verifId} {
+      // Se consulta por ID exacto; no se puede listar ni recorrer el padrón.
+      allow get: if true;
+      allow list, delete: if false;
+      allow create: if moonTramitesRevisor() && (moonVerificacionDeEmision(verifId, request.resource.data)
+        || moonVerificacionHistorica(verifId, request.resource.data));
+      allow update: if moonTramitesRevisor() && (
+        // Una nueva emisión del mismo documento reemplaza la anterior.
+        moonVerificacionDeEmision(verifId, request.resource.data)
+        // Un documento anterior solo se publica si es más reciente que el que figura:
+        // así una baja no se revierte publicando de nuevo el mismo documento.
+        || (moonVerificacionHistorica(verifId, request.resource.data) && resource.data.emitidoAt < request.resource.data.emitidoAt)
+        // Dar de baja: solo cambia el estado; la consulta informará que no es válido.
+        || (resource.data.estado == 'vigente'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'bajaAt'])
+          && request.resource.data.estado == 'baja' && request.resource.data.bajaAt == request.time));
+    }
+    // ===== Moon Studios Conferencias =====
+    // Solo lectura desde los clientes: toda escritura pasa por la API de Luna NET
+    // (Admin SDK), que verifica rol, evento, estado y horario. Aquí se decide
+    // quién ve qué: la dirección, el equipo de cada evento y sus invitados.
+    function moonConfGestorGlobal() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && (!exists(/databases/$(database)/documents/moon_acceso/administracion)
+          || get(/databases/$(database)/documents/moon_acceso/administracion).data.get('modulos', {}).get('conferencias', true) == true));
+    }
+    function moonConfRolEquipo(eventoId) {
+      return get(/databases/$(database)/documents/moon_conf_eventos/$(eventoId)).data.get('equipo', {}).get(request.auth.uid, '');
+    }
+    // Organizadores y moderadores ven la lista de invitados; el control de puerta, no.
+    function moonConfVeInvitados(eventoId) {
+      return moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) in ['organizador', 'moderador']);
+    }
+    function moonConfEnEquipo(eventoId) {
+      return moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) in ['organizador', 'moderador', 'control']);
+    }
+    function moonConfAcceso(eventoId) {
+      return /databases/$(database)/documents/moon_conf_accesos/$(eventoId + '_' + request.auth.uid);
+    }
+    function moonConfInvitado(eventoId) {
+      return request.auth != null && exists(moonConfAcceso(eventoId));
+    }
+    // Moderan la sala el equipo y los invitados con rol de moderador.
+    function moonConfModera(eventoId) {
+      return moonConfVeInvitados(eventoId) || (moonConfInvitado(eventoId)
+        && get(/databases/$(database)/documents/moon_conf_eventos/$(eventoId)/conf_invitaciones/$(get(moonConfAcceso(eventoId)).data.invId)).data.rol == 'moderador');
+    }
+
+    match /moon_conf_eventos/{eventoId} {
+      allow get: if moonConfEnEquipo(eventoId) || moonConfInvitado(eventoId);
+      allow list: if moonConfGestorGlobal() || (moonCompanyStaff() && request.auth.uid in resource.data.miembros);
+      allow write: if false;
+      match /conf_invitaciones/{invId} {
+        allow get: if moonConfVeInvitados(eventoId) || (request.auth != null && resource.data.ownerUid == request.auth.uid);
+        allow list: if moonConfVeInvitados(eventoId);
+        allow write: if false;
+      }
+      match /asistencia/{asistenciaId} {
+        allow read: if moonConfVeInvitados(eventoId);
+        allow write: if false;
+      }
+      match /avisos/{avisoId} {
+        allow read: if moonConfEnEquipo(eventoId) || moonConfInvitado(eventoId);
+        allow write: if false;
+      }
+      match /espera/{uid} {
+        allow get: if (request.auth != null && request.auth.uid == uid) || moonConfModera(eventoId);
+        allow list: if moonConfModera(eventoId);
+        allow write: if false;
+      }
+      match /auditoria/{registroId} {
+        allow read: if moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) == 'organizador');
+        allow write: if false;
+      }
+    }
+    match /moon_conf_accesos/{accesoId} {
+      allow get, list: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+    match /moon_conf_servidor/{docId} {
+      allow read, write: if false;
+    }
+    // ===== FIN TRÁMITES Y ACCESO =====
+
+    // ===== SISTEMA ELECTORAL =====
+    // CEO approval is per election and required for every voter, including staff.
+    // Electoral participation never creates or changes company roles.
+    function electoralEnabled() {
+      return request.auth != null
+        && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous'
+        && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true);
+    }
+    function electoralManager() {
+      return electoralEnabled() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO';
+    }
+    // Absent settings preserve the legacy open portal. Participation checks
+    // the final atomic state so closing cannot race a new ballot or request.
+    function validElectoralSettingsContent(value) {
+      return value.enabled is bool && value.closureTitle is string && value.closureMessage is string
+        && electoralText(value.closureTitle.trim(), 3, 160) && electoralText(value.closureMessage.trim(), 1, 2000)
+        && value.returnYear is int && value.returnYear >= 2000 && value.returnYear <= 2200;
+    }
+    function electoralParticipationOpen() {
+      let settings = /databases/$(database)/documents/electoralSettings/general;
+      return !existsAfter(settings) || (validElectoralSettingsContent(getAfter(settings).data)
+        && getAfter(settings).data.enabled == true);
+    }
+    function electoralText(value, minimum, maximum) {
+      return value is string && value.size() >= minimum && value.size() <= maximum;
+    }
+    function electoralLabels(value, minimum, maximum) {
+      return value is list && value.size() >= minimum && value.size() <= maximum && value.toSet().size() == value.size()
+        // The round trip preserves the actual list types. A coerced number,
+        // null, map or nested list cannot equal the resulting string list.
+        // Labels are individual lines in the editor; embedded newlines fail
+        // the same equality check. This avoids a per-item expression explosion.
+        && (value.size() == 0 || (value == value.join('\n').split('\n')
+          && value.join('\n').matches('[^\\n]{1,100}(\\n[^\\n]{1,100})*')));
+    }
+    function electoralPublished(election) {
+      return election.status in ['active', 'closed', 'archived'];
+    }
+    function validElectoralElection(value) {
+      let registrationStart = value.get('registrationStartDate', value.createdAt);
+      let registrationEnd = value.get('registrationEndDate', value.startDate);
+      return value.keys().hasAll(['name', 'description', 'startDate', 'endDate', 'status', 'positions', 'departments', 'createdBy', 'createdAt', 'totalVotes'])
+        && electoralText(value.name, 3, 160) && electoralText(value.description, 0, 3000)
+        && value.startDate is timestamp && value.endDate is timestamp && value.endDate > value.startDate
+        && value.createdAt is timestamp
+        && (!value.keys().hasAny(['registrationStartDate', 'registrationEndDate'])
+          || (value.keys().hasAll(['registrationStartDate', 'registrationEndDate']) && registrationStart is timestamp && registrationEnd is timestamp
+            && registrationStart < registrationEnd && registrationEnd <= value.startDate))
+        && value.status in ['draft', 'active', 'closed', 'archived', 'deleted']
+        && electoralLabels(value.positions, 1, 20) && electoralLabels(value.departments, 0, 30)
+        && value.totalVotes is int && value.totalVotes >= 0 && value.totalVotes <= 9007199254740991;
+    }
+    function electoralRegistrationWindow(election) {
+      return election.status == 'active' && election.get('registrationStartDate', election.createdAt) <= request.time
+        && request.time < election.get('registrationEndDate', election.startDate) && request.time < election.startDate;
+    }
+    function electoralApprovedRight(uid, electionId, right) {
+      let access = get(/databases/$(database)/documents/electoralAccess/$(uid + '_' + electionId)).data;
+      let requested = right == 'voterStatus' ? access.get('requestedVoter', false) : access.get('requestedCandidate', false);
+      return validElectoralAccess(access, uid + '_' + electionId) && access.uid == uid && access.electionId == electionId
+        && requested == true && access[right] == 'approved' && access.reviewedAt is timestamp && electoralText(access.reviewedBy, 1, 128);
+    }
+    function validElectoralAccess(value, accessId) {
+      return value.keys().hasAll(['uid', 'electionId', 'displayName', 'email', 'photoURL', 'requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'createdAt', 'updatedAt'])
+        && value.keys().hasOnly(['uid', 'electionId', 'displayName', 'email', 'photoURL', 'requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy'])
+        && electoralText(value.uid, 1, 128) && electoralText(value.electionId, 1, 1500) && accessId == value.uid + '_' + value.electionId
+        && electoralText(value.displayName, 1, 160) && electoralText(value.email, 0, 320)
+        && electoralText(value.photoURL, 0, 2048) && (value.photoURL == '' || value.photoURL.matches('https://.*'))
+        && value.requestedVoter is bool && value.requestedCandidate is bool && (value.requestedVoter || value.requestedCandidate)
+        && value.voterStatus in ['none', 'pending', 'approved', 'rejected'] && value.candidateStatus in ['none', 'pending', 'approved', 'rejected']
+        && value.requestedVoter == (value.voterStatus != 'none') && value.requestedCandidate == (value.candidateStatus != 'none')
+        && value.createdAt is timestamp && value.updatedAt is timestamp;
+    }
+    function electoralAccessCreate(accessId) {
+      let value = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && validElectoralAccess(value, accessId) && value.uid == request.auth.uid && value.updatedAt == request.time
+        && value.email == request.auth.token.get('email', request.auth.token.get('electoral_email', ''))
+        && election.status == 'active' && request.time < election.endDate && value.createdAt == request.time
+        && (!value.requestedCandidate || electoralRegistrationWindow(election))
+        && value.voterStatus == (value.requestedVoter ? 'pending' : 'none')
+        && value.candidateStatus == (value.requestedCandidate ? 'pending' : 'none')
+        && !('reviewedAt' in value) && !('reviewedBy' in value);
+    }
+    function electoralSelfAccessUpdate(accessId) {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && previous.uid == request.auth.uid && validElectoralAccess(next, accessId) && next.updatedAt == request.time
+        && next.email == request.auth.token.get('email', request.auth.token.get('electoral_email', ''))
+        && election.status == 'active' && request.time < election.endDate
+        && (next.requestedCandidate == previous.requestedCandidate || electoralRegistrationWindow(election))
+        && next.diff(previous).affectedKeys().hasOnly(['requestedVoter', 'requestedCandidate', 'voterStatus', 'candidateStatus', 'email', 'updatedAt'])
+        && (!previous.requestedVoter || next.requestedVoter) && (!previous.requestedCandidate || next.requestedCandidate)
+        && next.voterStatus == (previous.voterStatus == 'none' && next.requestedVoter ? 'pending' : previous.voterStatus)
+        && next.candidateStatus == (previous.candidateStatus == 'none' && next.requestedCandidate ? 'pending' : previous.candidateStatus);
+    }
+    function electoralReviewAccess(accessId) {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralParticipationOpen() && electoralManager() && validElectoralAccess(next, accessId) && next.updatedAt == request.time && election.status == 'active' && request.time < election.endDate
+        && next.diff(previous).affectedKeys().hasOnly(['voterStatus', 'candidateStatus', 'updatedAt', 'reviewedAt', 'reviewedBy'])
+        && next.reviewedAt == request.time && next.reviewedBy == request.auth.uid
+        && (next.voterStatus == previous.voterStatus || (previous.requestedVoter && next.voterStatus in ['approved', 'rejected']))
+        && (next.candidateStatus == previous.candidateStatus || (previous.requestedCandidate && next.candidateStatus in ['approved', 'rejected'] && request.time < election.startDate));
+    }
+    function validElectoralInvitation(value) {
+      return value.keys().hasAll(['electionId', 'label', 'email', 'requestedVoter', 'requestedCandidate', 'status', 'expiresAt', 'createdAt', 'createdBy', 'updatedAt'])
+        && value.keys().hasOnly(['electionId', 'label', 'email', 'requestedVoter', 'requestedCandidate', 'status', 'expiresAt', 'createdAt', 'createdBy', 'updatedAt', 'acceptedAt', 'acceptedBy'])
+        && electoralText(value.electionId, 1, 1500) && electoralText(value.label, 2, 160)
+        && electoralText(value.email, 0, 320) && value.email == value.email.lower()
+        && (value.email == '' || value.email.matches('[^\\s@]+@[^\\s@]+[.][^\\s@]+'))
+        && value.requestedVoter is bool && value.requestedCandidate is bool && (value.requestedVoter || value.requestedCandidate)
+        && value.status in ['active', 'accepted', 'revoked'] && value.expiresAt is timestamp
+        && value.createdAt is timestamp && electoralText(value.createdBy, 1, 128) && value.updatedAt is timestamp
+        && (value.status == 'accepted'
+          ? value.acceptedAt is timestamp && electoralText(value.acceptedBy, 1, 128)
+          : !value.keys().hasAny(['acceptedAt', 'acceptedBy']));
+    }
+    function electoralInvitationRecipient(value) {
+      // A targeted invitation requires a verified provider email. The Discord
+      // custom claim is issued only after checking Discord's verified flag.
+      return value.email == ''
+        || (request.auth.token.get('email_verified', false) == true
+          && value.email == request.auth.token.get('email', '').lower())
+        || (value.email == request.auth.token.get('electoral_email', '').lower()
+          && electoralText(request.auth.token.get('electoral_email', ''), 1, 320));
+    }
+    function electoralInvitationSchedule(value, election) {
+      return election.status == 'active' && request.time < election.endDate
+        && request.time < value.expiresAt && value.expiresAt <= election.endDate
+        && (!value.requestedCandidate || value.expiresAt <= election.get('registrationEndDate', election.startDate));
+    }
+    function electoralInvitationCreate() {
+      let value = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      return electoralParticipationOpen() && electoralManager() && validElectoralInvitation(value) && value.status == 'active'
+        && value.createdBy == request.auth.uid && value.createdAt == request.time && value.updatedAt == request.time
+        && electoralInvitationSchedule(value, election);
+    }
+    function electoralInvitationManage() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let changed = next.diff(previous).affectedKeys();
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      return electoralManager() && previous.status == 'active' && validElectoralInvitation(next) && next.updatedAt == request.time
+        && ((next.status == 'active' && changed.hasOnly(['label', 'expiresAt', 'updatedAt']) && electoralInvitationSchedule(next, election))
+          || (next.status == 'revoked' && changed.hasOnly(['status', 'updatedAt'])));
+    }
+    function electoralInvitationAccept() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let election = get(/databases/$(database)/documents/elections/$(previous.electionId)).data;
+      let accessId = request.auth.uid + '_' + previous.electionId;
+      let access = getAfter(/databases/$(database)/documents/electoralAccess/$(accessId)).data;
+      return electoralParticipationOpen() && electoralEnabled() && validElectoralInvitation(next) && previous.status == 'active' && next.status == 'accepted'
+        && electoralInvitationRecipient(previous) && electoralInvitationSchedule(previous, election)
+        && (!previous.requestedCandidate || electoralRegistrationWindow(election))
+        && next.diff(previous).affectedKeys().hasOnly(['status', 'acceptedAt', 'acceptedBy', 'updatedAt'])
+        && next.acceptedBy == request.auth.uid && next.acceptedAt == request.time && next.updatedAt == request.time
+        // Rights remain pending or retain their previous CEO decision. The
+        // access write is independently checked by the existing access rules.
+        && validElectoralAccess(access, accessId) && access.uid == request.auth.uid && access.electionId == previous.electionId
+        && (!previous.requestedVoter || access.requestedVoter) && (!previous.requestedCandidate || access.requestedCandidate);
+    }
+    function validElectoralProposals(value) {
+      return value is list && value.size() >= 1 && value.size() <= 10
+        && electoralText(value[0], 1, 1000)
+        && (value.size() < 2 || electoralText(value[1], 1, 1000))
+        && (value.size() < 3 || electoralText(value[2], 1, 1000))
+        && (value.size() < 4 || electoralText(value[3], 1, 1000))
+        && (value.size() < 5 || electoralText(value[4], 1, 1000))
+        && (value.size() < 6 || electoralText(value[5], 1, 1000))
+        && (value.size() < 7 || electoralText(value[6], 1, 1000))
+        && (value.size() < 8 || electoralText(value[7], 1, 1000))
+        && (value.size() < 9 || electoralText(value[8], 1, 1000))
+        && (value.size() < 10 || electoralText(value[9], 1, 1000));
+    }
+    function validElectoralCandidate(candidateId, value) {
+      let election = get(/databases/$(database)/documents/elections/$(value.electionId)).data;
+      let index = value.positionIndex;
+      return value.keys().hasOnly(['uid', 'name', 'photoURL', 'position', 'department', 'proposals', 'party', 'slogan', 'status', 'electionId', 'votes', 'createdAt', 'approvedAt', 'approvedBy', 'positionIndex'])
+        && value.uid == request.auth.uid && electoralText(value.name, 2, 160)
+        && electoralText(value.photoURL, 0, 2048) && (value.photoURL == '' || value.photoURL.matches('https://.*'))
+        && electoralText(value.position, 1, 100) && electoralText(value.department, 0, 100)
+        && electoralText(value.get('party', ''), 0, 120) && electoralText(value.get('slogan', ''), 0, 250)
+        && validElectoralProposals(value.proposals)
+        && electoralRegistrationWindow(election) && electoralApprovedRight(request.auth.uid, value.electionId, 'candidateStatus')
+        && index is int && index >= 0 && index < election.positions.size() && election.positions[index] == value.position
+        && candidateId == request.auth.uid + '_' + value.electionId + '_' + string(index)
+        && (election.departments.size() == 0 || value.department in election.departments);
+    }
+    function electoralWindow(election) {
+      return election.status == 'active' && election.startDate <= request.time && request.time < election.endDate;
+    }
+    function validElectoralBallot(voteId, ballot) {
+      let electionPath = /databases/$(database)/documents/elections/$(ballot.electionId);
+      let candidatePath = /databases/$(database)/documents/candidates/$(ballot.candidateId);
+      let recordPath = /databases/$(database)/documents/voteRecords/$(request.auth.uid + '_' + ballot.electionId);
+      let election = request.path == electionPath ? resource.data : get(electionPath).data;
+      let candidate = request.path == candidatePath ? resource.data : get(candidatePath).data;
+      // Aggregates require a newly-created ballot. Its rule forces a changed
+      // record; that record verifies prior positions and BOTH counters. Old
+      // ballots, stand-alone counters and incomplete commits break this cycle.
+      let previousRecord = request.path == electionPath || request.path == candidatePath ? null
+        : (request.path == recordPath ? (request.method == 'create' ? null : resource.data)
+          : (exists(recordPath) ? get(recordPath).data : null));
+      let previousPositions = previousRecord == null ? [] : previousRecord.positionsVoted;
+      let record = request.path == recordPath ? request.resource.data : getAfter(recordPath).data;
+      // The ballot create delegates the counter checks to the mandatory record
+      // write. Avoid redundant reads to stay within ten accesses even on the
+      // second position and with the public closure document present.
+      let nextCandidate = request.path == candidatePath ? request.resource.data
+        : (request.path == recordPath || request.path == electionPath ? getAfter(candidatePath).data : candidate);
+      let nextElection = request.path == electionPath ? request.resource.data
+        : (request.path == recordPath || request.path == candidatePath ? getAfter(electionPath).data : election);
+      return electoralParticipationOpen() && electoralEnabled() && electoralApprovedRight(request.auth.uid, ballot.electionId, 'voterStatus')
+        && ballot.keys().hasOnly(['voterId', 'candidateId', 'electionId', 'position', 'positionIndex', 'timestamp'])
+        && ballot.voterId == request.auth.uid && ballot.timestamp == request.time
+        && ballot.positionIndex is int && ballot.positionIndex >= 0 && ballot.positionIndex < election.positions.size()
+        && ballot.position is string && election.positions[ballot.positionIndex] == ballot.position
+        && voteId == request.auth.uid + '_' + ballot.electionId + '_' + string(ballot.positionIndex)
+        && electoralWindow(election) && candidate.status == 'approved'
+        && candidate.electionId == ballot.electionId && candidate.position == ballot.position
+        && (request.path == electionPath || request.path == candidatePath
+          ? !exists(/databases/$(database)/documents/votes/$(voteId))
+          : ((previousRecord == null || (previousRecord.voterId == request.auth.uid && previousRecord.electionId == ballot.electionId))
+            && previousPositions is list && !(ballot.position in previousPositions)
+            && record.positionsVoted == previousPositions.concat([ballot.position])))
+        && record.keys().hasOnly(['voterId', 'electionId', 'positionsVoted', 'votedAt', 'lastVoteId', 'lastCandidateId', 'lastPositionIndex'])
+        && record.voterId == request.auth.uid && record.electionId == ballot.electionId && record.votedAt == request.time
+        && record.lastVoteId == voteId && record.lastCandidateId == ballot.candidateId && record.lastPositionIndex == ballot.positionIndex
+        && (request.path != recordPath && request.path != electionPath && request.path != candidatePath
+          || (nextCandidate.diff(candidate).affectedKeys().hasOnly(['votes'])
+            && candidate.get('votes', 0) is int && candidate.get('votes', 0) >= 0 && candidate.get('votes', 0) < 9007199254740991
+            && nextCandidate.votes == candidate.get('votes', 0) + 1
+            && nextElection.diff(election).affectedKeys().hasOnly(['totalVotes'])
+            && election.get('totalVotes', 0) is int && election.get('totalVotes', 0) >= 0 && election.get('totalVotes', 0) < 9007199254740991
+            && nextElection.totalVotes == election.get('totalVotes', 0) + 1));
+    }
+    function electoralAggregateUpdate(electionId, candidateId) {
+      let record = getAfter(/databases/$(database)/documents/voteRecords/$(request.auth.uid + '_' + electionId)).data;
+      let ballot = getAfter(/databases/$(database)/documents/votes/$(record.lastVoteId)).data;
+      return ballot.electionId == electionId && (candidateId == '' || ballot.candidateId == candidateId)
+        && validElectoralBallot(record.lastVoteId, ballot);
+    }
+    function electoralRecordWrite(recordId) {
+      let record = request.resource.data;
+      let ballot = getAfter(/databases/$(database)/documents/votes/$(record.lastVoteId)).data;
+      return recordId == request.auth.uid + '_' + record.electionId && ballot.electionId == record.electionId
+        && validElectoralBallot(record.lastVoteId, ballot);
+    }
+    function electoralManagerElectionUpdate() {
+      let previous = resource.data;
+      let next = request.resource.data;
+      let changed = next.diff(previous).affectedKeys();
+      return electoralManager() && next.totalVotes == previous.totalVotes
+        && next.createdBy == previous.createdBy && next.createdAt == previous.createdAt
+        && (!previous.keys().hasAny(['registrationStartDate', 'registrationEndDate']) || next.keys().hasAll(['registrationStartDate', 'registrationEndDate']))
+        && validElectoralElection(next) && next.updatedAt == request.time
+        && ((previous.status == 'draft' && previous.totalVotes == 0 && next.status in ['draft', 'active', 'archived']
+            && changed.hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'positions', 'departments', 'status', 'updatedAt'])
+            && (next.status != 'active' || next.endDate > request.time))
+          || (previous.status == 'active' && next.status == 'active'
+            && (changed.hasOnly(['name', 'description', 'updatedAt'])
+              || (previous.totalVotes == 0 && request.time < previous.startDate && request.time < next.startDate
+                && changed.hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'updatedAt']))))
+          || (previous.status == 'active' && next.status == 'closed' && changed.hasOnly(['status', 'updatedAt']))
+          || (previous.status == 'closed' && next.status == 'archived' && changed.hasOnly(['status', 'updatedAt']))
+          // Trash: keeps the previous status and who/when; votes and files stay intact.
+          || (previous.status != 'deleted' && next.status == 'deleted' && next.get('previousStatus', '') == previous.status
+            && next.get('deletedAt', null) == request.time && next.get('deletedBy', '') == request.auth.uid
+            && changed.hasOnly(['status', 'previousStatus', 'deletedAt', 'deletedBy', 'updatedAt']))
+          // Restore: always as archived, never reopened, without trash metadata.
+          || (previous.status == 'deleted' && next.status == 'archived' && !next.keys().hasAny(['previousStatus', 'deletedAt', 'deletedBy'])
+            && changed.hasOnly(['status', 'previousStatus', 'deletedAt', 'deletedBy', 'updatedAt'])));
+    }
+    match /elections/{electionId} {
+      allow read, list: if electoralEnabled() && (electoralManager() || electoralPublished(resource.data));
+      allow create: if electoralManager() && validElectoralElection(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'description', 'registrationStartDate', 'registrationEndDate', 'startDate', 'endDate', 'status', 'positions', 'departments', 'createdBy', 'createdAt', 'updatedAt', 'totalVotes'])
+        && request.resource.data.keys().hasAll(['registrationStartDate', 'registrationEndDate'])
+        && request.resource.data.status == 'draft' && request.resource.data.totalVotes == 0
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalVotes']) && electoralAggregateUpdate(electionId, ''))
+        || electoralManagerElectionUpdate();
+      allow delete: if false;
+    }
+    match /electoralAccess/{accessId} {
+      allow read, list: if electoralEnabled() && (electoralManager() || resource.data.uid == request.auth.uid);
+      allow get: if electoralEnabled() && !exists(/databases/$(database)/documents/electoralAccess/$(accessId));
+      allow create: if electoralAccessCreate(accessId);
+      allow update: if electoralSelfAccessUpdate(accessId) || electoralReviewAccess(accessId);
+      allow delete: if false;
+    }
+    match /electoralInvitations/{invitationId} {
+      // Random, unguessable IDs are shared by link; participants cannot list
+      // the directory. Reads do not change requests or company membership.
+      allow get: if electoralEnabled() && (electoralManager() || electoralInvitationRecipient(resource.data));
+      allow list: if electoralManager();
+      allow create: if invitationId.matches('[A-Za-z0-9_-]{20,128}') && electoralInvitationCreate();
+      allow update: if (request.resource.data.status == 'accepted' && electoralInvitationAccept())
+        || (request.resource.data.status != 'accepted' && electoralInvitationManage());
+      allow delete: if false;
+    }
+    match /candidates/{candidateId} {
+      allow get: if electoralEnabled() && !exists(/databases/$(database)/documents/candidates/$(candidateId));
+      allow read, list: if electoralEnabled() && (electoralManager() || resource.data.status == 'approved' || resource.data.uid == request.auth.uid);
+      allow create: if electoralParticipationOpen() && electoralEnabled() && validElectoralCandidate(candidateId, request.resource.data)
+        && request.resource.data.status == 'pending' && request.resource.data.votes == 0 && request.resource.data.createdAt == request.time
+        && !('approvedAt' in request.resource.data) && !('approvedBy' in request.resource.data);
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) && electoralAggregateUpdate(resource.data.electionId, candidateId))
+        || (electoralParticipationOpen() && electoralManager() && resource.data.status in ['pending', 'approved', 'rejected'] && resource.data.votes == 0
+          && get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data.status == 'active'
+          && request.time < get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data.startDate
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedAt', 'approvedBy'])
+          && request.resource.data.status in ['approved', 'rejected']
+          && (request.resource.data.status == 'rejected' || electoralApprovedRight(resource.data.uid, resource.data.electionId, 'candidateStatus'))
+          && request.resource.data.approvedBy == request.auth.uid && request.resource.data.approvedAt == request.time);
+      // The CEO may delete a nomination file that never received votes. An
+      // approved option cannot disappear while its ballot is open.
+      allow delete: if electoralManager() && resource.data.get('votes', 0) == 0
+        && (!exists(/databases/$(database)/documents/elections/$(resource.data.electionId))
+          || resource.data.status != 'approved'
+          || !electoralWindow(get(/databases/$(database)/documents/elections/$(resource.data.electionId)).data));
+    }
+    match /votes/{voteId} {
+      // Aggregate results are available through candidates; individual choices
+      // are never listed or exposed by the client, including administrators.
+      allow read, list: if false;
+      allow create: if validElectoralBallot(voteId, request.resource.data);
+      allow update, delete: if false;
+    }
+    match /voteRecords/{recordId} {
+      allow get: if electoralEnabled() && (!exists(/databases/$(database)/documents/voteRecords/$(recordId)) || resource.data.voterId == request.auth.uid);
+      allow list: if false;
+      allow create, update: if electoralRecordWrite(recordId);
+      allow delete: if false;
+    }
+    match /electionResults/{resultId} {
+      allow read, list: if electoralEnabled();
+      allow create, update, delete: if false;
+    }
+    function validElectoralAnnouncement(value) {
+      return value.keys().hasAll(['title', 'body', 'status', 'electionId', 'pinned', 'startsAt', 'endsAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && value.keys().hasOnly(['title', 'body', 'status', 'electionId', 'pinned', 'startsAt', 'endsAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && electoralText(value.title, 3, 160) && electoralText(value.body, 1, 4000)
+        && value.status in ['draft', 'published', 'withdrawn'] && value.pinned is bool
+        && electoralText(value.electionId, 0, 1500)
+        && value.startsAt is timestamp && value.endsAt is timestamp && value.startsAt < value.endsAt
+        && value.createdAt is timestamp && electoralText(value.createdBy, 1, 128)
+        && value.updatedAt == request.time && value.updatedBy == request.auth.uid
+        && (value.electionId == '' || (exists(/databases/$(database)/documents/elections/$(value.electionId))
+          && get(/databases/$(database)/documents/elections/$(value.electionId)).data.status != 'deleted'
+          && (value.status != 'published' || get(/databases/$(database)/documents/elections/$(value.electionId)).data.status != 'draft')));
+    }
+    match /electoralAnnouncements/{announcementId} {
+      // Published notices also appear on the public closure/login screen.
+      // Notices are withdrawn instead of deleted, so the history is preserved.
+      allow get, list: if resource.data.status == 'published' || electoralManager();
+      allow create: if electoralManager() && validElectoralAnnouncement(request.resource.data)
+        && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid;
+      allow update: if electoralManager() && validElectoralAnnouncement(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if false;
+    }
+    match /electoralSettings/{settingsId} {
+      // The closure screen is shown before sign-in, so it is publicly readable.
+      allow get: if settingsId == 'general';
+      allow list: if false;
+      allow create, update: if settingsId == 'general' && electoralManager()
+        && request.resource.data.keys().hasOnly(['enabled', 'closureTitle', 'closureMessage', 'returnYear', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasAll(['enabled', 'closureTitle', 'closureMessage', 'returnYear', 'updatedAt', 'updatedBy'])
+        && validElectoralSettingsContent(request.resource.data)
+        && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /auditLogs/{logId} {
+      allow read, list: if electoralManager();
+      allow create: if electoralEnabled() && request.resource.data.keys().hasOnly(['action', 'userId', 'userName', 'details', 'timestamp'])
+        && request.resource.data.userId == request.auth.uid && request.resource.data.timestamp == request.time
+        && electoralText(request.resource.data.userName, 1, 160) && request.resource.data.details is map
+        && ((electoralManager() && request.resource.data.action in ['ELECTION_CREATED', 'ELECTION_UPDATED', 'ELECTION_STATUS_CHANGED', 'CANDIDATE_APPROVED', 'CANDIDATE_REJECTED', 'CANDIDATE_DELETED', 'ELECTORAL_ACCESS_REVIEWED', 'INVITATION_CREATED', 'INVITATION_UPDATED', 'INVITATION_REVOKED', 'ELECTION_DELETED', 'ELECTION_RESTORED', 'ANNOUNCEMENT_CREATED', 'ANNOUNCEMENT_UPDATED', 'SETTINGS_UPDATED'])
+          || request.resource.data.action in ['CANDIDATE_REGISTERED', 'ELECTORAL_ACCESS_REQUESTED', 'INVITATION_ACCEPTED']);
+      allow update, delete: if false;
+    }
+
+    // ===== COLECCIÓN: CLIENTES =====
+    match /clientes/{clienteId} {
+      allow create: if request.auth != null &&
+        request.auth.uid == clienteId &&
+        request.resource.data.role == 'client' &&
+        request.resource.data.email == request.auth.token.email;
+      allow read: if request.auth != null &&
+        request.auth.uid == clienteId;
+      allow update: if request.auth != null &&
+        request.auth.uid == clienteId &&
+        !('role' in request.resource.data.diff(resource.data).affectedKeys());
+      allow read, list: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+      allow update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: MOON STUDIOS - SOLICITUDES =====
+    // El portal comparte estos documentos con Webs del dashboard. Los clientes
+    // solo crean solicitudes pendientes y leen las suyas; CEO/Administración
+    // conservan la revisión, las notas, los pagos y la eliminación existentes.
+    function canManageMoonPortal() {
+      return moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    function canReadMoonPortalItem() {
+      return request.auth != null &&
+        (resource.data.uid == request.auth.uid || canManageMoonPortal());
+    }
+
+    function validMoonPortalAttachment(value) {
+      return value == null ||
+        (value is string && value.size() <= 2048 && value.matches('https://[^\\s]+'));
+    }
+
+    function validMoonSolicitudCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['uid', 'tipo', 'titulo', 'descripcion', 'estado', 'imageUrl', 'creadoEn', 'actualizadoEn', 'nota']) &&
+        data.keys().hasAll(['uid', 'tipo', 'titulo', 'descripcion', 'estado', 'imageUrl', 'creadoEn', 'actualizadoEn', 'nota']) &&
+        data.uid == request.auth.uid &&
+        data.tipo in ['cotizacion', 'ticket', 'alianza', 'soporte'] &&
+        data.titulo is string && data.titulo.size() >= 4 && data.titulo.size() <= 120 &&
+        data.descripcion is string && data.descripcion.size() >= 15 && data.descripcion.size() <= 2000 &&
+        data.estado == 'pendiente' && data.nota == '' &&
+        validMoonPortalAttachment(data.imageUrl) &&
+        data.creadoEn == request.time && data.actualizadoEn == request.time;
+    }
+
+    function moonSocioTier(monto) {
+      return monto >= 10000 ? 'Socio Fundador' :
+        monto >= 5000 ? 'Socio Platino' :
+        monto >= 2500 ? 'Socio Oro' :
+        monto >= 1000 ? 'Socio Plata' : 'Socio Semilla';
+    }
+
+    function validMoonSocioCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['uid', 'nombre', 'email', 'monto', 'metodo', 'mensaje', 'tierLabel', 'fileUrl', 'estado', 'creadoEn']) &&
+        data.keys().hasAll(['uid', 'nombre', 'email', 'monto', 'metodo', 'mensaje', 'tierLabel', 'fileUrl', 'estado', 'creadoEn']) &&
+        data.uid == request.auth.uid &&
+        data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 320 &&
+        data.email == request.auth.token.get('email', null) &&
+        (data.email == null || (data.email is string && data.email.size() <= 320)) &&
+        data.monto is int && data.monto >= 100 && data.monto <= 9007199254740991 &&
+        data.metodo in ['transferencia', 'efectivo'] &&
+        data.mensaje is string && data.mensaje.size() <= 1000 &&
+        data.tierLabel == moonSocioTier(data.monto) &&
+        validMoonPortalAttachment(data.fileUrl) &&
+        data.estado == 'pendiente' && data.creadoEn == request.time;
+    }
+
+    match /moonStudios/solicitudes/items/{itemId} {
+      allow read: if canReadMoonPortalItem();
+      allow create: if request.auth != null && validMoonSolicitudCreate();
+      allow update, delete: if canManageMoonPortal();
+    }
+
+    // ===== COLECCIÓN: MOON STUDIOS - SOCIOS CAPITALISTAS =====
+    match /moonStudios/socios/items/{itemId} {
+      allow create: if request.auth != null && validMoonSocioCreate();
+      allow read: if canReadMoonPortalItem();
+      allow update, delete: if canManageMoonPortal();
+    }
+
+    // ===== COLECCIÓN: MOON STUDIOS - EQUIPO =====
+    // Pública: se muestra en la sección "Equipo" del sitio web. Lectura libre para
+    // cualquier visitante; escritura solo desde el dashboard (Webs.tsx → tab Equipo)
+    // por CEO/Administración.
+    match /moonStudios/equipo/items/{itemId} {
+      allow read, list: if true;
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: MOON STUDIOS - PORTAFOLIO =====
+    // Pública: se muestra en "Trabajos recientes" (Home) y en /proyectos. Lectura libre
+    // para cualquier visitante; escritura solo desde el dashboard (Webs.tsx → tab Portafolio)
+    // por CEO/Administración.
+    match /moonStudios/portfolio/items/{itemId} {
+      allow read, list: if true;
+      allow create, update, delete: if moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    // ===== COLECCIÓN: ALIADOS =====
+    // Pública: el dashboard escribe sin auth cruzada; cualquiera puede leer.
+    match /allies/{allyId} {
+      allow read, write: if true;
+    }
+
+    // Website CMS: only the published document is public; drafts require staff.
+    function canManageMoonWebsite() {
+      return moonCompanyStaff() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    function validMoonWebsiteDocument() {
+      return request.resource.data.keys().hasOnly(['content', 'revision', 'updatedAt', 'updatedBy']) &&
+        request.resource.data.keys().hasAll(['content', 'revision', 'updatedAt', 'updatedBy']) &&
+        request.resource.data.content is map &&
+        request.resource.data.content.version == 1 &&
+        request.resource.data.content.brand is map &&
+        request.resource.data.content.hero is map &&
+        request.resource.data.content.sections is list &&
+        request.resource.data.content.sections.size() > 0 &&
+        request.resource.data.content.sections.size() <= 9 &&
+        request.resource.data.revision is int &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /moonStudios/web {
+      allow get: if true;
+      allow create: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == 1;
+      allow update: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == resource.data.revision + 1;
+    }
+
+    match /moonStudios/webDraft {
+      allow get: if canManageMoonWebsite();
+      allow create: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == 1;
+      allow update: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == resource.data.revision + 1;
+    }
+
+  } // cierra match /databases/{database}/documents
+} // cierra service cloud.firestore
+
+

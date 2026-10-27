@@ -1,0 +1,333 @@
+/* Moon workspace modules. Keep the same controls and permission boundaries;
+   only their presentation is shared here. The shell owns the --moon-* tokens. */
+:root {
+  --moon-media-ink: #fff;
+  --moon-media-shade: rgba(0, 0, 0, .6);
+  --moon-tone-green: #6ee7b7;
+  --moon-tone-blue: #93c5fd;
+  --moon-tone-indigo: #a5b4fc;
+  --moon-tone-purple: #c4b5fd;
+  --moon-tone-pink: #f9a8d4;
+  --moon-tone-amber: #fcd34d;
+  --moon-tone-orange: #fdba74;
+  --moon-tone-red: #fca5a5;
+  --moon-tone-cyan: #67e8f9;
+  --moon-tone-slate: #bac3cf;
+}
+html.light {
+  --moon-tone-green: #087f5b;
+  --moon-tone-blue: #1d5ec0;
+  --moon-tone-indigo: #4f46b5;
+  --moon-tone-purple: #7342b3;
+  --moon-tone-pink: #a62c70;
+  --moon-tone-amber: #906000;
+  --moon-tone-orange: #a5460a;
+  --moon-tone-red: #b42318;
+  --moon-tone-cyan: #0c6c7e;
+  --moon-tone-slate: #596575;
+}
+/* Explicit classes also reach Radix portals, which are outside .moon-module. */
+.moon-panel-ink { color: var(--moon-ink); }
+.moon-panel-muted { color: var(--moon-muted); }
+.moon-panel-surface { background-color: var(--moon-surface); }
+.moon-panel-raised { background-color: var(--moon-surface-raised); }
+.moon-panel-border { border-color: var(--moon-line); }
+.moon-panel-primary { background-color: var(--moon-accent); color: var(--moon-accent-ink); }
+.moon-panel-primary:hover { opacity: .88; }
+/* Explicit action pairs outrank the legacy light-theme repairs in index.css.
+   These are controls with a defined inverse foreground, including modal portals. */
+html.light .moon-panel-primary,
+html:not(.light) .moon-panel-primary {
+  background: var(--moon-accent) !important;
+  color: var(--moon-accent-ink) !important;
+}
+html.light .moon-panel-action,
+html:not(.light) .moon-panel-action {
+  background: var(--accent-user, var(--moon-accent)) !important;
+  color: var(--accent-on-user, var(--moon-accent-ink)) !important;
+}
+.moon-panel-primary > :is(span, svg),
+.moon-panel-action > :is(span, svg) { color: inherit; }
+html.light :is(.moon-panel-primary, .moon-panel-action):disabled,
+html:not(.light) :is(.moon-panel-primary, .moon-panel-action):disabled {
+  background: var(--moon-surface-raised) !important;
+  color: var(--moon-muted) !important;
+  border-color: var(--moon-line);
+}
+html.light :is(.ann-btn-new, .ann-btn-primary:not(.important-mode)),
+html:not(.light) :is(.ann-btn-new, .ann-btn-primary:not(.important-mode)) {
+  background: var(--moon-accent) !important;
+  color: var(--moon-accent-ink) !important;
+}
+html.light .ann-btn-primary.important-mode,
+html:not(.light) .ann-btn-primary.important-mode {
+  background: #b42318 !important;
+  color: #fff !important;
+}
+.moon-panel-hover:hover { background-color: var(--moon-surface-raised); color: var(--moon-ink); }
+.moon-panel-active[data-state='active'] { background: var(--moon-surface-raised); color: var(--moon-ink); }
+.moon-media-overlay { --moon-ink: #fff; --moon-muted: #d4d4d8; }
+[data-fondo='oscuro'] {
+  --moon-ink: #f4f4f5;
+  --moon-muted: #b8bbc2;
+  --text-primary: #f4f4f5;
+  --text-muted: #b8bbc2;
+  --moon-line: #34363b;
+  --border-main: #34363b;
+  background: #0b0b0e;
+  color: #f4f4f5;
+}
+.moon-panel-tone-green { color: var(--moon-tone-green); }
+.moon-panel-tone-blue { color: var(--moon-tone-blue); }
+.moon-panel-tone-indigo { color: var(--moon-tone-indigo); }
+.moon-panel-tone-purple { color: var(--moon-tone-purple); }
+.moon-panel-tone-pink { color: var(--moon-tone-pink); }
+.moon-panel-tone-amber { color: var(--moon-tone-amber); }
+.moon-panel-tone-orange { color: var(--moon-tone-orange); }
+.moon-panel-tone-red { color: var(--moon-tone-red); }
+.moon-panel-tone-cyan { color: var(--moon-tone-cyan); }
+.moon-panel-tone-slate { color: var(--moon-tone-slate); }
+.moon-panel-fill-green { background: color-mix(in srgb, var(--moon-tone-green) 10%, var(--moon-surface)); }
+.moon-panel-fill-blue { background: color-mix(in srgb, var(--moon-tone-blue) 10%, var(--moon-surface)); }
+.moon-panel-fill-purple { background: color-mix(in srgb, var(--moon-tone-purple) 10%, var(--moon-surface)); }
+.moon-panel-fill-pink { background: color-mix(in srgb, var(--moon-tone-pink) 10%, var(--moon-surface)); }
+.moon-panel-fill-amber { background: color-mix(in srgb, var(--moon-tone-amber) 10%, var(--moon-surface)); }
+.moon-panel-fill-orange { background: color-mix(in srgb, var(--moon-tone-orange) 10%, var(--moon-surface)); }
+.moon-panel-fill-red { background: color-mix(in srgb, var(--moon-tone-red) 10%, var(--moon-surface)); }
+.moon-panel-fill-slate { background: color-mix(in srgb, var(--moon-tone-slate) 10%, var(--moon-surface)); }
+.moon-panel-fill-cyan { background: color-mix(in srgb, var(--moon-tone-cyan) 10%, var(--moon-surface)); }
+/* The legacy Badge rule forces monochrome ink in light mode; these named
+   status chips retain their semantic colors without changing generic badges. */
+html.light [data-slot='badge'].moon-panel-tone-green { color: var(--moon-tone-green) !important; }
+html.light [data-slot='badge'].moon-panel-tone-blue { color: var(--moon-tone-blue) !important; }
+html.light [data-slot='badge'].moon-panel-tone-indigo { color: var(--moon-tone-indigo) !important; }
+html.light [data-slot='badge'].moon-panel-tone-purple { color: var(--moon-tone-purple) !important; }
+html.light [data-slot='badge'].moon-panel-tone-pink { color: var(--moon-tone-pink) !important; }
+html.light [data-slot='badge'].moon-panel-tone-amber { color: var(--moon-tone-amber) !important; }
+html.light [data-slot='badge'].moon-panel-tone-orange { color: var(--moon-tone-orange) !important; }
+html.light [data-slot='badge'].moon-panel-tone-red { color: var(--moon-tone-red) !important; }
+html.light [data-slot='badge'].moon-panel-tone-cyan { color: var(--moon-tone-cyan) !important; }
+html.light [data-slot='badge'].moon-panel-tone-slate { color: var(--moon-tone-slate) !important; }
+
+.moon-module {
+  min-width: 0;
+  color: var(--moon-ink);
+  font-size: max(14px, 1rem);
+  line-height: 1.55;
+  --tr-card: var(--moon-surface);
+  --tr-card-2: var(--moon-surface-raised);
+  --tr-hover: color-mix(in srgb, var(--moon-ink) 4%, transparent);
+  --tr-linea: var(--moon-line);
+  --tr-linea-2: color-mix(in srgb, var(--moon-ink) 19%, transparent);
+  --tr-sombra: 0 2px 3px rgb(0 0 0 / 2%);
+  --cal-bg: var(--moon-bg);
+  --cal-card-bg: var(--moon-surface);
+  --cal-overlay: var(--moon-surface-raised);
+  --cal-border: var(--moon-line);
+  --cal-text-primary: var(--moon-ink);
+  --cal-text-secondary: var(--moon-muted);
+  --cal-text-muted: var(--moon-muted);
+  --cal-text-quaternary: var(--moon-muted);
+}
+
+.moon-module .moon-page-title {
+  color: var(--moon-ink);
+  font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.045em;
+}
+
+.moon-module :is(.font-extralight, .font-light) { font-weight: 400; }
+.moon-module :is(.text-zinc-100, .text-zinc-200, .text-white) { color: var(--moon-ink); }
+.moon-module :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600) { color: var(--moon-muted); }
+.moon-module .text-zinc-700 { color: color-mix(in srgb, var(--moon-ink) 32%, transparent); }
+.moon-module .bg-zinc-900 { background-color: var(--moon-surface-raised); }
+.moon-module .bg-zinc-950 { background-color: var(--moon-surface); }
+.moon-module :is(.border-zinc-700, .border-zinc-800, .border-zinc-900) { border-color: var(--moon-line); }
+.moon-module .divide-zinc-800 > :not([hidden]) ~ :not([hidden]) { border-color: var(--moon-line); }
+
+.moon-module .moon-panel {
+  border-radius: 18px;
+  box-shadow: 0 2px 3px rgb(0 0 0 / 2%);
+}
+.moon-module-heading {
+  padding-block: 4px 22px;
+  border-bottom: 1px solid var(--moon-line);
+  align-items: center;
+  gap: 16px;
+}
+.moon-module-heading .moon-page-title { margin-bottom: 5px; }
+.moon-module-heading p { line-height: 1.65; }
+.moon-module-heading :is(button, a) { font-weight: 500; }
+.moon-module :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--moon-ink);
+  outline-offset: 3px;
+}
+.moon-module :is(input, textarea, select) { font-family: inherit; font-weight: 400; }
+.moon-module :is(input, textarea)::placeholder { color: var(--moon-muted); opacity: .85; }
+.moon-module input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+.moon-module :is(textarea, select) { min-height: 39px; }
+.moon-module :is(input, textarea, select):disabled { opacity: .55; }
+.moon-module table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.moon-module thead { background: var(--moon-surface-raised); }
+.moon-module th { color: var(--moon-muted); font-size: max(11px, .8rem); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.moon-module :is(th, td) { border-color: var(--moon-line); }
+.moon-module td { font-size: max(13px, .93rem); }
+.moon-module tbody tr { transition: background-color .15s ease; }
+.moon-module tbody tr:hover { background: color-mix(in srgb, var(--moon-ink) 3%, transparent); }
+
+/* Tareas: keep state colors, with a stronger numeric and reading hierarchy. */
+.moon-module--mis-tareas { max-width: 1280px; }
+.moon-module .tr-stat { border-radius: 17px; padding: 19px 18px; gap: 8px; min-height: 108px; }
+.moon-module .tr-stat-num { font: 500 32px/1 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+.moon-module .tr-stat-lbl { font-size: 11px; font-weight: 500; }
+.moon-module .tr-card { border-radius: 18px; }
+.moon-module .tr-fila { padding: 16px; border-radius: 14px; }
+.moon-module .tr-titulo { font-weight: 500; line-height: 1.45; }
+.moon-module .tr-desc { margin-top: 3px; line-height: 1.55; }
+.moon-module .tr-meta { margin-top: 10px; }
+.moon-module .tr-seg { border-radius: 12px; padding: 4px; }
+.moon-module .tr-seg > button { min-height: 32px; font-weight: 500; }
+.moon-module .tr-btn { min-height: 38px; font-weight: 500; }
+
+/* Calendar owns its responsive controls and grid in Calendar.tsx. */
+
+/* Anuncios use a quiet editorial card with readable titles and body copy. */
+.moon-module .ann-card { background: var(--moon-surface); border-color: var(--moon-line); border-radius: 20px; }
+.moon-module .ann-title { font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
+.moon-module .ann-body { font-size: 13px; font-weight: 400; line-height: 1.8; }
+.moon-module .ann-subtext { font-size: 12px; line-height: 1.6; font-weight: 400; margin-top: 6px; }
+.moon-module .ann-meta { font-weight: 400; }
+.moon-module .ann-meta-row { margin-top: 20px; padding-top: 15px; }
+.moon-module .ann-filter-pill { padding: 4px; border-radius: 12px; }
+.moon-module .ann-filter-btn { min-height: 32px; font-weight: 500; }
+.moon-module .ann-btn-new { min-height: 40px; font-weight: 500; }
+.moon-module .ann-empty { padding: 72px 24px; background: var(--moon-surface); border: 1px dashed var(--moon-line); border-radius: 20px; }
+.moon-module .ann-del-btn { opacity: .7; }
+.ann-modal-overlay .ann-modal-box { background: var(--moon-surface); border-color: var(--moon-line); box-shadow: 0 30px 100px rgb(0 0 0 / 25%); }
+.ann-modal-box :is(.ann-btn-cancel, .ann-btn-primary) { min-height: 40px; font-weight: 500; }
+.ann-modal-box .ann-input { background: var(--moon-bg); color: var(--moon-ink); border-color: var(--moon-line); font-weight: 400; }
+.ann-modal-box .ann-label { font-size: 11px; font-weight: 500; letter-spacing: .08em; }
+
+/* Mail and discussions are fixed work areas; their internal lists scroll. */
+.moon-module--correo { height: 100%; min-height: 480px; }
+.moon-module--correo .correo-mail-item { border-bottom: 1px solid var(--moon-line); }
+.moon-module--correo .correo-folder-btn { border-radius: 10px; font-weight: 500; }
+.moon-module--correo .correo-input { border-radius: 12px; }
+.moon-module--hilos { height: 100%; min-height: 480px; border-radius: 20px; }
+.moon-module--hilos > aside { width: 238px; }
+.moon-module--hilos :is(.text-xs, .text-sm) { line-height: 1.6; }
+.moon-module--hilos .moon-page-title { font: 600 16px/1.4 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+.moon-module--mensajeria .moon-panel { padding: 20px; }
+.moon-module .moon-stat { padding: 20px; border-radius: 18px; }
+.moon-module .moon-stat > .text-2xl { font: 500 32px/1.1 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+.moon-module .moon-project-card { border-radius: 20px; }
+.moon-module .moon-project-row { border-radius: 14px; }
+.moon-module .moon-project-body { min-height: 155px; }
+
+/* Web management and the live editor share the same surface language. */
+.moon-module .wb { gap: 24px; grid-template-columns: 224px minmax(0, 1fr); }
+.moon-module .wb-nav { border-radius: 18px; padding: 18px 10px; gap: 24px; top: 0; }
+.moon-module .wb-nav-marca { padding-bottom: 14px; }
+.moon-module .wb-nav-marca b { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600; }
+.moon-module .wb-item { min-height: 38px; padding: 9px 12px; font-weight: 400; }
+.moon-module .wb-item[aria-current='page'] { background: var(--moon-ink); color: var(--moon-bg); box-shadow: none; font-weight: 500; }
+.moon-module .wb-grupo-titulo { font-size: 9px; font-weight: 600; letter-spacing: .12em; padding-bottom: 8px; }
+.moon-module .wb-cuerpo { gap: 22px; }
+.moon-module .wb-cab { min-height: 74px; align-items: center; }
+.moon-module .wb-cab p { font-weight: 400; line-height: 1.65; }
+.moon-module .wb-panel { padding: 24px; border-radius: 20px; }
+.moon-module .wb-panel-limpio { padding: 0; }
+.moon-module .wb-tarjeta { border-radius: 18px; }
+.moon-module .wb-kpi { padding: 21px 20px; }
+.moon-module .wb-kpi b { font: 500 32px/1.1 'Space Grotesk', sans-serif; margin-top: 15px; letter-spacing: -.04em; }
+.moon-module .wb-kpi small { margin-top: 7px; }
+.moon-module .wb-btn { height: 39px; border-radius: 10px; font-weight: 500; }
+.moon-module .wb-input { min-height: 40px; background: var(--moon-bg); font-weight: 400; }
+.moon-module .wb-fila { padding: 14px; border-radius: 12px; }
+.moon-module .wb-fila-texto b { font-weight: 500; }
+.moon-module .wb-segmento { padding: 4px; }
+.moon-module .wb-segmento button { min-height: 32px; font-weight: 500; }
+.moon-module .mc-top h2 { font-family: 'Space Grotesk', sans-serif; font-size: 27px; font-weight: 500; }
+.moon-module .mc-overline { color: var(--moon-muted); font-weight: 500; }
+.moon-module .mc-tabs { background: var(--moon-bg); border: 1px solid var(--moon-line); padding: 5px; }
+.moon-module .mc-tabs button { font-size: 12px; font-weight: 500; min-height: 36px; }
+.moon-module .mc-fields { gap: 20px; }
+.moon-module :is(.mc-group, .mc-collection) { padding: 22px; border-radius: 15px; }
+.moon-module .mc-field > span { font-size: 12px; font-weight: 500; color: var(--moon-ink); }
+.moon-module :is(.mc-field input, .mc-field textarea) { padding: 12px; background: var(--moon-bg); font-size: 13px; }
+.moon-module .mc-field :is(input, textarea):focus { border-color: var(--moon-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--moon-ink) 7%, transparent); }
+.moon-module .mc-toggle input:checked + i { background: var(--moon-ink); }
+.moon-module .mc-toggle input:checked + i::after { background: var(--moon-bg); }
+.moon-module .mc-entry { padding: 17px; border-radius: 12px; background: var(--moon-bg); }
+
+/* Settings, people and operational panels retain their own layouts. */
+.moon-module--settings .aj-nav-item { min-height: 41px; padding: 10px 13px; border-radius: 11px; font-weight: 400; }
+.moon-module--settings .aj-nav-item[aria-current='page'] { background: var(--moon-surface); box-shadow: 0 1px 3px rgb(0 0 0 / 4%); font-weight: 600; }
+.moon-module--settings .aj-nav-item[aria-current='page']::before { display: none; }
+.moon-module--settings .s-fadeIn > div h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; }
+.moon-module--users { max-width: 1280px; }
+.moon-module--users .moon-panel > div { padding: 19px 22px; }
+.moon-module--users .moon-panel > div:hover { background: var(--moon-surface-raised); }
+.moon-module--users .moon-panel > div p:first-child { font-weight: 500; }
+.moon-module--panel-roles table { background: var(--moon-surface); }
+.moon-module--panel-roles :is(th, td) { padding: 16px 20px; }
+.moon-module--panel-admin .moon-stat { min-height: 148px; }
+.moon-module--panel-admin .moon-stat > p.text-2xl { font: 500 34px/1.15 'Space Grotesk', sans-serif; letter-spacing: -.045em; }
+.moon-module--panel-diseno .moon-stat { min-height: 125px; }
+.moon-module--panel-diseno .moon-stat > p.text-lg,
+.moon-module--panel-secretaria .moon-stat > p.text-xl { font: 500 30px/1.15 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+.moon-module--panel-secretaria .moon-stat { min-height: 120px; }
+.moon-module--panel-programacion .moon-panel { padding: 22px; }
+.moon-module--panel-programacion :is(input, textarea, select) { font-size: 13px; }
+.moon-module--contador [data-slot='card-title'] { line-height: 1.6; }
+.moon-module--contador [data-slot='tabs-list'] { margin-top: 22px; }
+.moon-module--contador [data-slot='table-cell'] { font-weight: 400; }
+.moon-module--mensajeria .moon-stat > p.text-lg { font: 500 30px/1.2 'Space Grotesk', sans-serif; }
+.moon-module .mc-note { color: var(--moon-ink); }
+.moon-module .mc-note-error { color: var(--moon-tone-red); }
+.moon-module .mc-note-success { color: var(--moon-tone-green); }
+.moon-module .wb-pill { color: color-mix(in srgb, var(--c) 80%, var(--moon-ink)); }
+html.light .moon-module .wb-pill { color: color-mix(in srgb, var(--c) 55%, #000); }
+.moon-module--ceopanel .ceo-tabs-list { gap: 4px; }
+.moon-module--ceopanel .ceo-employee-row { padding-block: 16px; }
+.moon-module--ceopanel .ceo-card-lift { box-shadow: none; }
+.moon-module--ceopanel .ceo-card-lift:hover { transform: none; border-color: color-mix(in srgb, var(--moon-ink) 25%, transparent); }
+.moon-module--ceopanel .ceo-stat-glow { padding: 22px; }
+.moon-module--ceopanel .ceo-stat-glow:hover { box-shadow: none; }
+.moon-module--contador .recharts-cartesian-grid line { stroke: var(--moon-line); }
+.moon-module--contador .recharts-text { fill: var(--moon-muted); }
+.moon-module--discord-bot .db-tab-btn { min-height: 37px; font-weight: 500; }
+.moon-module--discord-bot .db-input { min-height: 40px; border-radius: 11px; }
+.moon-module :is(.recharts-default-tooltip, .recharts-tooltip-wrapper) { font-family: inherit; }
+
+@media (max-width: 1100px) {
+  .moon-module .wb { grid-template-columns: minmax(0, 1fr); }
+  .moon-module .wb-nav { position: static; display: flex; gap: 6px; overflow-x: auto; padding: 8px; }
+  .moon-module :is(.wb-nav-marca, .wb-grupo-titulo) { display: none; }
+  .moon-module .wb-grupo { display: flex; gap: 4px; }
+  .moon-module .wb-item { width: auto; white-space: nowrap; }
+  .moon-module .wb-item span { overflow: visible; }
+}
+@media (max-width: 640px) {
+  .moon-module-heading { padding-bottom: 18px; flex-wrap: wrap; }
+  .moon-module--users .moon-panel > div { padding: 16px; }
+  .moon-module--panel-roles :is(th, td) { padding: 13px 14px; }
+  .moon-module .moon-page-title { font-size: 26px; }
+  .moon-module--hilos { min-height: 400px; border-radius: 15px; }
+  .moon-module--hilos .moon-page-title { font-size: 16px; }
+  .moon-module .tr-stat { min-height: 95px; padding: 16px; }
+  .moon-module .tr-stat-num { font-size: 28px; }
+  .moon-module .wb-panel { padding: 16px; }
+  .moon-module .wb-panel-limpio { padding: 0; }
+  .moon-module .wb-kpi { padding: 16px; }
+  .moon-module .wb-kpi b { font-size: 27px; }
+  .moon-module :is(.mc-group, .mc-collection, .mc-entry) { padding: 14px; }
+  .moon-module .mc-fields { gap: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moon-module :is(.ann-card, .ann-banner, .ann-empty, .cal-root, .cal-panel, .ceo-slide-up, .ceo-count-pop, .wb-panel) { animation: none; }
+  .moon-module .ceo-card-lift { transition: border-color .15s; }
+}

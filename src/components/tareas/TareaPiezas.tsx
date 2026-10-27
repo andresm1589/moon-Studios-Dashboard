@@ -1,3 +1,5 @@
+import { EmojiText } from '@/components/discord/EmojiText';
+import { panelInk } from '@/lib/panelColors';
 import { useState } from 'react';
 import {
   Check, Pencil, Trash2, CalendarDays, Flag, UsersRound, Users, UserCheck, MessageSquareText,
@@ -14,7 +16,7 @@ import './tareas.css';
 
 export type Archivo = { url: string; name: string; type: string };
 
-const cssVar = (c: string) => ({ ['--tr-c' as string]: c });
+const cssVar = (c: string) => ({ ['--tr-c' as string]: panelInk(c) });
 
 const haceCuanto = (d: Date | null) => {
   if (!d) return '';
@@ -32,16 +34,16 @@ export function Asignado({ tarea, usuarios, grande = false }: { tarea: Tarea; us
   if (tarea.assignedTo) {
     const u = usuarios.find(x => x.uid === tarea.assignedTo);
     return (
-      <span className="inline-flex items-center gap-1.5 min-w-0" style={{ fontSize: grande ? 13 : 11, color: grande ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+      <span className="inline-flex items-center gap-1.5 min-w-0" style={{ fontSize: grande ? 13 : 11, color: panelInk(grande ? 'var(--moon-ink)' : 'var(--moon-muted)') }}>
         <span className={`tr-av${grande ? ' tr-av-lg' : ''}`}>{u?.avatar ? <img src={u.avatar} alt="" /> : (u?.displayName?.[0] ?? '?').toUpperCase()}</span>
         <span className="truncate">{u?.displayName ?? 'Usuario eliminado'}</span>
       </span>
     );
   }
   if (tarea.assignedToRole) {
-    return <span className="inline-flex items-center gap-1.5" style={{ fontSize: grande ? 13 : 11, color: grande ? 'var(--text-primary)' : 'var(--text-muted)' }}><UsersRound size={grande ? 15 : 12} /> {tarea.assignedToRole}</span>;
+    return <span className="inline-flex items-center gap-1.5" style={{ fontSize: grande ? 13 : 11, color: panelInk(grande ? 'var(--moon-ink)' : 'var(--moon-muted)') }}><UsersRound size={grande ? 15 : 12} /> {tarea.assignedToRole}</span>;
   }
-  return <span className="inline-flex items-center gap-1.5" style={{ fontSize: grande ? 13 : 11, color: grande ? 'var(--text-primary)' : 'var(--text-muted)' }}><Users size={grande ? 15 : 12} /> Todo el equipo</span>;
+  return <span className="inline-flex items-center gap-1.5" style={{ fontSize: grande ? 13 : 11, color: panelInk(grande ? 'var(--moon-ink)' : 'var(--moon-muted)') }}><Users size={grande ? 15 : 12} /> Todo el equipo</span>;
 }
 
 export function ChipEstado({ estado }: { estado: EstadoTarea }) {
@@ -92,7 +94,7 @@ export function TareaFila({ tarea, usuarios, reportes, onAbrir, onCompletar, onE
   const pri = PRIORIDADES[tarea.priority];
   const revisar = porRevisar(tarea, reportes);
   return (
-    <div className="tr-fila tr-entrar group" data-hecha={hecha} role="button" tabIndex={0}
+    <div data-moon-reveal="row" className="tr-fila tr-entrar group" data-hecha={hecha} role="button" tabIndex={0}
       onClick={onAbrir} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } }}
       draggable={arrastrable} onDragStart={arrastrable ? e => { e.dataTransfer.setData('text/tarea', tarea.id); e.dataTransfer.effectAllowed = 'move'; } : undefined}>
       {onCompletar ? (
@@ -108,9 +110,9 @@ export function TareaFila({ tarea, usuarios, reportes, onAbrir, onCompletar, onE
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
           {onCompletar && <span className="tr-punto" style={cssVar(pri.color)} title={`Prioridad ${pri.label.toLowerCase()}`} />}
-          <p className="tr-titulo">{tarea.title}</p>
+          <p className="tr-titulo"><EmojiText text={tarea.title} /></p>
         </div>
-        {!compacta && tarea.description && <p className="tr-desc mt-0.5">{tarea.description}</p>}
+        {!compacta && tarea.description && <p className="tr-desc mt-0.5"><EmojiText text={tarea.description} /></p>}
         <div className="tr-meta">
           {!compacta && <ChipEstado estado={tarea.status} />}
           <ChipPlazo tarea={tarea} />
@@ -184,8 +186,8 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
             <span className="tr-chip" style={cssVar(pri.color)}><Flag size={11} /> {pri.label}</span>
             <ChipPlazo tarea={tarea} />
           </div>
-          <DialogTitle className="text-[17px] font-normal mt-3 leading-snug" style={{ color: 'var(--text-primary)' }}>{tarea.title}</DialogTitle>
-          <DialogDescription className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          <DialogTitle className="text-[17px] font-normal mt-3 leading-snug" style={{ color: 'var(--moon-ink)' }}><EmojiText text={tarea.title} /></DialogTitle>
+          <DialogDescription className="text-xs mt-1" style={{ color: 'var(--moon-muted)' }}>
             {tarea.createdByName ? `Creada por ${tarea.createdByName}` : 'Tarea'}{tarea.creada ? ` · ${haceCuanto(tarea.creada)}` : ''}
           </DialogDescription>
         </div>
@@ -193,7 +195,7 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
         <div className="px-5 sm:px-6 py-5 space-y-5">
           {gestor && revisar && quienCompleto && (
             <div className="tr-aviso" style={cssVar('#a78bfa')}>
-              <CheckCheck size={16} style={{ color: '#a78bfa', flexShrink: 0, marginTop: 1 }} />
+              <CheckCheck size={16} style={{ color: panelInk('#a78bfa'), flexShrink: 0, marginTop: 1 }} />
               <div className="flex-1 min-w-0">
                 <p><b style={{ fontWeight: 500 }}>{quienCompleto.autor || 'Alguien'}</b> reportó que la terminó. Revisa su reporte y confírmala.</p>
               </div>
@@ -207,7 +209,7 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
 
           <div>
             <p className="tr-dato-lbl">Descripción</p>
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: tarea.description ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: panelInk(tarea.description ? 'var(--moon-ink)' : 'var(--moon-muted)') }}>
               {tarea.description || 'Sin descripción.'}
             </p>
           </div>
@@ -215,10 +217,10 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="tr-dato">
               <p className="tr-dato-lbl">Fecha límite</p>
-              <p className="tr-dato-val"><CalendarDays size={14} style={{ color: 'var(--text-muted)' }} />
+              <p className="tr-dato-val"><CalendarDays size={14} style={{ color: 'var(--moon-muted)' }} />
                 {tarea.fecha ? tarea.fecha.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }) : 'Sin fecha'}
               </p>
-              {p.tipo !== 'completada' && p.tipo !== 'sin-fecha' && <p className="text-[11px] mt-1" style={{ color: p.color }}>{p.texto}</p>}
+              {p.tipo !== 'completada' && p.tipo !== 'sin-fecha' && <p className="text-[11px] mt-1" style={{ color: panelInk(p.color) }}>{p.texto}</p>}
             </div>
             <div className="tr-dato">
               <p className="tr-dato-lbl">Asignada a</p>
@@ -250,7 +252,7 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
               )}
             </div>
             {reportes.length === 0 ? (
-              <p className="text-xs rounded-xl px-3 py-4 text-center" style={{ color: 'var(--text-muted)', border: '1px dashed var(--tr-linea-2)' }}>
+              <p className="text-xs rounded-xl px-3 py-4 text-center" style={{ color: 'var(--moon-muted)', border: '1px dashed var(--tr-linea-2)' }}>
                 {gestor ? 'Nadie ha reportado esta tarea todavía.' : 'Aún no reportas tu avance.'}
               </p>
             ) : (
@@ -258,18 +260,18 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
                 {lista.map(r => {
                   const e = ESTADOS_REPORTE[r.estado];
                   return (
-                    <div key={r.id} className="tr-reporte">
+                    <div data-moon-reveal="row" key={r.id} className="tr-reporte">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="tr-av">{(r.autor?.[0] ?? '?').toUpperCase()}</span>
-                        <span className="text-[13px] truncate" style={{ color: 'var(--text-primary)' }}>{r.autor || 'Usuario'}</span>
-                        {r.rol && <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{r.rol}</span>}
+                        <span className="text-[13px] truncate" style={{ color: 'var(--moon-ink)' }}>{r.autor || 'Usuario'}</span>
+                        {r.rol && <span className="text-[11px] truncate" style={{ color: 'var(--moon-muted)' }}>{r.rol}</span>}
                         <span className="ml-auto flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[11px] inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><Clock size={11} />{haceCuanto(r.fecha)}</span>
+                          <span className="text-[11px] inline-flex items-center gap-1" style={{ color: 'var(--moon-muted)' }}><Clock size={11} />{haceCuanto(r.fecha)}</span>
                           <span className="tr-chip" style={cssVar(e.color)}>{e.label}</span>
                         </span>
                       </div>
-                      {r.motivo && <p className="text-xs mt-2 leading-relaxed" style={{ color: '#f87171' }}>Motivo: {r.motivo}</p>}
-                      {r.comentario && <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{r.comentario}</p>}
+                      {r.motivo && <p className="text-xs mt-2 leading-relaxed" style={{ color: panelInk('#f87171') }}>Motivo: <EmojiText text={r.motivo} /></p>}
+                      {r.comentario && <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--moon-ink)' }}><EmojiText text={r.comentario} /></p>}
                       <Miniaturas archivos={r.archivos} onVer={ver} />
                     </div>
                   );
@@ -293,8 +295,8 @@ export function TareaDetalleDialog({ tarea, open, onOpenChange, usuarios, report
         )}
         {!gestor && (
           <div className="flex items-center gap-2 px-5 sm:px-6 py-3" style={{ borderTop: '1px solid var(--tr-linea)', background: 'var(--tr-card-2)' }}>
-            <UserCheck size={13} style={{ color: 'var(--text-muted)' }} />
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Tu reporte le llega a quien creó la tarea; CEO o Administración la marcan como completada.</p>
+            <UserCheck size={13} style={{ color: 'var(--moon-muted)' }} />
+            <p className="text-[11px]" style={{ color: 'var(--moon-muted)' }}>Tu reporte le llega a quien creó la tarea; CEO o Administración la marcan como completada.</p>
           </div>
         )}
       </DialogContent>

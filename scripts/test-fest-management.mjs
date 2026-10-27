@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import ts from 'typescript';
+
+const source = await readFile(new URL('../src/components/fest/managementUtils.ts', import.meta.url), 'utf8');
+const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, verbatimModuleSyntax: true } }).outputText;
+const helpers = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
+let count = 0;
+function test(name, check) { check(); count++; console.log(`✓ ${name}`); }
+const now = new Date('2027-04-20T17:00:00Z');
+const base = { id: 'qa', title: 'Evento de prueba', publication: 'published', cancelled: false, startsAt: new Date('2027-04-21T17:00:00Z'), endsAt: new Date('2027-04-21T20:00:00Z'), registrationOpensAt: new Date('2027-04-01T00:00:00Z'), registrationClosesAt: new Date('2027-04-21T16:00:00Z'), capacity: 10, registeredCount: 2 };
+test('La edición abierta muestra la inscripción disponible', () => assert.equal(helpers.eventLabel(base, now), 'Inscripciones abiertas'));
+test('El límite de aforo tiene estado propio', () => assert.equal(helpers.eventLabel({ ...base, registeredCount: 10 }, now), 'Aforo completo'));
+test('El aforo ilimitado no se presenta como lleno', () => assert.equal(helpers.eventLabel({ ...base, registeredCount: 50, capacity: 0 }, now), 'Inscripciones abiertas'));
+test('El inicio de la inscripción se aplica antes de su apertura', () => assert.equal(helpers.eventLabel({ ...base, registrationOpensAt: new Date('2027-04-20T17:01:00Z') }, now), 'Próximamente'));
+test('El cierre es efectivo en su instante exacto', () => assert.equal(helpers.eventLabel({ ...base, registrationClosesAt: now }, now), 'Inscripciones cerradas'));
+test('El inicio del evento es efectivo en su instante exacto', () => assert.equal(helpers.eventLabel({ ...base, startsAt: now }, now), 'En curso'));
+test('El fin del evento es efectivo en su instante exacto', () => assert.equal(helpers.eventLabel({ ...base, endsAt: now }, now), 'Finalizado'));
+test('La cancelación prevalece sobre las fechas', () => assert.equal(helpers.eventLabel({ ...base, cancelled: true }, now), 'Cancelado'));
+test('Un borrador no aparece abierto aunque coincidan las fechas', () => assert.equal(helpers.eventLabel({ ...base, publication: 'draft' }, now), 'Borrador'));
+test('Un archivo conserva su estado aunque el evento siga en el futuro', () => assert.equal(helpers.eventLabel({ ...base, publication: 'archived' }, now), 'Archivado'));
+test('La edición en Lima no usa la zona horaria del equipo', () => assert.equal(helpers.limaInput(new Date('2027-01-01T02:30:00Z')), '2026-12-31T21:30'));
+test('Una fecha introducida en Lima vuelve al instante correcto', () => assert.equal(helpers.limaDate('2026-12-31T21:30').toISOString(), '2027-01-01T02:30:00.000Z'));
+test('Las fechas de Lima mantienen la hora al cambiar de año', () => assert.equal(helpers.limaInput(helpers.limaDate('2027-01-01T00:00')), '2027-01-01T00:00'));
+test('La fecha vacía no se convierte silenciosamente en hoy', () => assert.equal(Number.isFinite(helpers.limaDate('').getTime()), false));
+test('Una fecha ausente se anuncia como pendiente', () => assert.equal(helpers.festDate(null), 'Por definir'));
+for (const value of ['=SUM(1,2)', '+1234', '-1+2', '@formula', '  =formula', '\tformula', '\rformula', '\nformula']) test(`CSV neutraliza ${JSON.stringify(value)}`, () => assert.ok(helpers.csvCell(value).startsWith('"\'')));
+test('CSV escapa comillas conservando los saltos de línea', () => assert.equal(helpers.csvCell('Línea "uno"\nLínea dos'), '"Línea ""uno""\nLínea dos"'));
+test('CSV conserva caracteres del nombre y correo', () => assert.equal(helpers.csvCell('Fabián, Muñoz'), '"Fabián, Muñoz"'));
+test('CSV acepta valores vacíos sin escribir undefined', () => assert.equal(helpers.csvCell(undefined), '""'));
+const ticket = { code: 'MF-0123456789ABCDEF0123456789ABCDEF', firstName: '=FORMULA()', lastName: 'Muñoz', email: 'qa@example.invalid', phone: '+51999999999', state: 'checked-in', createdAt: now, checkedInAt: now };
+test('La exportación completa incluye BOM, encabezados y fórmulas neutralizadas', () => { const csv = helpers.ticketsCsv([ticket]); assert.ok(csv.startsWith('\uFEFF"Código"')); assert.ok(csv.includes('"\'=FORMULA()"')); assert.ok(csv.includes('"\'+51999999999"')); assert.ok(csv.includes('"Ingresó"')); assert.equal(csv.split('\r\n').length, 2); });
+test('Una entrada cancelada nunca indica ingreso pendiente', () => assert.equal(helpers.ticketLabel({ state: 'cancelled' }), 'Cancelado'));
+test('Una entrada nueva indica que falta ingresar', () => assert.equal(helpers.ticketLabel({ state: 'active' }), 'Por ingresar'));
+console.log(`\n${count} comprobaciones de gestión Moon Fest correctas. Sin red ni datos reales.`);

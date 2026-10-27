@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { User, Mail, Shield, Calendar, Hash, Briefcase, Phone } from 'lucide-react';
 import type { UserProfile } from '@/types';
+import { codigoEmpleado } from '@/lib/tramites';
 
 /* ── Roles base conocidos ─────────────────────────────────────────────────── */
 const KNOWN_ROLES: Record<string, { color: string; bg: string; border: string }> = {
@@ -65,7 +66,8 @@ const EmployeeProfileModal: React.FC<Props> = ({ open, onClose, user }) => {
     { icon: Mail,     label: 'Correo',            value: user.email || '—' },
     { icon: Phone,    label: 'Teléfono',          value: (user as any).phone || '—' },
     { icon: Shield,   label: 'Rol',               value: user.role || '—' },
-    { icon: Hash,     label: 'ID de usuario',     value: user.uid },
+    { icon: Hash,     label: 'ID Moon Studios',   value: codigoEmpleado(user.uid) },
+    { icon: Hash,     label: 'UID',               value: user.uid },
     {
       icon: Calendar,
       label: 'Fecha de registro',

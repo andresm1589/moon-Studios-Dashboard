@@ -1,4 +1,6 @@
-import type { DocumentData } from 'firebase/firestore';
+import type { DocumentData, DocumentReference } from 'firebase/firestore';
+import { createSessionRemovalGuard, TabSessionKeys, type SessionKeyStorage } from './sessionIdentity';
+import { esRolDelEquipo } from '@/types';
 import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
@@ -35,7 +37,15 @@ export const registerUser = (email: string, password: string) =>
 export const loginUser = (email: string, password: string) =>
   signInWithEmailAndPassword(auth, email, password);
 
-export const logoutUser = () => signOut(auth);
+export const logoutUser = async () => {
+  // Antes de salir, este navegador deja de recibir los avisos push de la cuenta.
+  await import('./pushWeb').then(m => m.desactivarPushWeb(auth.currentUser)).catch(() => {});
+  saliendo = true;
+  try {
+    await endCurrentSession();
+    await signOut(auth);
+  } finally { saliendo = false; }
+};
 
 export const resetUserPassword = (email: string) =>
   sendPasswordResetEmail(auth, email);
@@ -139,10 +149,11 @@ export const getUserProfile  = async (uid: string) => {
 export const updateUserProfile = async (uid: string, data: any) =>
   updateDoc(doc(db, 'users', uid), data);
 
+/** Directorio del equipo (sin cuentas de clientes, ver esRolDelEquipo). */
 export const getAllUsers = async () => {
   const q    = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  return snap.docs.filter(d => esRolDelEquipo(d.data().role)).map(d => ({ uid: d.id, ...d.data() }));
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -164,6 +175,8 @@ export const getUserSettings = async (uid: string) => {
 export interface SessionRecord {
   id:         string;
   uid:        string;
+  app:        AppSesion;
+  nombre:     string;
   device:     string;
   browser:    string;
   os:         string;
@@ -196,52 +209,125 @@ export const parseUserAgent = (): { device: string; browser: string; os: string 
   return { device: isMobile ? 'Dispositivo móvil' : 'Computadora', browser, os };
 };
 
-/** Registra o actualiza la sesión actual en Firestore */
-export const registerSession = async (uid: string): Promise<string> => {
-  // La sessionKey se guarda en sessionStorage para identificar esta pestaña
-  let sessionKey = sessionStorage.getItem('sessionKey');
-  if (!sessionKey) {
-    sessionKey = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    sessionStorage.setItem('sessionKey', sessionKey);
-  }
+/** La sesión es del DISPOSITIVO (localStorage), no de cada pestaña: abrir otra
+ * pestaña o volver a abrir la app reutiliza el mismo registro en vez de crear
+ * uno nuevo. La clave por pestaña de versiones anteriores se adopta una vez. */
+const almacenSesion = (): SessionKeyStorage => ({
+  getItem: clave => {
+    const guardada = localStorage.getItem(clave);
+    if (guardada) return guardada;
+    const anterior = sessionStorage.getItem(clave);
+    if (anterior) localStorage.setItem(clave, anterior);
+    return anterior;
+  },
+  setItem: (clave, valor) => localStorage.setItem(clave, valor),
+});
+const tabSessionKeys = new TabSessionKeys(almacenSesion, () =>
+  globalThis.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
+/** Web, app de escritorio (Tauri) o app Android: la app Android escribe 'android' con el mismo formato. */
+export type AppSesion = 'web' | 'escritorio' | 'android';
+const esEscritorio = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const describirDispositivo = () => {
   const { device, browser, os } = parseUserAgent();
+  const app: AppSesion = esEscritorio() ? 'escritorio' : 'web';
+  const nombre = app === 'escritorio' ? `Moon Studios para ${os}` : `${browser.replace(/\s[\d.]+$/, '')} en ${os}`;
+  return { app, nombre, device, browser, os };
+};
+// Un registro sin uso en 30 días se borra solo; los de la versión por pestaña
+// (sin campo `app`) se limpian a los 2 días, porque cada pestaña creaba uno.
+const DIA = 24 * 60 * 60 * 1000;
+const caducada = (data: { app?: unknown; lastActive?: Timestamp }, ahora: number) => {
+  const ultima = data.lastActive?.toMillis?.() ?? 0;
+  return ahora - ultima > (data.app ? 30 : 2) * DIA;
+};
+let saliendo = false;
+let ultimoToque = 0;
+const sessionRegistrations = new Map<string, Promise<string>>();
+const registeredSessionRefs = new Map<string, { key: string; ref: DocumentReference }>();
+const requireSessionOwner = (uid: string) => {
+  if (!uid || auth.currentUser?.uid !== uid) throw new Error('La cuenta cambió. Vuelve a cargar tus registros de acceso.');
+};
 
-  // Busca si ya existe una sesión con esta key
-  const q    = query(collection(db, 'userSessions'), where('sessionKey', '==', sessionKey));
-  const snap = await getDocs(q);
-
-  if (!snap.empty) {
-    // Actualiza lastActive
-    await updateDoc(snap.docs[0].ref, { lastActive: Timestamp.now() });
+/** Records this tab for the current account; this document is not an auth token. */
+export const registerSession = (uid: string): Promise<string> => {
+  try { requireSessionOwner(uid); } catch (error) { return Promise.reject(error); }
+  const existing = sessionRegistrations.get(uid);
+  if (existing) return existing;
+  const job = (async () => {
+    const sessionKey = tabSessionKeys.ensure(uid);
+    const { app, nombre, device, browser, os } = describirDispositivo();
+    // Both the owner and device key must match. A former account's document can
+    // never be reused, including when a browser still holds the old global key.
+    const snap = await getDocs(query(collection(db, 'userSessions'), where('uid', '==', uid), where('sessionKey', '==', sessionKey)));
+    requireSessionOwner(uid);
+    const propios = snap.docs.filter(record => record.data().uid === uid && record.data().sessionKey === sessionKey);
+    let ref: DocumentReference;
+    if (propios.length) {
+      // Si dos pestañas lo crearon a la vez, queda uno solo.
+      const [previous, ...repetidos] = propios.sort((a, b) => (b.data().lastActive?.toMillis?.() ?? 0) - (a.data().lastActive?.toMillis?.() ?? 0));
+      await updateDoc(previous.ref, { lastActive: Timestamp.now(), app, nombre, device, browser, os });
+      repetidos.forEach(r => void deleteDoc(r.ref).catch(() => {}));
+      ref = previous.ref;
+    } else {
+      ref = await addDoc(collection(db, 'userSessions'), {
+        uid, app, nombre, device, browser, os, ip: 'Obteniendo...', location: '',
+        createdAt: Timestamp.now(), lastActive: Timestamp.now(), sessionKey,
+      });
+      // Non-blocking, optional device information must not follow an account switch.
+      void revisarDispositivo(uid, nombre).catch(console.error);
+    }
+    requireSessionOwner(uid);
+    registeredSessionRefs.set(uid, { key: sessionKey, ref });
+    ultimoToque = Date.now();
+    void fetch('https://api.ipify.org?format=json').then(response => response.json()).then(async ({ ip }) => {
+      if (auth.currentUser?.uid !== uid || tabSessionKeys.read(uid) !== sessionKey || typeof ip !== 'string' || !ip.trim()) return;
+      // Keep the exact registered reference. No second key-only query can
+      // accidentally update a document belonging to another account.
+      await updateDoc(ref, { ip });
+    }).catch(() => { /* Optional IP information does not affect access. */ });
     return sessionKey;
-  }
+  })();
+  sessionRegistrations.set(uid, job);
+  const release = () => { if (sessionRegistrations.get(uid) === job) sessionRegistrations.delete(uid); };
+  void job.then(release, release);
+  return job;
+};
 
-  // Crea nueva sesión
-  await addDoc(collection(db, 'userSessions'), {
-    uid, device, browser, os,
-    ip:         'Obteniendo...',
-    location:   'Obteniendo...',
-    createdAt:  Timestamp.now(),
-    lastActive: Timestamp.now(),
-    sessionKey,
-  });
+/** Watches only a record whose creation/update was acknowledged by the server.
+ * Updated clients cooperate by signing out after its confirmed deletion. This
+ * does not revoke Firebase tokens and cannot close older/offline applications.
+ */
+export const subscribeCurrentSession = (uid: string, onRemoved: () => void): (() => void) => {
+  requireSessionOwner(uid);
+  const session = registeredSessionRefs.get(uid);
+  if (!session || session.key !== tabSessionKeys.read(uid)) return () => {};
+  const receive = createSessionRemovalGuard(uid, () => auth.currentUser?.uid ?? null, onRemoved, true);
+  // A deleted document has no owner field for document-level read rules. Use
+  // the owner-scoped query (whose empty result remains readable) and still
+  // require the exact registered document ID to be present.
+  const tracked = query(collection(db, 'userSessions'), where('uid', '==', uid), where('sessionKey', '==', session.key));
+  return onSnapshot(tracked, { includeMetadataChanges: true }, snapshot => {
+    if (saliendo) return; // Al cerrar sesión aquí mismo se borra el registro: no es un cierre remoto.
+    receive({ exists: snapshot.docs.some(record => record.id === session.ref.id), fromCache: snapshot.metadata.fromCache, hasPendingWrites: snapshot.metadata.hasPendingWrites });
+  }, () => { /* A connectivity or permission error must never be mistaken for revocation. */ });
+};
 
-  // Alerta de inicio de sesión (Configuración → Seguridad): si este dispositivo
-  // es nuevo para la cuenta, aviso en la campana. Sin bloquear el inicio.
-  void revisarDispositivo(uid, `${os} · ${browser.replace(/\s[\d.]+$/, '')}`).catch(console.error);
+/** Marca el dispositivo como usado ahora (como mucho cada 10 minutos). */
+export const touchSession = async (uid: string) => {
+  const session = registeredSessionRefs.get(uid);
+  if (!session || auth.currentUser?.uid !== uid || Date.now() - ultimoToque < 10 * 60 * 1000) return;
+  ultimoToque = Date.now();
+  await updateDoc(session.ref, { lastActive: Timestamp.now() }).catch(() => { /* Sin conexión: se intenta en la próxima visita. */ });
+};
 
-  // Intenta obtener IP pública (sin bloquear)
-  fetch('https://api.ipify.org?format=json')
-    .then(r => r.json())
-    .then(async ({ ip }) => {
-      const q2   = query(collection(db, 'userSessions'), where('sessionKey', '==', sessionKey));
-      const snap2 = await getDocs(q2);
-      if (!snap2.empty) await updateDoc(snap2.docs[0].ref, { ip });
-    })
-    .catch(() => {});
-
-  return sessionKey;
+/** Al cerrar sesión aquí, este dispositivo sale de la lista de la cuenta. */
+const endCurrentSession = async () => {
+  const uid = auth.currentUser?.uid;
+  const session = uid ? registeredSessionRefs.get(uid) : undefined;
+  if (!uid || !session) return;
+  registeredSessionRefs.delete(uid);
+  await deleteDoc(session.ref).catch(() => { /* Sin conexión: el registro caduca solo. */ });
 };
 
 /**
@@ -250,10 +336,12 @@ export const registerSession = async (uid: string): Promise<string> => {
  * El primero de todos no avisa (no hay contra qué comparar).
  */
 async function revisarDispositivo(uid: string, nombre: string) {
+  requireSessionOwner(uid);
   let id = localStorage.getItem('dispositivo-id');
   if (!id) { id = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem('dispositivo-id', id); }
   const ref = doc(db, 'users', uid);
   const datos = (await getDoc(ref)).data() ?? {};
+  requireSessionOwner(uid);
   const conocidos: { id: string; nombre: string; visto: Timestamp }[] = Array.isArray(datos.dispositivos) ? datos.dispositivos : [];
   if (conocidos.some(d => d.id === id)) return;
   if (conocidos.length && datos.settings?.loginAlerts !== false) {
@@ -262,21 +350,33 @@ async function revisarDispositivo(uid: string, nombre: string) {
       createdAt: Timestamp.now(), read: false,
     });
   }
+  requireSessionOwner(uid);
   await updateDoc(ref, { dispositivos: [...conocidos, { id, nombre, visto: Timestamp.now() }].slice(-15) });
 }
 
-/** Obtiene todas las sesiones activas del usuario */
+/** Lists access records; presence in this list does not prove a live auth token. */
 export const getUserSessions = async (uid: string): Promise<SessionRecord[]> => {
-  const currentKey = sessionStorage.getItem('sessionKey') ?? '';
+  requireSessionOwner(uid);
+  const currentKey = tabSessionKeys.read(uid);
   const q    = query(
     collection(db, 'userSessions'),
     where('uid', '==', uid),
     orderBy('lastActive', 'desc'),
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({
+  requireSessionOwner(uid);
+  // Los registros abandonados se borran aquí, sin tocar el de este dispositivo.
+  const ahora = Date.now();
+  const vigentes = snap.docs.filter(d => {
+    if (d.data().sessionKey === currentKey || !caducada(d.data(), ahora)) return true;
+    void deleteDoc(d.ref).catch(() => {});
+    return false;
+  });
+  return vigentes.map(d => ({
     id:         d.id,
     uid:        d.data().uid,
+    app:        (['web', 'escritorio', 'android'].includes(d.data().app) ? d.data().app : 'web') as AppSesion,
+    nombre:     typeof d.data().nombre === 'string' && d.data().nombre ? d.data().nombre : `${String(d.data().browser ?? '').replace(/\s[\d.]+$/, '')} en ${d.data().os ?? ''}`,
     device:     d.data().device,
     browser:    d.data().browser,
     os:         d.data().os,
@@ -284,20 +384,22 @@ export const getUserSessions = async (uid: string): Promise<SessionRecord[]> => 
     location:   d.data().location ?? '',
     createdAt:  d.data().createdAt?.toDate(),
     lastActive: d.data().lastActive?.toDate(),
-    current:    d.data().sessionKey === currentKey,
+    current:    currentKey !== null && d.data().uid === uid && d.data().sessionKey === currentKey,
     sessionKey: d.data().sessionKey,
   }));
 };
 
-/** Revoca (elimina) una sesión por ID */
+/** Requests coordinated closure by deleting the record; Firebase tokens are not revoked. */
 export const revokeSession = async (sessionId: string) =>
   deleteDoc(doc(db, 'userSessions', sessionId));
 
-/** Revoca todas las sesiones del usuario excepto la actual */
+/** Updated clients observe these deletions and sign out; older clients do not. */
 export const revokeAllOtherSessions = async (uid: string) => {
-  const currentKey = sessionStorage.getItem('sessionKey') ?? '';
+  requireSessionOwner(uid);
+  const currentKey = tabSessionKeys.read(uid);
   const q    = query(collection(db, 'userSessions'), where('uid', '==', uid));
   const snap = await getDocs(q);
+  requireSessionOwner(uid);
   const batch = writeBatch(db);
   snap.docs.forEach(d => {
     if (d.data().sessionKey !== currentKey) batch.delete(d.ref);
@@ -425,9 +527,10 @@ export const subscribeToTasks = (callback: (tasks: any[]) => void, onError?: (e:
 // Usuarios en vivo. Sin orderBy en la consulta: Firestore deja fuera a los
 // documentos que no tienen el campo ordenado (usuarios viejos sin createdAt
 // desaparecían de la lista). Se ordena acá, los más nuevos primero.
+// Solo el equipo: las cuentas de clientes (rol `client`) son otro sistema.
 export const subscribeToUsers = (callback: (users: DocumentData[]) => void, onError?: (e: Error) => void) =>
   onSnapshot(collection(db, 'users'), snap => {
-    const lista = snap.docs.map(d => ({ uid: d.id, ...d.data() })) as { uid: string; createdAt?: { toMillis?: () => number } }[];
+    const lista = snap.docs.filter(d => esRolDelEquipo(d.data().role)).map(d => ({ uid: d.id, ...d.data() })) as { uid: string; createdAt?: { toMillis?: () => number } }[];
     lista.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
     callback(lista);
   }, e => onError?.(e));
@@ -563,20 +666,24 @@ export { Timestamp };
 export const createUserWithRole = async (
   email: string, password: string, displayName: string, role: string,
 ): Promise<{ uid: string }> => {
+  const operator = auth.currentUser;
+  if (!operator) throw new Error('Inicia sesión para crear usuarios.');
+  const profile = await getUserProfile(operator.uid);
+  if (profile?.role !== 'CEO' && !(profile?.role === 'Administración' && role === 'Empleado')) {
+    throw new Error('Tu rol no permite crear esta cuenta.');
+  }
   const secondaryApp  = getApps().find(a => a.name === 'Secondary') || initializeApp(firebaseConfig, 'Secondary');
   const secondaryAuth = getAuth(secondaryApp);
-  const secondaryDb   = getFirestore(secondaryApp);
-
-  const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-  const uid = credential.user.uid;
-
-  await setDoc(doc(secondaryDb, 'users', uid), {
-    uid, email, displayName, role,
-    createdAt: serverTimestamp(), isActive: true,
-  });
-
-  await secondaryAuth.signOut();
-  return { uid };
+  try {
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const uid = credential.user.uid;
+    // Assign staff roles through the operator's session; a public account can only create a baseline profile.
+    await setDoc(doc(db, 'users', uid), {
+      uid, email, displayName, role,
+      createdAt: serverTimestamp(), isActive: true,
+    });
+    return { uid };
+  } finally { await secondaryAuth.signOut(); }
 };
 
 // ═══════════════════════════════════════════════════════════════════

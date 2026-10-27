@@ -27,7 +27,7 @@ interface Props {
   companyLogoUrl?: string;
 }
 
-const EmployeeCredentialModal: React.FC<Props> = ({ open, onClose, user, companyLogoUrl }) => {
+const EmployeeCredentialModal: React.FC<Props> = ({ open, onClose, user, companyLogoUrl = '/brand/moon-credential.png' }) => {
   const qrCanvasRef  = useRef<HTMLCanvasElement>(null);
   const barCanvasRef = useRef<HTMLCanvasElement>(null);
   const [generating, setGenerating] = useState(false);

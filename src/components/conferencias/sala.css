@@ -1,0 +1,348 @@
+/* Sala en vivo de Moon Studios — oscura e inmersiva en cualquier tema.
+   El mismo archivo vive en el dashboard y en la web (src/conferencias/sala.css). */
+.msala.msala {
+  --s-bg: #0b0b0d; --s-panel: #141417; --s-card: #1d1d21; --s-line: rgba(255, 255, 255, .08);
+  --s-ink: #f4f4f5; --s-muted: #a1a1aa; --s-ok: #4ade80; --s-danger: #ef4444;
+  --lk-bg: var(--s-bg); --lk-grid-gap: 10px;
+  position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%; min-height: 0;
+  background: var(--s-bg); color: var(--s-ink); font-family: inherit;
+  border: 1px solid var(--s-line); border-radius: 24px; overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .25);
+}
+.msala button { font-family: inherit; }
+
+/* Cabecera */
+.msala__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--s-line); }
+.msala__titulo { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.msala__titulo h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--s-ink); }
+.msala__vivo { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 5px 10px; border-radius: 99px; background: rgba(255, 255, 255, .06); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--s-muted); }
+.msala__vivo i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #71717a; }
+.msala__vivo.is-on { color: var(--s-ink); }
+.msala__vivo.is-on i { background: var(--s-danger); }
+/* Solo transform y opacidad: no repinta la página en cada cuadro. */
+.msala__vivo.is-on i::after { content: ''; position: absolute; inset: -4px; border: 2px solid rgba(239, 68, 68, .6); border-radius: 50%; animation: msala-pulso 1.8s ease-out infinite; }
+@keyframes msala-pulso { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.msala__chips { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.msala__chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; background: rgba(255, 255, 255, .06); font-size: 12px; font-weight: 500; color: var(--s-ink); }
+.msala__chip--rec { color: #fca5a5; background: rgba(239, 68, 68, .12); }
+
+/* Cuerpo: escenario + panel */
+.msala__cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 0; }
+.msala__cuerpo.con-panel { grid-template-columns: minmax(0, 1fr) 340px; }
+.msala__escenario { position: relative; min-height: 0; border-radius: 18px; overflow: hidden; }
+.msala .lk-grid-layout { height: 100%; padding: 0; gap: var(--lk-grid-gap); }
+.msala .lk-focus-layout-container, .msala__foco { height: 100%; }
+.msala .lk-carousel { gap: var(--lk-grid-gap); }
+.msala .lk-participant-tile { padding: 0; border-radius: 16px; }
+.msala__mosaico { position: relative; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at 50% 38%, #2a2a30, #161619 70%); outline: 2px solid transparent; outline-offset: -2px; transition: outline-color .2s, box-shadow .2s; }
+.msala__mosaico.is-hablando { outline-color: var(--s-ok); box-shadow: inset 0 0 0 4px rgba(74, 222, 128, .12); }
+.msala__video { width: 100%; height: 100%; object-fit: cover; }
+.msala__avatar { position: absolute; inset: 0; display: grid; place-items: center; }
+.msala__avatar span { display: grid; place-items: center; width: clamp(64px, 20%, 128px); aspect-ratio: 1; border-radius: 50%; background: linear-gradient(145deg, #52525b, #27272a); font-size: clamp(22px, 3.4vw, 42px); font-weight: 600; letter-spacing: .02em; color: #fafafa; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 12px 30px rgba(0, 0, 0, .35); }
+.msala__nombre { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: 10px; background: rgba(10, 10, 12, .78); font-size: 13px; color: #fafafa; }
+.msala__nombre span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msala__nombre svg { color: #f87171; flex-shrink: 0; }
+.msala__nombre em { font-style: normal; font-size: 11px; color: var(--s-muted); flex-shrink: 0; }
+
+/* Panel lateral */
+.msala__panel { display: flex; flex-direction: column; min-height: 0; background: var(--s-panel); border: 1px solid var(--s-line); border-radius: 18px; overflow: hidden; }
+.msala__panel-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border-bottom: 1px solid var(--s-line); }
+.msala__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.msala__seg button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 0; border-radius: 9px; background: none; color: var(--s-muted); font-size: 13px; font-weight: 500; cursor: pointer; }
+.msala__seg button[aria-selected='true'] { background: rgba(255, 255, 255, .1); color: var(--s-ink); }
+.msala__icono { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border: 0; border-radius: 10px; background: transparent; color: var(--s-muted); cursor: pointer; }
+.msala__icono:hover { background: rgba(255, 255, 255, .08); color: var(--s-ink); }
+.msala__icono--peligro:hover { background: rgba(239, 68, 68, .14); color: #f87171; }
+.msala__icono:disabled { opacity: .4; cursor: default; }
+.msala__badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--s-danger); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+
+/* Chat */
+.msala__chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.msala__mensajes { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.msala__msg { align-self: flex-start; max-width: 85%; padding: 8px 12px; border-radius: 14px 14px 14px 4px; background: var(--s-card); }
+.msala__msg strong { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 600; color: var(--s-muted); }
+.msala__msg p { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msala__msg time { display: block; margin-top: 4px; font-size: 10px; color: var(--s-muted); text-align: right; }
+.msala__msg.is-propio { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: #fafafa; color: #111; }
+.msala__msg.is-propio time { color: #71717a; }
+.msala__vacio { display: grid; justify-items: center; gap: 10px; max-width: 240px; margin: auto; text-align: center; font-size: 13px; line-height: 1.5; color: var(--s-muted); }
+.msala__escribir { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--s-line); }
+.msala__escribir input { flex: 1; min-width: 0; height: 42px; padding: 0 14px; border: 1px solid var(--s-line); border-radius: 12px; background: rgba(255, 255, 255, .04); color: var(--s-ink); font: inherit; font-size: 14px; }
+.msala__escribir input:focus { outline: none; border-color: rgba(255, 255, 255, .3); }
+.msala__escribir button { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border: 0; border-radius: 12px; background: #fafafa; color: #111; cursor: pointer; }
+.msala__escribir button:disabled { opacity: .3; cursor: default; }
+
+/* Personas */
+.msala__personas { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 10px 14px; }
+.msala__personas h3 { display: flex; gap: 8px; margin: 14px 6px 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--s-muted); }
+.msala__personas h3 span { color: var(--s-ink); }
+.msala__persona { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; }
+.msala__persona:hover { background: rgba(255, 255, 255, .04); }
+.msala__persona > div { flex: 1; min-width: 0; }
+.msala__persona strong { display: block; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msala__persona small { font-size: 12px; color: var(--s-muted); }
+.msala__mini { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #3f3f46; font-size: 12px; font-weight: 600; outline: 2px solid transparent; outline-offset: 1px; transition: outline-color .2s; }
+.msala__mini.is-hablando { outline-color: var(--s-ok); }
+.msala__accion { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.msala__accion--ok { background: #fafafa; color: #111; }
+.msala__accion:disabled { opacity: .5; cursor: default; }
+.msala__tenue { color: #71717a; flex-shrink: 0; }
+.msala__error { margin: 6px 12px 0; font-size: 12px; color: #fca5a5; }
+
+/* Dock */
+.msala__dock { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 28px; padding: 10px 16px 16px; }
+.msala__dock-grupo { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.msala .msala__btn { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 68px; height: 62px; padding: 6px 10px; border: 1px solid transparent; border-radius: 18px; background: rgba(255, 255, 255, .07); color: var(--s-ink); font-size: 11px; font-weight: 500; line-height: 1; cursor: pointer; transition: background .15s, color .15s, transform .15s; }
+.msala .msala__btn:hover { background: rgba(255, 255, 255, .13); }
+.msala .msala__btn:active { transform: scale(.97); }
+.msala .msala__btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.msala .msala__btn[aria-pressed='true'], .msala .msala__btn[data-lk-source='screen_share'][data-lk-enabled='true'] { background: #fafafa; color: #111; }
+.msala .msala__btn[data-lk-source='microphone'][data-lk-enabled='false'], .msala .msala__btn[data-lk-source='camera'][data-lk-enabled='false'] { background: rgba(239, 68, 68, .16); color: #fca5a5; }
+.msala .msala__btn--ajustes[aria-expanded='true'] { background: rgba(255, 255, 255, .2); color: #fff; border-color: rgba(255, 255, 255, .25); }
+.msala .msala__btn--salir { background: #dc2626; color: #fff; }
+.msala .msala__btn--salir:hover { background: #b91c1c; }
+.msala .msala__btn .msala__badge { position: absolute; top: 5px; right: 8px; }
+.msala__oyente { max-width: 260px; padding: 0 8px; font-size: 13px; line-height: 1.4; color: var(--s-muted); }
+
+/* Ventana «Audio y video» */
+.msala__pop-ancla { position: relative; }
+.msala__pop { position: absolute; bottom: calc(100% + 12px); left: 50%; z-index: 20; display: grid; gap: 14px; width: min(360px, calc(100vw - 32px)); padding: 16px; transform: translateX(-50%); border: 1px solid var(--s-line); border-radius: 18px; background: #18181b; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); text-align: left; }
+.msala__pop-top { display: flex; align-items: center; justify-content: space-between; }
+.msala__pop-top strong { font-size: 15px; font-weight: 600; }
+.msala__campo { display: grid; gap: 6px; font-size: 12px; color: var(--s-muted); }
+.msala__campo > span { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--s-ink); }
+.msala__campo select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--s-line); border-radius: 10px; background: #0f0f12; color: var(--s-ink); font: inherit; font-size: 14px; }
+.msala__campo .msala__error { margin: 0; }
+.msala__nivel { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(255, 255, 255, .1); }
+.msala__nivel i { display: block; height: 100%; background: #71717a; transition: width .1s; }
+.msala__nivel i.is-ok { background: var(--s-ok); }
+.msala__nota { display: flex; gap: 6px; margin: 0; font-size: 12px; color: var(--s-muted); }
+
+/* Avisos flotantes */
+.msala__sonido { position: absolute; top: 76px; left: 50%; z-index: 15; transform: translateX(-50%); padding: 12px 22px; font-size: 15px; animation: msala-llamar 1.4s ease-in-out infinite; border: 0; border-radius: 99px; background: #fafafa; color: #111; font-weight: 600; box-shadow: 0 12px 30px rgba(0, 0, 0, .4); cursor: pointer; }
+.msala__aviso { position: absolute; top: 72px; left: 50%; z-index: 16; display: flex; align-items: flex-start; gap: 10px; width: min(560px, calc(100% - 32px)); padding: 12px 14px; transform: translateX(-50%); border: 1px solid rgba(239, 68, 68, .35); border-radius: 14px; background: #2a1215; color: #fecaca; font-size: 13px; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+.msala__aviso--info { border-color: rgba(255, 255, 255, .2); background: #1f2937; color: #e5e7eb; }
+.msala__aviso svg { flex-shrink: 0; margin-top: 1px; }
+.msala__aviso p { flex: 1; margin: 0; line-height: 1.5; }
+.msala__aviso button { border: 0; background: none; color: inherit; cursor: pointer; }
+
+/* Lugar de la sala completa en la página (la sala se dibuja encima, sin cortarse al navegar). */
+.msala-hueco { height: min(calc(100dvh - 120px), 960px); min-height: 560px; }
+/* En el dashboard la sala empieza más abajo (barra de título, cabecera y «Volver»). */
+.cf > .msala-hueco { height: calc(100dvh - 250px); min-height: 420px; }
+
+/* Ventanita: sigue la llamada mientras se usa el resto (o encima de todo, en la app). */
+.msala--mini.msala { grid-template-rows: auto minmax(0, 1fr) auto; border-radius: 18px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+.msala-mini__top { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px 6px; cursor: default; }
+.msala-mini__top .msala__vivo { padding: 3px 8px; font-size: 10px; }
+.msala-mini__top strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.msala-mini__n { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--s-muted); }
+.msala-mini__video { position: relative; min-height: 0; padding: 0 8px; }
+.msala-mini__video > .msala__mosaico, .msala-mini__video > .lk-participant-tile { height: 100%; }
+.msala-mini__video .msala__nombre { left: 8px; bottom: 8px; padding: 4px 8px; font-size: 11px; }
+.msala-mini__aviso { position: absolute; left: 12px; right: 12px; top: 6px; margin: 0; padding: 6px 8px; border-radius: 10px; background: #2a1215; color: #fecaca; font-size: 11px; line-height: 1.4; }
+.msala-mini__barra { display: flex; justify-content: center; gap: 6px; padding: 8px; }
+.msala .msala__btn--mini { min-width: 0; width: 38px; height: 38px; padding: 0; border-radius: 12px; }
+.msala .msala__btn--mini span { display: none; }
+.msala .msala__btn--mini svg { width: 17px; height: 17px; }
+
+@keyframes msala-llamar { 50% { transform: translateX(-50%) scale(1.06); } }
+.msala--mini .msala__sonido { top: 40px; padding: 8px 14px; font-size: 13px; }
+
+@media (max-width: 900px) {
+  .msala-hueco { height: calc(100dvh - 96px); min-height: 480px; }
+  .msala.msala { border-radius: 18px; }
+  .msala__cuerpo.con-panel { grid-template-columns: minmax(0, 1fr); }
+  .msala__panel { position: absolute; inset: 62px 8px 96px; z-index: 12; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
+  .msala__chip--rec { display: none; }
+}
+@media (max-width: 600px) {
+  .msala__top { padding: 10px 12px; }
+  .msala__titulo { gap: 10px; }
+  .msala__titulo h2 { font-size: 15px; }
+  .msala__chips { display: none; }
+  .msala__cuerpo { padding: 8px; }
+  /* Una sola fila de botones compactos. */
+  .msala__dock { flex-wrap: nowrap; gap: 5px; padding: 8px 6px 12px; }
+  .msala__dock-grupo { flex-wrap: nowrap; gap: 5px; }
+  .msala .msala__btn { min-width: 0; width: 42px; height: 46px; padding: 0; border-radius: 14px; }
+  /* Los navegadores de celular no comparten pantalla. */
+  .msala .msala__btn[data-lk-source='screen_share'] { display: none; }
+  .msala .msala__btn svg { width: 19px; height: 19px; }
+  .msala__panel { inset: 56px 8px 74px; }
+  .msala .msala__btn span { display: none; }
+  .msala__escribir input { font-size: 16px; }
+  .msala__oyente { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msala__vivo.is-on i::after { animation: none; }
+  .msala .msala__btn, .msala__mosaico { transition: none; }
+}
+
+/* Antes de entrar: conectando, sala de espera, sin acceso o error */
+.msala-previo { display: grid; place-items: center; min-height: min(70dvh, 620px); padding: 24px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 24px; background: radial-gradient(circle at 50% 30%, #1d1d22, #0b0b0d 70%); color: #f4f4f5; }
+.msala-previo__caja { display: grid; justify-items: center; gap: 10px; max-width: 420px; text-align: center; }
+.msala-previo__caja h3 { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: #f4f4f5; }
+.msala-previo__caja p { margin: 0; font-size: 14px; line-height: 1.6; color: #a1a1aa; }
+.msala-previo__icono { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, .07); color: #f4f4f5; }
+.msala-previo__icono svg { width: 28px; height: 28px; }
+.msala-previo__icono--error { background: rgba(239, 68, 68, .14); color: #fca5a5; }
+.msala-previo__btn { margin-top: 10px; height: 44px; padding: 0 22px; border: 0; border-radius: 99px; background: #fafafa; color: #111; font: inherit; font-weight: 600; cursor: pointer; }
+
+/* Contenedor único de la sala activa (SalaActivaProvider). */
+.msala-contenedor { position: fixed; z-index: 30; }
+.msala-contenedor > .msala-previo { height: 100%; min-height: 0; }
+.msala-contenedor.is-mini { right: 20px; bottom: 20px; width: 360px; height: 240px; z-index: 9000; }
+.msala-contenedor.is-flotante { inset: 0; z-index: 10001; }
+.msala-contenedor.is-flotante .msala--mini.msala { border-radius: 0; border: 0; }
+.msala-previo__acciones { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+.msala-previo__btn { display: inline-flex; align-items: center; gap: 6px; }
+.msala-previo__btn--suave { background: rgba(255, 255, 255, .1); color: #f4f4f5; }
+.msala-previo--mini { padding: 12px; border-radius: 18px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+.msala-previo--mini .msala-previo__caja { gap: 6px; }
+.msala-previo--mini .msala-previo__icono { width: 40px; height: 40px; }
+.msala-previo--mini .msala-previo__icono svg { width: 20px; height: 20px; }
+.msala-previo--mini h3 { font-size: 15px; margin: 2px 0 0; }
+.msala-previo--mini p { font-size: 12px; line-height: 1.4; }
+.msala-previo--mini .msala-previo__btn { height: 34px; padding: 0 14px; font-size: 13px; margin-top: 0; }
+.msala-toast { position: fixed; right: 20px; bottom: 20px; z-index: 9001; display: flex; align-items: center; gap: 10px; max-width: 360px; padding: 12px 14px; border-radius: 14px; background: #18181b; color: #f4f4f5; font-size: 13px; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+.msala-toast button { border: 0; background: none; color: inherit; cursor: pointer; }
+@media (max-width: 600px) {
+  .msala-contenedor.is-mini { right: 10px; bottom: 10px; width: calc(100vw - 20px); height: 210px; }
+}
+
+/* Moon Rooms · interfaz de reunión. El proveedor y los dispositivos no cambian. */
+.msala.msala { --s-bg:#111214; --s-panel:#191a1e; --s-card:#232529; --s-line:#ffffff13; --s-ink:#f3f3f5; --s-muted:#aaadb5; --s-ok:#8cddb4; --s-danger:#e76565; --lk-bg:var(--s-bg); --lk-bg2:var(--s-panel); --lk-fg:var(--s-ink); --lk-border-color:var(--s-line); --lk-accent-bg:#f3f3f5; --lk-accent-fg:#171717; grid-template-areas:'cabecera' 'cuerpo' 'controles'; grid-template-rows:76px minmax(0,1fr) 96px; border-radius:18px; box-shadow:0 16px 56px #0003; isolation:isolate; }
+.msala *, .msala *::before, .msala *::after { box-sizing:border-box; }
+.msala :where(button,input,select) { font-family:inherit; }
+.msala button:focus-visible, .msala input:focus-visible, .msala select:focus-visible { outline:2px solid #c6cbd9; outline-offset:3px; }
+.msala .msala__top { grid-area:cabecera; min-height:0; padding:14px 22px; background:#17181b; }
+.msala__identidad { display:flex; align-items:center; gap:13px; min-width:0; }
+.msala__identidad>img { flex:none; width:31px; height:31px; object-fit:contain; opacity:.9; }
+.msala__identidad>div { min-width:0; }
+.msala__identidad>div>span { display:block; color:#9fa2aa; font-size:9px; letter-spacing:.13em; font-weight:500; }
+.msala__identidad b { margin-inline:7px; font-weight:400; color:#62656d; }
+.msala__identidad h2 { margin:5px 0 0; font-size:16px; font-weight:550; letter-spacing:-.015em; color:var(--s-ink); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.msala__chips { gap:10px; }
+.msala__chip { padding:5px 9px; background:#ffffff06; border:1px solid var(--s-line); color:#c8cbd1; font-size:11px; border-radius:6px; }
+.msala__chip--rec { color:#c6c6ca; }
+.msala__vivo { background:transparent; font-size:10px; letter-spacing:.04em; padding:5px 0; gap:7px; }
+.msala__vivo.is-on i { background:var(--s-ok); width:6px; height:6px; }
+.msala__vivo.is-on i::after { border:1px solid #8cddb470; }
+.msala__cuerpo { grid-area:cuerpo; position:relative; padding:0; gap:0; overflow:hidden; }
+.msala__cuerpo.con-panel { grid-template-columns:minmax(0,1fr) 340px; }
+.msala__escenario { display:grid; grid-template-rows:48px minmax(0,1fr) 29px; border-radius:0; min-width:0; }
+.msala__escenario-barra { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 18px; color:var(--s-muted); font-size:11px; }
+.msala__escenario-barra>div:first-child { display:flex; align-items:center; gap:7px; min-width:0; }
+.msala__presentando { margin-left:8px; color:#dfdfe3; background:#ffffff0a; border-radius:5px; padding:4px 7px; font-size:10px; }
+.msala__vistas { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #ffffff0d; border-radius:8px; background:#ffffff03; }
+.msala__vistas button { display:flex; align-items:center; justify-content:center; gap:7px; border:0; border-radius:5px; background:transparent; color:#a4a7af; min-height:29px; padding:5px 8px; font-size:10px; cursor:pointer; }
+.msala__vistas button[aria-pressed=true] { color:#f3f3f5; background:#32343a; }
+.msala__lienzo { position:relative; min-height:0; min-width:0; overflow:hidden; padding:0 14px; }
+.msala .lk-grid-layout { gap:10px; padding:0; }
+.msala__grilla { height:100%; min-height:0; }
+.msala__mosaico.msala__mosaico { position:relative; border:1px solid #ffffff0b; border-radius:12px; background:radial-gradient(ellipse at 48% 20%,#30333a,#22242a 85%); outline:2px solid transparent; outline-offset:-2px; transition:outline-color .18s ease; }
+.msala__mosaico--tono-1.msala__mosaico { background:radial-gradient(ellipse at 45% 30%,#37383a,#252629 85%); }
+.msala__mosaico--tono-2.msala__mosaico { background:radial-gradient(ellipse at 40% 30%,#30373a,#21272a 85%); }
+.msala__mosaico--tono-3.msala__mosaico { background:radial-gradient(ellipse at 50% 10%,#37343b,#25232a 85%); }
+.msala__mosaico--tono-4.msala__mosaico { background:radial-gradient(ellipse at 40% 30%,#383833,#292923 85%); }
+.msala__mosaico.is-hablando { outline-color:var(--s-ok); box-shadow:none; }
+.msala__avatar { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:11px; }
+.msala__avatar>span { width:clamp(58px,19%,104px); height:auto; border-radius:50%; background:#ffffff14; box-shadow:inset 0 1px 0 #ffffff0c; font-size:clamp(22px,2.4vw,34px); font-weight:500; letter-spacing:-.03em; }
+.msala__avatar>small { color:#9ea2ad; font-size:10px; }
+.msala__tile-superior { position:absolute; left:12px; right:12px; top:11px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; }
+.msala__tile-superior>span { font-size:9px; letter-spacing:.03em; padding:5px 7px; border-radius:4px; color:#d7d7db; background:#10111458; }
+.msala__fijar { margin-left:auto; width:29px; height:29px; display:grid; place-items:center; border:1px solid #ffffff1c; border-radius:7px; color:#e1e2e5; background:#17181bc4; cursor:pointer; pointer-events:auto; opacity:0; transition:opacity .15s,background .15s; }
+.msala__mosaico:hover .msala__fijar, .msala__mosaico:focus-within .msala__fijar, .msala__fijar.is-fijado { opacity:1; }
+.msala__fijar.is-fijado { color:#151515; background:#e7e7eb; }
+.msala__nombre { left:12px; right:12px; bottom:10px; max-width:none; border-radius:0; background:transparent; padding:0; justify-content:space-between; gap:6px; font-size:12px; font-weight:500; text-shadow:0 1px 4px #000; }
+.msala__nombre>span:first-child { padding:5px 7px; background:#10111465; border-radius:5px; }
+.msala__estado-mic { display:grid; place-items:center; width:26px; height:26px; background:#0e101361; border-radius:50%; flex:none; }
+.msala__estado-mic>svg { color:#dadce2; }
+.msala__voz { display:flex; gap:2px; align-items:center; height:13px; }
+.msala__voz i { display:block; height:5px; width:2px; background:var(--s-ok); animation:msala-voz .7s ease-in-out infinite alternate; }
+.msala__voz i:nth-child(2) { height:12px; animation-delay:-.35s; }.msala__voz i:nth-child(3) { height:8px; animation-delay:-.15s; }
+@keyframes msala-voz { to { transform:scaleY(.5); } }
+.msala__video { object-fit:cover; border-radius:11px; }
+.msala__mosaico.is-pantalla .msala__video { object-fit:contain; background:#111214; }
+.msala__enfoque { height:100%; display:grid; grid-template-rows:minmax(0,1fr) minmax(75px,22%); gap:10px; }
+.msala__destacado { min-height:0; }.msala__destacado>.msala__mosaico { width:100%; height:100%; }
+.msala__enfoque:has(>.msala__destacado:only-child) { grid-template-rows:minmax(0,1fr); }
+.msala__tira { min-height:0; max-height:100%; }
+.msala__tira .msala__avatar>small, .msala__tira .msala__tile-superior>span { display:none; }
+.msala__tira .msala__avatar>span { min-width:36px; width:36px; font-size:15px; }
+.msala__tira .msala__nombre { font-size:10px; left:8px; bottom:5px; right:8px; }
+.msala__tira .msala__tile-superior { top:6px; right:6px; }
+.msala__tira .msala__fijar { width:23px; height:23px; }
+.msala__escenario-pie { display:flex; align-items:center; justify-content:space-between; padding:0 18px; color:#9296a0; font-size:9px; }
+.msala__escenario-pie>span { display:flex; align-items:center; gap:5px; }
+.msala__escenario-vacio { display:flex; flex-direction:column; height:100%; justify-content:center; align-items:center; gap:13px; text-align:center; color:var(--s-muted); }
+.msala__escenario-vacio h3 { margin:0; font-size:21px; color:#eeeef1; font-weight:500; }.msala__escenario-vacio p { margin:0; font-size:13px; }
+.msala__orbita-vacia { width:90px; height:90px; display:grid; place-items:center; border:1px solid #ffffff17; border-radius:28px; margin-bottom:8px; }
+.msala__panel { border:0; border-left:1px solid var(--s-line); border-radius:0; background:var(--s-panel); }
+.msala__panel-top { min-height:60px; padding:10px 13px; }
+.msala__seg { background:transparent; padding:0; gap:7px; }.msala__seg button { gap:8px; min-height:36px; padding:8px 11px; font-size:12px; }
+.msala__seg button[aria-selected=true] { background:#ffffff09; }
+.msala__icono { width:36px; height:36px; border-radius:8px; }
+.msala__chat-nota { display:flex; align-items:flex-start; gap:8px; padding:13px 17px; background:#ffffff02; color:#a2a5af; }.msala__chat-nota svg { flex:none; margin-top:2px; }.msala__chat-nota p { font-size:10px; line-height:1.6; margin:0; }
+.msala__mensajes { padding:16px; gap:19px; scroll-behavior:auto; }
+.msala__msg, .msala__msg.is-propio { display:flex; align-items:flex-start; gap:10px; align-self:stretch; max-width:100%; padding:0; border-radius:0; color:var(--s-ink); background:transparent; }
+.msala__msg-avatar { width:29px; height:29px; display:grid; place-items:center; flex:none; border-radius:9px; background:#35373e; color:#dbdde5; font-size:10px; font-weight:500; }
+.msala__msg.is-propio .msala__msg-avatar { background:#d5d7dd; color:#292c33; }
+.msala__msg>div { min-width:0; flex:1; }.msala__msg header { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:5px; }
+.msala__msg strong { color:#d9dce3; margin:0; font-size:11px; font-weight:600; }.msala__msg time, .msala__msg.is-propio time { color:#969aa5; font-size:9px; margin:0; }
+.msala__msg p { color:#caced8; font-size:13px; line-height:1.65; }
+.msala__compositor { padding:12px 13px 13px; margin-top:auto; border-top:1px solid var(--s-line); }
+.msala__escribir { display:flex; align-items:center; gap:5px; padding:5px 6px 5px 12px; border:1px solid #ffffff14; background:#25272d; border-radius:10px; min-height:49px; }
+.msala__escribir input { min-width:0; width:100%; flex:1; background:transparent; border:0; height:37px; border-radius:0; padding:0; font-size:16px; color:#f1f1f3; outline:none; }
+.msala__escribir input::placeholder { color:#9b9eaa; font-size:13px; }
+.msala__escribir button { border-radius:7px; }
+.msala__escribir .msala__enviar { width:32px; height:34px; min-width:32px; background:#e0e2e8; color:#25272d; }
+.msala__compositor>small { display:flex; justify-content:space-between; margin-top:8px; color:#9599a4; font-size:9px; }
+.msala__buscar-personas { display:flex; gap:9px; align-items:center; margin:13px 3px 20px; padding:0 12px; background:#ffffff05; border:1px solid var(--s-line); border-radius:8px; color:var(--s-muted); min-height:46px; }
+.msala__buscar-personas input { border:0; background:none; color:var(--s-ink); font-size:16px; outline:none; min-width:0; width:100%; height:44px; }
+.msala__personas { padding:0 13px 14px; }.msala__personas h3 { margin:18px 5px 12px; letter-spacing:.06em; font-size:10px; }.msala__persona { gap:9px; padding:10px 5px; }.msala__persona strong { font-size:12px; }.msala__persona small { font-size:10px; }.msala__mini { border-radius:10px; width:33px; height:33px; font-size:10px; background:#30323a; }
+.msala__dock { grid-area:controles; border-top:1px solid var(--s-line); background:#191a1e; padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px)); gap:12px; justify-content:space-between; flex-wrap:nowrap; z-index:18; min-height:0; }
+.msala__dock-grupo { flex-wrap:nowrap; gap:8px; }
+.msala .msala__btn { width:65px; min-width:58px; height:65px; gap:7px; padding:9px 7px; border:1px solid #ffffff08; border-radius:11px; font-size:10px; font-weight:450; background:#2b2d33; box-shadow:none; }
+.msala .msala__btn:hover { background:#3c3e47; }
+.msala .msala__btn[aria-pressed=true], .msala .msala__btn[data-lk-source=screen_share][data-lk-enabled=true] { background:#dfe2e8; color:#25272d; }
+.msala .msala__btn[data-lk-source=microphone][data-lk-enabled=false], .msala .msala__btn[data-lk-source=camera][data-lk-enabled=false] { color:#f4b1b1; background:#3c272c; border-color:#e765651c; }
+.msala .msala__btn--salir { color:#fff; background:#b84646; border-color:#e56666; width:75px; }.msala .msala__btn--salir:hover { background:#c44d4d; }
+.msala__dock-divisor { width:1px; height:29px; background:#ffffff16; margin-inline:5px; }
+.msala .msala__btn--ajustes { width:78px; }
+.msala__reacciones-ancla { position:relative; }
+.msala__reacciones { position:absolute; z-index:25; bottom:calc(100% + 15px); right:0; width:300px; background:#24262d; padding:17px; border:1px solid #ffffff20; border-radius:13px; box-shadow:0 15px 50px #0008; }
+.msala__reacciones>strong { font-size:12px; font-weight:550; }.msala__reacciones>p { font-size:10px; color:#b0b4c0; margin:5px 0 16px; line-height:1.6; }
+.msala__reacciones>div { display:flex; gap:3px; }.msala__reacciones>div>button { display:grid; place-items:center; flex:1; border:0; background:transparent; min-height:40px; border-radius:7px; cursor:pointer; }.msala__reacciones>div>button:hover { background:#ffffff12; }
+.msala__reacciones-visibles { pointer-events:none; position:absolute; inset:0; overflow:hidden; }
+.msala__reacciones-visibles>span { position:absolute; bottom:10px; display:flex; align-items:center; flex-direction:column; gap:4px; animation:msala-reaccion 4.5s ease-out forwards; }
+.msala__reacciones-visibles small { background:#111b; border-radius:5px; padding:3px 5px; color:#ddd; font-size:9px; }
+@keyframes msala-reaccion { 0% { transform:translateY(15px) scale(.75); opacity:0; } 12%,65% { opacity:1; } 85% { opacity:0; } 100% { transform:translateY(-130px) scale(1.1); opacity:0; } }
+.msala-sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.msala__pop { border-radius:13px; background:#24262d; }
+.msala__campo select { min-height:46px; height:auto; font-size:16px; }.msala__campo small { line-height:1.6; }
+.msala-previo { background:radial-gradient(ellipse at 50% 15%,#25272d,#111214 75%); border-radius:18px; }.msala-previo__caja { gap:13px; max-width:390px; }.msala-previo__icono { width:82px; height:82px; border:1px solid #ffffff12; background:#ffffff04; border-radius:26px; }.msala-previo__caja h3 { font-size:27px; letter-spacing:-.04em; font-weight:500; }.msala-previo__caja p { color:#aeb1bb; line-height:1.8; }.msala-previo__btn { min-height:46px; border-radius:9px; font-size:13px; }
+.msala.msala--mini { grid-template-areas:none; grid-template-rows:37px minmax(0,1fr) 48px; border-radius:14px; }.msala-mini__top { grid-row:1; }.msala-mini__video { grid-row:2; }.msala-mini__barra { grid-row:3; padding:6px; align-items:center; gap:6px; }.msala .msala__btn--mini { min-width:32px; width:34px; height:34px; padding:0; border-radius:8px; }.msala-mini__top .msala__vivo { font-size:8px; }.msala-mini__top strong { font-size:11px; }.msala-mini__video .msala__avatar>small { display:none; }.msala-mini__video .msala__avatar>span { width:47px; font-size:20px; }.msala-mini__video .msala__tile-superior { display:none; }.msala-mini__video .msala__nombre { font-size:10px; }.msala-mini__video .msala__nombre>span:first-child { padding:3px 5px; }.msala-previo--mini .msala-previo__icono { border-radius:13px; }
+@media(max-width:1100px) { .msala__rol,.msala__chip--rec { display:none; }.msala__cuerpo.con-panel { grid-template-columns:minmax(0,1fr) 306px; }.msala__identidad h2 { font-size:15px; }.msala .msala__btn { min-width:51px; width:56px; font-size:9px; }.msala .msala__btn--ajustes { width:73px; }.msala .msala__btn--salir { width:65px; }.msala__dock { gap:9px; padding-inline:14px; }.msala__dock-grupo { gap:6px; } }
+@media(max-width:900px) { .msala.msala { grid-template-rows:68px minmax(0,1fr) 91px; }.msala__cuerpo.con-panel { grid-template-columns:minmax(0,1fr); }.msala__panel { position:absolute; inset:6px 9px; border:1px solid #ffffff1a; border-radius:13px; z-index:15; box-shadow:0 20px 40px #0008; }.msala__top { gap:8px; }.msala__identidad>div>span { font-size:8px; }.msala__chips { gap:6px; }.msala .msala__btn--mini { min-width:32px; width:34px; }.msala__fijar { opacity:1; } }
+@media(max-width:600px) { .msala.msala { grid-template-rows:61px minmax(0,1fr) calc(74px + env(safe-area-inset-bottom,0px)); border-radius:12px; }.msala .msala__top { padding:9px 12px; }.msala__identidad { gap:9px; }.msala__identidad>img { width:23px; height:26px; }.msala__identidad h2 { font-size:12px; margin-top:4px; }.msala__identidad>div>span { font-size:7px; letter-spacing:.08em; }.msala__chips { display:flex; gap:3px; }.msala__chips .msala__icono { width:29px; height:34px; }.msala__chips .msala__vivo { font-size:0; gap:0; padding:0 5px; }.msala__escenario { grid-template-rows:43px minmax(0,1fr) 25px; }.msala__escenario-barra { padding-inline:10px; font-size:9px; }.msala__vistas button { padding:5px 7px; min-height:30px; }.msala__vistas button span { display:none; }.msala__presentando { display:none; }.msala__lienzo { padding:0 8px; }.msala .lk-grid-layout { gap:7px; }.msala__avatar>span { width:50px; font-size:22px; }.msala__avatar>small { font-size:8px; }.msala__nombre { font-size:9px; left:7px; right:7px; bottom:7px; }.msala__tile-superior { top:7px; left:7px; right:7px; }.msala__tile-superior>span { font-size:7px; padding:4px 6px; }.msala__fijar { height:24px; width:24px; }.msala__escenario-pie { padding-inline:10px; font-size:8px; }.msala__escenario-pie>span:last-child { display:none; }.msala__dock { justify-content:center; padding:7px 7px calc(8px + env(safe-area-inset-bottom,0px)); gap:5px; }.msala__dock-grupo { gap:5px; }.msala .msala__btn,.msala .msala__btn--ajustes,.msala .msala__btn--salir { width:39px; min-width:36px; height:48px; border-radius:9px; gap:0; padding:0; }.msala .msala__btn>span { display:none; }.msala .msala__btn svg { width:18px; height:18px; }.msala__dock-divisor { display:none; }.msala__oyente { display:none; }.msala__reacciones { position:fixed; left:50%; transform:translateX(-50%); width:min(300px,calc(100vw - 30px)); bottom:calc(90px + env(safe-area-inset-bottom,0px)); }.msala__pop { position:fixed; top:auto; bottom:85px; left:50%; max-height:calc(100dvh - 150px); overflow-y:auto; }.msala__msg p { font-size:14px; }.msala__escribir input::placeholder { font-size:16px; }.msala.msala--mini { grid-template-rows:34px minmax(0,1fr) 46px; }.msala .msala__btn--mini { min-width:32px; width:34px; height:34px; }.msala__enfoque { grid-template-rows:minmax(0,1fr) 90px; }.msala__tira .msala__estado-mic { display:none; } }
+@media(max-height:540px) and (min-width:601px) { .msala.msala { grid-template-rows:57px minmax(0,1fr) 73px; }.msala .msala__btn { height:53px; }.msala__top { padding-block:9px; }.msala__identidad>div>span { display:none; }.msala__escenario { grid-template-rows:39px minmax(0,1fr) 22px; }.msala__avatar>small { display:none; }.msala.msala--mini { grid-template-rows:34px minmax(0,1fr) 44px; } }
+@media(prefers-reduced-motion:reduce) { .msala *, .msala *::before, .msala *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }.msala__reacciones-visibles { display:none; } }
+body[data-moon-workspace-motion=off] .msala *, body[data-moon-workspace-motion=off] .msala *::before, body[data-moon-workspace-motion=off] .msala *::after { animation:none!important; transition:none!important; }
+body[data-moon-workspace-motion=off] .msala__reacciones-visibles { display:none; }
+
+/* Keep compact room rows independent of full-room breakpoints. */
+@media(min-width:601px) and (min-height:541px) { .msala.msala--mini { grid-template-rows:37px minmax(0,1fr) 48px; } }
+
+.msala__escribir .ms-emoji-button { width:32px; height:34px; min-width:32px; background:transparent; color:#bfc1cc; border:0; }
+.msala__escribir .ms-emoji-button:hover { background:#ffffff10; color:#fff; }
+
+@keyframes msala-entrar { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:no-preference) { body:not([data-moon-workspace-motion=off]) .msala__panel { animation:msala-entrar .2s ease-out; } body:not([data-moon-workspace-motion=off]) .msala__mosaico { animation:msala-entrar .26s ease-out; } }
+
+@media(max-width:360px) { .msala__dock { padding-inline:5px; gap:4px; }.msala__dock-grupo { gap:3px; }.msala .msala__btn,.msala .msala__btn--ajustes,.msala .msala__btn--salir { width:34px; min-width:32px; } }
+
+/* Prevent intrinsic header text from widening the room grid on narrow screens. */
+.msala.msala { grid-template-columns:minmax(0,1fr); }.msala__top,.msala__cuerpo,.msala__dock { min-width:0; }.msala__identidad>div { min-width:0; }

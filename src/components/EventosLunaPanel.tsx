@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, RefreshCw, CalendarDays, Plus, Trash2, ExternalLink, Trophy, Users, Award, Gift, Ghost,
@@ -72,15 +73,15 @@ function duracion(ms: number) {
 
 const Pastilla: React.FC<{ color: string; children: React.ReactNode; title?: string }> = ({ color, children, title }) => (
   <span title={title} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-light whitespace-nowrap"
-    style={{ background: `${color}12`, color, border: `1px solid ${color}30` }}>{children}</span>
+    style={{ background: `${color}12`, color: panelInk(color), border: `1px solid ${color}30` }}>{children}</span>
 );
 
 const Cifra: React.FC<{ Icon: React.ElementType; valor: React.ReactNode; label: string; color?: string }> = ({ Icon, valor, label, color = '#a5b4fc' }) => (
   <div className="rounded-xl px-3 py-2.5 min-w-0" style={{ background: sc, border: `1px solid ${bd}` }}>
-    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>
-      <Icon className="w-3 h-3 flex-shrink-0" style={{ color }} strokeWidth={1.5} /><span className="truncate">{label}</span>
+    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>
+      <Icon className="w-3 h-3 flex-shrink-0" style={{ color: panelInk(color) }} strokeWidth={1.5} /><span className="truncate">{label}</span>
     </div>
-    <div className="mt-1 text-base font-light text-white truncate">{valor}</div>
+    <div className="mt-1 text-base font-light moon-panel-ink truncate">{valor}</div>
   </div>
 );
 
@@ -95,12 +96,12 @@ const Progreso: React.FC<{ e: Edicion; ahora: number }> = ({ e, ahora }) => {
   else texto = `${Math.floor(pct)} % · termina en ${duracion(fin - ahora)}`;
   return (
     <div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--moon-ink) 6%, transparent)' }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${e.estado === 'terminado' ? 100 : pct}%`, background: color, opacity: e.estado === 'terminado' ? 0.4 : 1 }} />
       </div>
-      <div className="mt-1.5 flex flex-wrap justify-between gap-2 text-[11px] font-light" style={{ color: mt }}>
+      <div className="mt-1.5 flex flex-wrap justify-between gap-2 text-[11px] font-light" style={{ color: panelInk(mt) }}>
         <span>{fecha(e.inicio, true)} → {fecha(e.fin, true)}</span>
-        <span style={{ color: e.estado === 'terminado' ? mt : 'white' }}>{texto}</span>
+        <span style={{ color: panelInk(e.estado === 'terminado' ? mt : 'var(--moon-ink)') }}>{texto}</span>
       </div>
     </div>
   );
@@ -159,15 +160,15 @@ const Configurar: React.FC<{ e: Edicion; lunaFetch: LunaFetch; onListo: () => vo
             const on = f.modo === m.id;
             return (
               <button key={m.id} type="button" disabled={terminado} onClick={() => setF({ ...f, modo: m.id })}
-                className="px-3.5 py-2.5 rounded-xl text-left transition-all hover:bg-white/[0.03] disabled:opacity-40"
-                style={{ border: `1px solid ${on ? 'rgba(255,255,255,0.25)' : bd}`, background: on ? 'rgba(255,255,255,0.05)' : 'transparent' }}>
-                <span className="block text-sm font-light text-white">{m.label}</span>
-                <span className="block text-[11px] font-light mt-0.5 leading-relaxed" style={{ color: mt }}>{m.texto}</span>
+                className="px-3.5 py-2.5 rounded-xl text-left transition-all moon-panel-hover disabled:opacity-40"
+                style={{ border: `1px solid ${on ? 'color-mix(in srgb, var(--moon-ink) 25%, transparent)' : bd}`, background: on ? 'color-mix(in srgb, var(--moon-ink) 5%, transparent)' : 'transparent' }}>
+                <span className="block text-sm font-light moon-panel-ink">{m.label}</span>
+                <span className="block text-[11px] font-light mt-0.5 leading-relaxed" style={{ color: panelInk(mt) }}>{m.texto}</span>
               </button>
             );
           })}
         </div>
-        {terminado && <p className="mt-2 text-[11px] font-light" style={{ color: mt }}>Esta edición ya terminó. Para reabrirla, mueve la fecha de fin hacia adelante.</p>}
+        {terminado && <p className="mt-2 text-[11px] font-light" style={{ color: panelInk(mt) }}>Esta edición ya terminó. Para reabrirla, mueve la fecha de fin hacia adelante.</p>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -175,7 +176,7 @@ const Configurar: React.FC<{ e: Edicion; lunaFetch: LunaFetch; onListo: () => vo
           <Etiqueta hint="0 a 30">Días de preparación</Etiqueta>
           <Entrada type="number" min={0} max={30} value={f.anticipacionDias}
             onChange={ev => setF({ ...f, anticipacionDias: Math.max(0, Math.min(30, Math.round(Number(ev.target.value) || 0))) })} />
-          <span className="block mt-1.5 text-[11px] font-light leading-relaxed" style={{ color: mt }}>
+          <span className="block mt-1.5 text-[11px] font-light leading-relaxed" style={{ color: panelInk(mt) }}>
             Días antes del inicio en que el comando ya aparece en Discord, para que el staff lo configure (canal de criaturas, etc.). Los jugadores no pueden jugar hasta el inicio.
           </span>
         </label>
@@ -186,8 +187,8 @@ const Configurar: React.FC<{ e: Edicion; lunaFetch: LunaFetch; onListo: () => vo
       <div className="flex flex-wrap justify-end gap-2">
         <BotonSec onClick={onCerrar} disabled={guardando}><X className="w-3.5 h-3.5" strokeWidth={1.5} /> Cancelar</BotonSec>
         <button type="button" onClick={guardar} disabled={guardando || !hayCambios}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
-          style={{ background: '#fff', color: '#000' }}>
+          className="moon-panel-primary flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
+          style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}>
           {guardando ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</> : <><Save className="w-4 h-4" strokeWidth={1.5} /> Guardar</>}
         </button>
       </div>
@@ -231,17 +232,17 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
         <span className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: `${e.color}14`, border: `1px solid ${e.color}30` }}>{e.emoji}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-light text-white">{e.nombre}</h3>
+            <h3 className="text-base font-light moon-panel-ink">{e.nombre}</h3>
             <Pastilla color={est.color}><est.Icon className="w-3 h-3" strokeWidth={1.5} />{est.label}</Pastilla>
             {e.enPreparacion && <Pastilla color="#60a5fa" title="Su comando ya está en Discord para que el staff lo configure">En preparación</Pastilla>}
             {e.modo !== 'auto' && e.estado !== 'terminado' && <Pastilla color="#fb923c">Modo manual: {MODOS.find(m => m.id === e.modo)?.label}</Pastilla>}
             {!e.mostrarEnWeb && <Pastilla color="#94a3b8">Oculto en la web</Pastilla>}
             {e.contenidoPropio && <Pastilla color="#c4b5fd" title="Tiene su propio contenido (no el de la plantilla de su tipo)">Personalizada</Pastilla>}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-light" style={{ color: mt }}>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-light" style={{ color: panelInk(mt) }}>
             <span className="inline-flex items-center gap-1"><Terminal className="w-3 h-3" strokeWidth={1.5} />
               {(e.comandos ?? []).map(x => `/${x}`).join(', ')}:{' '}
-              <span style={{ color: e.comandosVisibles ? '#4ade80' : tenue }}>{e.comandosVisibles ? 'visible en Discord' : 'oculto en Discord'}</span>
+              <span style={{ color: panelInk(e.comandosVisibles ? '#4ade80' : tenue) }}>{e.comandosVisibles ? 'visible en Discord' : 'oculto en Discord'}</span>
             </span>
             {e.esActual && <span title="La edición que usa el bot ahora (juego, cierre y premios)">· edición en uso del bot</span>}
             {e.actualizadoEn && <span>· cambiado {fecha(e.actualizadoEn, true)}</span>}
@@ -250,7 +251,7 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
         <div className="flex flex-wrap gap-2">
           {e.mostrarEnWeb && (
             <a href={`${WEB}/eventos/${e.id}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5" style={{ border: `1px solid ${bd}`, color: mt }}>
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover" style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}>
               <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver en la web
             </a>
           )}
@@ -268,29 +269,29 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
           {e.estado === 'activo'
             ? <Cifra Icon={Ghost} label="Criaturas sueltas" valor={e.criaturasSueltas ?? '—'} color="#fb923c" />
             : <Cifra Icon={Gift} label="Premios finales" color="#facc15"
-                valor={c.premiosEntregadosEn ? <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-400" strokeWidth={1.5} />{fecha(c.premiosEntregadosEn)}</span>
+                valor={c.premiosEntregadosEn ? <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 moon-panel-tone-green" strokeWidth={1.5} />{fecha(c.premiosEntregadosEn)}</span>
                   : e.estado === 'terminado' ? 'Pendientes' : 'Al terminar'} />}
           <Cifra Icon={Trophy} label={`Primer puesto${e.moneda ? ` · ${e.moneda.emoji}` : ''}`} color="#facc15"
             valor={c.top[0] ? <span className="inline-flex items-center gap-1.5 min-w-0">{c.top[0].avatar && <img src={c.top[0].avatar} alt="" className="w-5 h-5 rounded-full flex-shrink-0" />}<span className="truncate">{c.top[0].nombre}</span></span> : '—'} />
         </div>
       )}
       {!c && e.estado !== 'programado' && (
-        <p className="mt-3 text-[11px] font-light" style={{ color: mt }}>Sin cifras: el bot no pudo leer la base de datos del evento.</p>
+        <p className="mt-3 text-[11px] font-light" style={{ color: panelInk(mt) }}>Sin cifras: el bot no pudo leer la base de datos del evento.</p>
       )}
 
       {c && c.top.length > 0 && (
         <div className="mt-3">
-          <button type="button" onClick={() => setVerTop(v => !v)} className="text-xs font-light underline underline-offset-2" style={{ color: mt }}>
+          <button type="button" onClick={() => setVerTop(v => !v)} className="text-xs font-light underline underline-offset-2" style={{ color: panelInk(mt) }}>
             {verTop ? 'Ocultar el top 10' : `Ver el top ${c.top.length}`}
           </button>
           {verTop && (
             <ol className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {c.top.map(g => (
                 <li key={g.puesto} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light min-w-0" style={{ background: sc, border: `1px solid ${bd}` }}>
-                  <span className="w-6 font-mono flex-shrink-0" style={{ color: g.puesto <= 3 ? '#facc15' : mt }}>#{g.puesto}</span>
+                  <span className="w-6 font-mono flex-shrink-0" style={{ color: panelInk(g.puesto <= 3 ? '#facc15' : mt) }}>#{g.puesto}</span>
                   {g.avatar && <img src={g.avatar} alt="" className="w-5 h-5 rounded-full flex-shrink-0" />}
-                  <span className="text-white truncate flex-1 min-w-0">{g.nombre}</span>
-                  <span className="flex-shrink-0" style={{ color: mt }}>{e.moneda?.emoji ?? '🍬'} {mil(g.dulces)} · {mil(g.atrapadas)} atrapadas</span>
+                  <span className="moon-panel-ink truncate flex-1 min-w-0">{g.nombre}</span>
+                  <span className="flex-shrink-0" style={{ color: panelInk(mt) }}>{e.moneda?.emoji ?? '🍬'} {mil(g.dulces)} · {mil(g.atrapadas)} atrapadas</span>
                 </li>
               ))}
             </ol>
@@ -301,19 +302,19 @@ const TarjetaEdicion: React.FC<{ e: Edicion; ahora: number; lunaFetch: LunaFetch
       {(puedePremios || puedeBorrar) && (
         <div className="mt-4 flex flex-wrap gap-2">
           {puedePremios && (
-            <BotonSec onClick={premios} disabled={!!trabajando} style={{ color: '#facc15', borderColor: 'rgba(250,204,21,0.3)' }}>
+            <BotonSec onClick={premios} disabled={!!trabajando} style={{ color: panelInk('#facc15'), borderColor: 'rgba(250,204,21,0.3)' }}>
               {trabajando === 'premios' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Gift className="w-3.5 h-3.5" strokeWidth={1.5} />} Entregar premios ahora
             </BotonSec>
           )}
           {puedeBorrar && (
-            <BotonSec onClick={borrar} disabled={!!trabajando} style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}>
+            <BotonSec onClick={borrar} disabled={!!trabajando} style={{ color: panelInk('#f87171'), borderColor: 'rgba(248,113,113,0.3)' }}>
               {trabajando === 'borrar' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />} Borrar edición
             </BotonSec>
           )}
         </div>
       )}
       {puedePremios && (
-        <p className="mt-2 text-[11px] font-light" style={{ color: mt }}>El bot los entrega solo unos minutos después del cierre; este botón es por si algo falló.</p>
+        <p className="mt-2 text-[11px] font-light" style={{ color: panelInk(mt) }}>El bot los entrega solo unos minutos después del cierre; este botón es por si algo falló.</p>
       )}
 
       {abierta && <Configurar e={e} lunaFetch={lunaFetch} onListo={onCambio} onCerrar={() => setAbierta(false)} />}
@@ -359,12 +360,12 @@ const NuevaEdicion: React.FC<{ tipos: Tipo[]; ediciones: Edicion[]; lunaFetch: L
           </Seleccion>
         </label>
         <button type="button" onClick={crear} disabled={creando || existe}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
-          style={{ background: '#fff', color: '#000' }}>
+          className="moon-panel-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
+          style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}>
           {creando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={1.5} />} Crear {t?.nombre} {anio}
         </button>
       </div>
-      {existe && <p className="text-[11px] font-light" style={{ color: '#facc15' }}>Esa edición ya existe.</p>}
+      {existe && <p className="text-[11px] font-light" style={{ color: panelInk('#facc15') }}>Esa edición ya existe.</p>}
     </Bloque>
   );
 };
@@ -404,13 +405,13 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
   if (error && !datos) {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <AlertCircle className="w-6 h-6 text-red-400" strokeWidth={1.5} />
-        <p className="text-sm font-light max-w-md" style={{ color: mt }}>{error}</p>
+        <AlertCircle className="w-6 h-6 moon-panel-tone-red" strokeWidth={1.5} />
+        <p className="text-sm font-light max-w-md" style={{ color: panelInk(mt) }}>{error}</p>
         <BotonSec onClick={pedir}><RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar</BotonSec>
       </div>
     );
   }
-  if (!datos) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: mt }} /></div>;
+  if (!datos) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: panelInk(mt) }} /></div>;
 
   const personalizar = async (e: Edicion) => {
     try {
@@ -425,11 +426,11 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
     return (
       <EditorContenido
         key={e.id} titulo={`Personalizar ${e.nombre}`} emoji={e.emoji} inicial={editando.contenido} subir={lunaSubir}
-        aviso={<p className="text-[11px] font-light leading-relaxed px-3.5 py-2.5 rounded-xl" style={{ color: mt, border: `1px solid ${bd}` }}>
+        aviso={<p className="text-[11px] font-light leading-relaxed px-3.5 py-2.5 rounded-xl" style={{ color: panelInk(mt), border: `1px solid ${bd}` }}>
           {editando.propio
-            ? <>Esta edición tiene su <b className="text-white font-normal">propio contenido</b>: los cambios de la plantilla de {e.tipoNombre ?? e.tipo} no la afectan.</>
+            ? <>Esta edición tiene su <b className="moon-panel-ink font-normal">propio contenido</b>: los cambios de la plantilla de {e.tipoNombre ?? e.tipo} no la afectan.</>
             : <>Ahora usa la plantilla de {e.tipoNombre ?? e.tipo}. Al guardar, esta edición pasa a tener su propio contenido (la plantilla no cambia).</>}
-          {e.estado === 'activo' && <> Está <b className="text-white font-normal">en curso</b>: los cambios se ven en Discord al instante. Cambiar ids de criaturas o insignias ya entregadas puede dejarlas sin mostrar.</>}
+          {e.estado === 'activo' && <> Está <b className="moon-panel-ink font-normal">en curso</b>: los cambios se ven en Discord al instante. Cambiar ids de criaturas o insignias ya entregadas puede dejarlas sin mostrar.</>}
         </p>}
         extra={editando.propio && (
           <BotonSec onClick={async () => {
@@ -456,7 +457,7 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
       {([['ediciones', 'Ediciones', CalendarDays], ['tipos', 'Tipos de evento', Layers]] as const).map(([id, label, Icon]) => (
         <button key={id} type="button" onClick={() => setVista(id)}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-light transition-all"
-          style={{ background: vista === id ? 'rgba(255,255,255,0.08)' : 'transparent', color: vista === id ? 'white' : mt }}>
+          style={{ background: vista === id ? 'color-mix(in srgb, var(--moon-ink) 8%, transparent)' : 'transparent', color: panelInk(vista === id ? 'var(--moon-ink)' : mt) }}>
           <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />{label}
         </button>
       ))}
@@ -486,7 +487,7 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
         <Bloque Icon={Terminal} titulo="Comandos de eventos en Discord" color={alDia ? '#4ade80' : '#facc15'}
           texto="El bot revisa el calendario cada minuto: cuando una edición empieza o termina, vuelve a registrar los comandos solo."
           extra={<BotonSec onClick={registrar} disabled={registrando}>{registrando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} />} Re-registrar ahora</BotonSec>}>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-light" style={{ color: mt }}>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-light" style={{ color: panelInk(mt) }}>
             {datos.tipos.map(t => {
               const on = comandos.visibles.includes(t.id);
               // (Un bot anterior mandaba `comandos`: una lista.)
@@ -495,25 +496,25 @@ export const EventosLunaPanel: React.FC<{ lunaFetch: LunaFetch; lunaSubir: LunaS
             })}
             <span>·</span>
             {alDia
-              ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-green-400" strokeWidth={1.5} /> Al día{comandos.en ? ` (registrados ${fecha(comandos.en, true)})` : ''}</span>
-              : <span style={{ color: '#facc15' }}>Hay un cambio pendiente: se aplica en menos de un minuto.</span>}
+              ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 moon-panel-tone-green" strokeWidth={1.5} /> Al día{comandos.en ? ` (registrados ${fecha(comandos.en, true)})` : ''}</span>
+              : <span style={{ color: panelInk('#facc15') }}>Hay un cambio pendiente: se aplica en menos de un minuto.</span>}
           </div>
         </Bloque>
         <div className="flex flex-wrap gap-2 lg:flex-col">
           <BotonSec onClick={() => { setTipoNuevaEdicion(null); setCreando(c => !c); }}><Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Nueva edición</BotonSec>
           <BotonSec onClick={pedir} disabled={cargando}><RefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin' : ''}`} strokeWidth={1.5} /> Actualizar</BotonSec>
           <a href={`${WEB}/eventos`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5" style={{ border: `1px solid ${bd}`, color: mt }}>
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover" style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}>
             <CalendarDays className="w-3.5 h-3.5" strokeWidth={1.5} /> Calendario en la web
           </a>
         </div>
       </div>
 
-      {error && <p className="text-[11px] font-light" style={{ color: '#f87171' }}>No se pudo actualizar: {error}</p>}
+      {error && <p className="text-[11px] font-light" style={{ color: panelInk('#f87171') }}>No se pudo actualizar: {error}</p>}
       {creando && <NuevaEdicion key={tipoNuevaEdicion ?? '-'} inicial={tipoNuevaEdicion} tipos={datos.tipos} ediciones={datos.ediciones} lunaFetch={lunaFetch} onCreada={pedir} onCerrar={() => setCreando(false)} />}
 
       {lista.length === 0
-        ? <p className="text-xs font-light px-3.5 py-6 rounded-xl text-center" style={{ color: mt, border: `1px dashed ${bd}` }}>Todavía no hay ediciones.</p>
+        ? <p className="text-xs font-light px-3.5 py-6 rounded-xl text-center" style={{ color: panelInk(mt), border: `1px dashed ${bd}` }}>Todavía no hay ediciones.</p>
         : lista.map(e => <TarjetaEdicion key={e.id} e={e} ahora={ahora} lunaFetch={lunaFetch} onCambio={pedir} onPersonalizar={() => void personalizar(e)} />)}
     </div>
   );

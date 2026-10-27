@@ -1,0 +1,313 @@
+    // ===== MOON STUDIOS - TRÁMITES Y ACCESO =====
+    // Límites de Administración: solo el CEO escribe moon_acceso/administracion.
+    // Sin documento rigen los valores iniciales (resolver y catálogo habilitados).
+    function moonAccesoTramites(clave) {
+      return !exists(/databases/$(database)/documents/moon_acceso/administracion)
+        || get(/databases/$(database)/documents/moon_acceso/administracion).data.get('tramites', {}).get(clave, true) == true;
+    }
+    function moonTramitesCatalogo() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && moonAccesoTramites('catalogo'));
+    }
+    function moonTramitesRevisor() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && moonAccesoTramites('resolver'));
+    }
+    function moonTipoTramiteValido(data) {
+      return data.keys().hasOnly(['nombre', 'descripcion', 'icono', 'campos', 'activo', 'soloCeo', 'orden', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.keys().hasAll(['nombre', 'descripcion', 'icono', 'campos', 'activo', 'soloCeo', 'orden', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.nombre is string && data.nombre.size() >= 3 && data.nombre.size() <= 80
+        && data.descripcion is string && data.descripcion.size() <= 400
+        && data.icono in ['vacaciones', 'permiso', 'tarjeta', 'datos', 'constancia', 'equipos', 'dinero', 'general']
+        && data.campos is list && data.campos.size() >= 1 && data.campos.size() <= 12
+        && data.activo is bool && data.soloCeo is bool
+        && data.orden is int && data.orden >= 0 && data.orden <= 999
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid;
+    }
+
+    // La identidad impresa procede del perfil vigente, nunca de un formulario.
+    function moonTramiteNombre(uid) {
+      let p = get(/databases/$(database)/documents/users/$(uid)).data;
+      return moonTramiteNombreDePerfil(p);
+    }
+    function moonTramiteNombreDePerfil(p) {
+      let n = p.get('displayName', '') is string && p.get('displayName', '').trim().size() > 0
+        ? p.displayName.trim()
+        : (p.get('email', '') is string && p.get('email', '').trim().size() > 0 ? p.email.trim() : 'Equipo Moon');
+      return n.size() <= 120 ? n : n[0:120];
+    }
+    function moonTramiteDestinatarioActivo(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.role
+          in ['CEO', 'Administración', 'Empleado', 'Contador', 'Diseño', 'Secretaría', 'Programación']
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('isActive', true) == true;
+    }
+
+    // Calendario real, incluidos los bisiestos, en el mismo rango que el panel.
+    function moonTramiteFechaValida(v) {
+      return v.matches('^((19|20|21)[0-9]{2}|2200)-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$|^((19|20|21)(0[48]|[2468][048]|[13579][26])|2000)-02-29$');
+    }
+    function moonTramiteValorCapturado(c, f, respuestas, patrones) {
+      let v = respuestas.get(f.id, patrones.ausente);
+      let t = f.tipo;
+      return c == {'id': f.id, 'etiqueta': f.etiqueta, 'tipo': t, 'valor': v}
+        && (v.matches(patrones[t])
+          ? (t == 'numero' ? (v.size() <= 1500 && float(v) * 0 == 0)
+            : (t != 'opcion' || v in f.opciones))
+          : v == '' && !f.requerido);
+    }
+    function moonTramiteCapturaValida(data, campos) {
+      let n = campos.size();
+      let capturas = data.camposRespuesta;
+      let respuestas = data.respuestas;
+      let completas = respuestas.size() == n;
+      let vacio = campos[0];
+      let ids = n == 12 ? campos : campos.concat([vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio, vacio]);
+      let texto = '(?s)^[^\\s\\p{Z}\\x{FEFF}](.{0,999}.{0,499}[^\\s\\p{Z}\\x{FEFF}])?$';
+      let fecha = '^((19|20|21)[0-9]{2}|2200)-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$|^((19|20|21)(0[48]|[2468][048]|[13579][26])|2000)-02-29$';
+      let numero = '^[-+]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][-+]?[0-9]+)?$';
+      let patrones = {'texto': texto, 'parrafo': texto, 'fecha': fecha, 'opcion': texto, 'numero': numero, 'ausente': completas ? null : ''};
+      return capturas is list && capturas.size() == n
+        && n >= 1 && n <= 12
+        // v69 omite opcionales vacíos; v70 los guarda. Ambos formatos se
+        // contrastan con el catálogo y nunca admiten claves ajenas.
+        && (completas || respuestas.keys().hasOnly([ids[0].id, ids[1].id, ids[2].id, ids[3].id, ids[4].id, ids[5].id,
+          ids[6].id, ids[7].id, ids[8].id, ids[9].id, ids[10].id, ids[11].id]))
+        && moonTramiteValorCapturado(capturas[0], campos[0], respuestas, patrones) && (n <= 1 || moonTramiteValorCapturado(capturas[1], campos[1], respuestas, patrones))
+        && (n <= 2 || moonTramiteValorCapturado(capturas[2], campos[2], respuestas, patrones)) && (n <= 3 || moonTramiteValorCapturado(capturas[3], campos[3], respuestas, patrones))
+        && (n <= 4 || moonTramiteValorCapturado(capturas[4], campos[4], respuestas, patrones)) && (n <= 5 || moonTramiteValorCapturado(capturas[5], campos[5], respuestas, patrones))
+        && (n <= 6 || moonTramiteValorCapturado(capturas[6], campos[6], respuestas, patrones)) && (n <= 7 || moonTramiteValorCapturado(capturas[7], campos[7], respuestas, patrones))
+        && (n <= 8 || moonTramiteValorCapturado(capturas[8], campos[8], respuestas, patrones)) && (n <= 9 || moonTramiteValorCapturado(capturas[9], campos[9], respuestas, patrones))
+        && (n <= 10 || moonTramiteValorCapturado(capturas[10], campos[10], respuestas, patrones)) && (n <= 11 || moonTramiteValorCapturado(capturas[11], campos[11], respuestas, patrones));
+    }
+    function moonTramiteSolicitudValida(data) {
+      let tipo = get(/databases/$(database)/documents/tramites_tipos/$(data.tipoId)).data;
+      let perfil = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return perfil.role in ['CEO', 'Administración', 'Empleado', 'Contador', 'Diseño', 'Secretaría', 'Programación']
+        && perfil.get('isActive', true) == true
+        && data.diff({'tipoNombre': tipo.nombre,
+          'solicitanteUid': request.auth.uid, 'solicitanteNombre': moonTramiteNombreDePerfil(perfil), 'solicitanteRol': perfil.role,
+          'estado': 'pendiente', 'comentario': '', 'soloCeo': tipo.soloCeo, 'createdAt': request.time, 'updatedAt': request.time})
+          .affectedKeys().hasOnly(['tipoId', 'respuestas', 'camposRespuesta'])
+        && data.respuestas is map && data.tipoId is string && tipo.activo == true
+        && moonTramiteCapturaValida(data, tipo.campos);
+    }
+    function moonTramiteDocumentoValido(solicitudId, data) {
+      let d = data.documento;
+      let uid = data.solicitanteUid;
+      return d is map
+        && d.keys().hasOnly(['version', 'plantilla', 'titulo', 'contenido', 'cargo', 'area', 'vigenteHasta', 'folio', 'solicitudId', 'destinatarioUid', 'destinatarioNombre', 'destinatarioCodigo', 'emitidoPor', 'emitidoPorNombre', 'emitidoAt'])
+        && d.keys().hasAll(['version', 'plantilla', 'titulo', 'contenido', 'cargo', 'area', 'vigenteHasta', 'folio', 'solicitudId', 'destinatarioUid', 'destinatarioNombre', 'destinatarioCodigo', 'emitidoPor', 'emitidoPorNombre', 'emitidoAt'])
+        && d.version == 1 && d.plantilla in ['constancia', 'credencial', 'respuesta']
+        && d.titulo is string && d.titulo.size() >= 3 && d.titulo.size() <= 100
+        && d.contenido is string && d.contenido.size() >= 1 && d.contenido.size() <= 6000
+        && (d.plantilla != 'credencial' || (d.titulo.size() <= 60 && d.contenido.size() <= 240))
+        && d.cargo is string && d.cargo.size() <= 100 && d.area is string && d.area.size() <= 100
+        && d.vigenteHasta is string && (d.vigenteHasta == '' || moonTramiteFechaValida(d.vigenteHasta))
+        && d.folio == 'MS-DOC-' + solicitudId.upper() && d.solicitudId == solicitudId
+        && d.destinatarioUid == uid && moonTramiteDestinatarioActivo(uid)
+        && d.destinatarioNombre == moonTramiteNombre(uid)
+        && d.destinatarioCodigo == 'MS-' + uid[0:(uid.size() < 8 ? uid.size() : 8)].upper()
+        && d.emitidoPor == request.auth.uid && d.emitidoPorNombre == moonTramiteNombre(request.auth.uid)
+        && d.emitidoAt == request.time;
+    }
+    function moonTramitePuedeResolver() {
+      return moonTramitesRevisor()
+        && (resource.data.solicitanteUid != request.auth.uid || moonCompanyCEO())
+        && (resource.data.soloCeo == false || moonCompanyCEO());
+    }
+    // Al eliminar: su tarjeta o constancia no queda «vigente» en la consulta pública.
+    function moonTramiteSinVerificacionVigente(solicitudId) {
+      let d = resource.data.get('documento', {});
+      return !(d.get('plantilla', '') in ['credencial', 'constancia'])
+        || moonTramiteVerificacionRetirada(solicitudId, d.destinatarioCodigo + '_' + d.plantilla);
+    }
+    function moonTramiteVerificacionRetirada(solicitudId, verifId) {
+      let ruta = /databases/$(database)/documents/moon_verificacion/$(verifId);
+      return !existsAfter(ruta) || getAfter(ruta).data.solicitudId != solicitudId
+        || getAfter(ruta).data.estado == 'baja';
+    }
+
+    match /moon_acceso/{docId} {
+      allow get: if moonCompanyStaff();
+      allow list, delete: if false;
+      allow create, update: if moonCompanyCEO() && docId == 'administracion'
+        && request.resource.data.keys().hasOnly(['modulos', 'tramites', 'updatedAt', 'updatedBy', 'updatedByName'])
+        && request.resource.data.keys().hasAll(['modulos', 'tramites', 'updatedAt', 'updatedBy', 'updatedByName'])
+        && request.resource.data.modulos is map
+        // «conferencias» es opcional: las versiones anteriores del panel no la envían.
+        && request.resource.data.modulos.keys().hasOnly(['admin', 'roles', 'webs', 'diseno', 'secretaria', 'programacion', 'conferencias'])
+        && request.resource.data.modulos.keys().hasAll(['admin', 'roles', 'webs', 'diseno', 'secretaria', 'programacion'])
+        && request.resource.data.modulos.admin is bool && request.resource.data.modulos.roles is bool
+        && request.resource.data.modulos.webs is bool && request.resource.data.modulos.diseno is bool
+        && request.resource.data.modulos.secretaria is bool && request.resource.data.modulos.programacion is bool
+        && request.resource.data.modulos.get('conferencias', true) is bool
+        && request.resource.data.tramites is map
+        && request.resource.data.tramites.keys().hasOnly(['resolver', 'catalogo'])
+        && request.resource.data.tramites.keys().hasAll(['resolver', 'catalogo'])
+        && request.resource.data.tramites.resolver is bool && request.resource.data.tramites.catalogo is bool
+        && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedByName is string && request.resource.data.updatedByName.size() <= 120;
+    }
+
+    match /tramites_tipos/{tipoId} {
+      allow get, list: if moonCompanyStaff();
+      allow create: if moonTramitesCatalogo() && tipoId.matches('^[a-z0-9-]{2,40}$')
+        && moonTipoTramiteValido(request.resource.data)
+        && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid;
+      // «Solo CEO» es un límite: Administración no puede quitarlo ni ponerlo.
+      allow update: if moonTramitesCatalogo() && moonTipoTramiteValido(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy
+        && (moonCompanyCEO() || request.resource.data.soloCeo == resource.data.soloCeo);
+      allow delete: if moonCompanyCEO();
+    }
+
+    match /tramites_solicitudes/{solicitudId} {
+      allow get, list: if moonCompanyStaff()
+        && (resource.data.solicitanteUid == request.auth.uid || moonTramitesRevisor());
+      allow create: if moonTramiteSolicitudValida(request.resource.data);
+      allow update: if moonCompanyStaff() && (
+        // Quien lo pidió solo puede cancelarlo mientras nadie lo atiende.
+        (resource.data.solicitanteUid == request.auth.uid
+          && resource.data.estado == 'pendiente'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'updatedAt'])
+          && request.resource.data.estado == 'cancelado'
+          && request.resource.data.updatedAt == request.time)
+        // Revisión: nunca lo propio (salvo el CEO) ni lo reservado al CEO.
+        || (moonTramitePuedeResolver()
+          && resource.data.estado in ['pendiente', 'en_revision']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'comentario', 'resueltoPor', 'resueltoPorNombre', 'resueltoAt', 'updatedAt', 'documento'])
+          && request.resource.data.estado in ['en_revision', 'aprobado', 'rechazado']
+          && request.resource.data.comentario is string && request.resource.data.comentario.size() <= 1000
+          && (request.resource.data.estado != 'rechazado' || request.resource.data.comentario.size() > 0)
+          && request.resource.data.resueltoPor == request.auth.uid
+          && request.resource.data.resueltoPorNombre == moonTramiteNombre(request.auth.uid)
+          && request.resource.data.resueltoAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && (!request.resource.data.keys().hasAny(['documento'])
+            || (request.resource.data.estado == 'aprobado'
+              && !resource.data.keys().hasAny(['documento'])
+              && moonTramiteDocumentoValido(solicitudId, request.resource.data))))
+        // Las aprobaciones históricas admiten una sola emisión, sin reescribir la resolución.
+        || (moonTramitePuedeResolver() && resource.data.estado == 'aprobado'
+          && !resource.data.keys().hasAny(['documento'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['documento', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time
+          && moonTramiteDocumentoValido(solicitudId, request.resource.data))
+      );
+      // Eliminar: solo lo ya resuelto o cancelado, y quien puede resolverlo.
+      // Su tarjeta o constancia no puede quedar «vigente» en la consulta pública.
+      allow delete: if moonCompanyStaff() && moonTramitePuedeResolver()
+        && resource.data.estado in ['aprobado', 'rechazado', 'cancelado']
+        && moonTramiteSinVerificacionVigente(solicitudId);
+    }
+
+    // Consulta pública «Información» (web oficial): por ID de equipo y tipo de
+    // documento. Solo la tarjeta y la constancia, y solo sus datos impresos:
+    // nunca correo, UID, respuestas del formulario ni quién la emitió.
+    // Copia exacta de los datos impresos del documento emitido «d».
+    function moonVerificacionCopia(verifId, v, d) {
+      return v.keys().hasOnly(['codigo', 'plantilla', 'titulo', 'nombre', 'cargo', 'area', 'folio', 'vigenteHasta', 'emitidoAt', 'estado', 'solicitudId'])
+        && v.keys().hasAll(['codigo', 'plantilla', 'titulo', 'nombre', 'cargo', 'area', 'folio', 'vigenteHasta', 'emitidoAt', 'estado', 'solicitudId'])
+        && v.solicitudId is string && v.solicitudId.size() > 0
+        && d.plantilla in ['credencial', 'constancia'] && d.solicitudId == v.solicitudId
+        && verifId == d.destinatarioCodigo + '_' + d.plantilla
+        && v.codigo == d.destinatarioCodigo && v.plantilla == d.plantilla && v.titulo == d.titulo
+        && v.nombre == d.destinatarioNombre && v.cargo == d.cargo && v.area == d.area
+        && v.folio == d.folio && v.vigenteHasta == d.vigenteHasta
+        && v.emitidoAt == d.emitidoAt && v.estado == 'vigente';
+    }
+    // Emitido en esta misma operación.
+    function moonVerificacionDeEmision(verifId, v) {
+      let d = getAfter(/databases/$(database)/documents/tramites_solicitudes/$(v.solicitudId)).data.documento;
+      return moonVerificacionCopia(verifId, v, d) && d.emitidoAt == request.time;
+    }
+    // Emitido antes de existir la consulta: se publica tal como se emitió.
+    function moonVerificacionHistorica(verifId, v) {
+      let s = get(/databases/$(database)/documents/tramites_solicitudes/$(v.solicitudId)).data;
+      return s.estado == 'aprobado' && moonVerificacionCopia(verifId, v, s.documento);
+    }
+    match /moon_verificacion/{verifId} {
+      // Se consulta por ID exacto; no se puede listar ni recorrer el padrón.
+      allow get: if true;
+      allow list, delete: if false;
+      allow create: if moonTramitesRevisor() && (moonVerificacionDeEmision(verifId, request.resource.data)
+        || moonVerificacionHistorica(verifId, request.resource.data));
+      allow update: if moonTramitesRevisor() && (
+        // Una nueva emisión del mismo documento reemplaza la anterior.
+        moonVerificacionDeEmision(verifId, request.resource.data)
+        // Un documento anterior solo se publica si es más reciente que el que figura:
+        // así una baja no se revierte publicando de nuevo el mismo documento.
+        || (moonVerificacionHistorica(verifId, request.resource.data) && resource.data.emitidoAt < request.resource.data.emitidoAt)
+        // Dar de baja: solo cambia el estado; la consulta informará que no es válido.
+        || (resource.data.estado == 'vigente'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'bajaAt'])
+          && request.resource.data.estado == 'baja' && request.resource.data.bajaAt == request.time));
+    }
+    // ===== Moon Studios Conferencias =====
+    // Solo lectura desde los clientes: toda escritura pasa por la API de Luna NET
+    // (Admin SDK), que verifica rol, evento, estado y horario. Aquí se decide
+    // quién ve qué: la dirección, el equipo de cada evento y sus invitados.
+    function moonConfGestorGlobal() {
+      return moonCompanyCEO()
+        || (moonCompanyAdmin() && (!exists(/databases/$(database)/documents/moon_acceso/administracion)
+          || get(/databases/$(database)/documents/moon_acceso/administracion).data.get('modulos', {}).get('conferencias', true) == true));
+    }
+    function moonConfRolEquipo(eventoId) {
+      return get(/databases/$(database)/documents/moon_conf_eventos/$(eventoId)).data.get('equipo', {}).get(request.auth.uid, '');
+    }
+    // Organizadores y moderadores ven la lista de invitados; el control de puerta, no.
+    function moonConfVeInvitados(eventoId) {
+      return moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) in ['organizador', 'moderador']);
+    }
+    function moonConfEnEquipo(eventoId) {
+      return moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) in ['organizador', 'moderador', 'control']);
+    }
+    function moonConfAcceso(eventoId) {
+      return /databases/$(database)/documents/moon_conf_accesos/$(eventoId + '_' + request.auth.uid);
+    }
+    function moonConfInvitado(eventoId) {
+      return request.auth != null && exists(moonConfAcceso(eventoId));
+    }
+    // Moderan la sala el equipo y los invitados con rol de moderador.
+    function moonConfModera(eventoId) {
+      return moonConfVeInvitados(eventoId) || (moonConfInvitado(eventoId)
+        && get(/databases/$(database)/documents/moon_conf_eventos/$(eventoId)/conf_invitaciones/$(get(moonConfAcceso(eventoId)).data.invId)).data.rol == 'moderador');
+    }
+
+    match /moon_conf_eventos/{eventoId} {
+      allow get: if moonConfEnEquipo(eventoId) || moonConfInvitado(eventoId);
+      allow list: if moonConfGestorGlobal() || (moonCompanyStaff() && request.auth.uid in resource.data.miembros);
+      allow write: if false;
+      match /conf_invitaciones/{invId} {
+        allow get: if moonConfVeInvitados(eventoId) || (request.auth != null && resource.data.ownerUid == request.auth.uid);
+        allow list: if moonConfVeInvitados(eventoId);
+        allow write: if false;
+      }
+      match /asistencia/{asistenciaId} {
+        allow read: if moonConfVeInvitados(eventoId);
+        allow write: if false;
+      }
+      match /avisos/{avisoId} {
+        allow read: if moonConfEnEquipo(eventoId) || moonConfInvitado(eventoId);
+        allow write: if false;
+      }
+      match /espera/{uid} {
+        allow get: if (request.auth != null && request.auth.uid == uid) || moonConfModera(eventoId);
+        allow list: if moonConfModera(eventoId);
+        allow write: if false;
+      }
+      match /auditoria/{registroId} {
+        allow read: if moonConfGestorGlobal() || (moonCompanyStaff() && moonConfRolEquipo(eventoId) == 'organizador');
+        allow write: if false;
+      }
+    }
+    match /moon_conf_accesos/{accesoId} {
+      allow get, list: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+    match /moon_conf_servidor/{docId} {
+      allow read, write: if false;
+    }
+    // ===== FIN TRÁMITES Y ACCESO =====
+

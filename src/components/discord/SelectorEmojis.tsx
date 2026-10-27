@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Clock, Bot, Smile, Leaf, Apple, Trophy, Plane, Lightbulb, Heart, Flag, Loader2 } from 'lucide-react';
-import type { EmojiPropio } from '@/services/discordApi';
+import type { EmojiPropio } from './emoji-types';
+import { discordEmojiUrl } from './emoji-text';
+import { useEmojiReducedMotion } from './emoji-motion';
 import { urlTwemoji } from './twemoji';
 
 // ─── Selector de emojis, como el de Discord ──────────────────────────────────
@@ -23,7 +25,7 @@ const CATEGORIAS = [
 ] as const;
 
 const CLAVE_RECIENTES = 'emojis-recientes';
-const leerRecientes = (): string[] => { try { return JSON.parse(localStorage.getItem(CLAVE_RECIENTES) || '[]'); } catch { return []; } };
+const leerRecientes = (): string[] => { try { const value: unknown = JSON.parse(localStorage.getItem(CLAVE_RECIENTES) || '[]'); return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 24) : []; } catch { return []; } };
 
 let cache: Promise<Categorias> | null = null;
 const cargarEstandar = () => (cache ??= import('./emojisDiscord.json').then(m => m.default.categorias as Categorias));
@@ -35,13 +37,21 @@ export function Twemoji({ emoji, size = 24 }: { emoji: string; size?: number }) 
   return <img src={urlTwemoji(emoji)} alt={emoji} width={size} height={size} loading="lazy" draggable={false} onError={() => setFallo(true)} />;
 }
 
-export function SelectorEmojis({ propios, actual, onElegir }: { propios: EmojiPropio[]; actual?: string; onElegir: (valor: string) => void }) {
+function CustomPreview({ emoji, size }: { emoji: EmojiPropio; size: number }) {
+  const reduced = useEmojiReducedMotion();
+  const [failed, setFailed] = useState(false);
+  const url = discordEmojiUrl(emoji.id, emoji.animado && !reduced);
+  return !url || failed ? <span title={`:${emoji.nombre}:`} style={{ maxWidth: size, overflow: 'hidden', fontSize: 10 }}>:{emoji.nombre}:</span> : <img src={url} alt={`:${emoji.nombre}:`} width={size} height={size} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(true)} />;
+}
+
+export function SelectorEmojis({ propios, actual, onElegir, compact = false, ocultarPropiosVacios = false }: { propios: EmojiPropio[]; actual?: string; onElegir: (valor: string) => void; compact?: boolean; ocultarPropiosVacios?: boolean }) {
   const [datos, setDatos] = useState<Categorias | null>(null);
   const [buscar, setBuscar] = useState('');
   const [recientes, setRecientes] = useState<string[]>(leerRecientes);
   const [encima, setEncima] = useState<{ ver: React.ReactNode; nombre: string; codigo: string } | null>(null);
-  const [seccion, setSeccion] = useState('bot');
+  const [seccion, setSeccion] = useState(() => ocultarPropiosVacios && !propios.length ? 'personas' : 'bot');
   const caja = useRef<HTMLDivElement>(null);
+  const reduced = useEmojiReducedMotion();
 
   useEffect(() => { cargarEstandar().then(setDatos).catch(() => setDatos({})); }, []);
 
@@ -51,6 +61,7 @@ export function SelectorEmojis({ propios, actual, onElegir }: { propios: EmojiPr
     for (const l of Object.values(datos ?? {})) for (const x of l) m.set(x.e, x);
     return m;
   }, [datos]);
+  const visiblesRecientes = recientes.filter(value => porValor.has(value) || propios.some(emoji => emoji.codigo === value));
 
   const elegir = (valor: string) => {
     const r = [valor, ...recientes.filter(x => x !== valor)].slice(0, 24);
@@ -69,36 +80,37 @@ export function SelectorEmojis({ propios, actual, onElegir }: { propios: EmojiPr
 
   const ir = (id: string) => {
     setSeccion(id);
+    if (compact) { caja.current?.scrollTo({ top: 0, behavior: 'instant' }); return; }
     const el = caja.current?.querySelector(`[data-seccion="${id}"]`) as HTMLElement | null;
-    if (el && caja.current) caja.current.scrollTo({ top: el.offsetTop - 4, behavior: 'smooth' });
+    if (el && caja.current) caja.current.scrollTo({ top: el.offsetTop - 4, behavior: reduced ? 'auto' : 'smooth' });
   };
 
   // Al bajar por la lista, la categoría marcada sigue a la que se ve.
   const alBajar = () => {
     const c = caja.current;
-    if (!c || q) return;
+    if (!c || q || compact) return;
     const secciones = [...c.querySelectorAll<HTMLElement>('[data-seccion]')];
     const visible = secciones.filter(s => s.offsetTop - c.scrollTop <= 40).pop();
     if (visible) setSeccion(visible.dataset.seccion!);
   };
 
-  const BotonStd = ({ x }: { x: EmojiStd }) => (
-    <button type="button" className="se-emoji" aria-pressed={actual === x.e} title={`:${x.c[0] ?? x.n}:`}
+  const renderStandard = (x: EmojiStd) => (
+    <button type="button" className="se-emoji" aria-label={`${x.n} :${x.c[0] ?? x.n}:`} aria-pressed={actual === x.e} title={`:${x.c[0] ?? x.n}:`}
       onClick={() => elegir(x.e)} onMouseEnter={() => setEncima({ ver: <Twemoji emoji={x.e} size={32} />, nombre: x.n, codigo: x.c.length ? `:${x.c[0]}:` : '' })}>
       <Twemoji emoji={x.e} size={26} />
     </button>
   );
-  const BotonPropio = ({ p }: { p: EmojiPropio }) => (
-    <button type="button" className="se-emoji" aria-pressed={actual === p.codigo} title={`:${p.nombre}:`}
-      onClick={() => elegir(p.codigo)} onMouseEnter={() => setEncima({ ver: <img src={p.url} alt="" width={32} height={32} />, nombre: `${p.nombre} · ${p.origen}`, codigo: `:${p.nombre}:` })}>
-      <img src={p.url} alt={p.nombre} width={26} height={26} loading="lazy" />
+  const renderCustom = (p: EmojiPropio) => (
+    <button type="button" className="se-emoji" aria-label={`:${p.nombre}:`} aria-pressed={actual === p.codigo} title={`:${p.nombre}:`}
+      onClick={() => elegir(p.codigo)} onMouseEnter={() => setEncima({ ver: <CustomPreview emoji={p} size={32} />, nombre: `${p.nombre} · ${p.origen}`, codigo: `:${p.nombre}:` })}>
+      <CustomPreview emoji={p} size={26} />
     </button>
   );
-  const BotonReciente = ({ v }: { v: string }) => {
+  const renderRecent = (v: string) => {
     const p = propios.find(x => x.codigo === v);
-    if (p) return <BotonPropio p={p} />;
+    if (p) return renderCustom(p);
     const x = porValor.get(v);
-    return x ? <BotonStd x={x} /> : null;
+    return x ? renderStandard(x) : null;
   };
 
   const deApp = propios.filter(p => p.borrable);
@@ -107,32 +119,32 @@ export function SelectorEmojis({ propios, actual, onElegir }: { propios: EmojiPr
   return (
     <div className="se">
       <div className="se-cab">
-        <div className="wb-buscar"><Search /><input className="wb-input" value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar: fuego, luna, :joy:…" autoFocus /></div>
+        <div className="wb-buscar"><Search /><input className="wb-input" aria-label="Buscar emojis" value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar: fuego, luna, :joy:…" autoFocus /></div>
       </div>
       <div className="se-cuerpo">
         <nav className="se-cats" aria-label="Categorías">
-          {recientes.length > 0 && <button type="button" title="Usados hace poco" aria-pressed={!q && seccion === 'recientes'} onClick={() => ir('recientes')}><Clock size={17} /></button>}
-          <button type="button" title="Del bot" aria-pressed={!q && seccion === 'bot'} onClick={() => ir('bot')}><Bot size={17} /></button>
-          {CATEGORIAS.map(c => <button key={c.id} type="button" title={c.nombre} aria-pressed={!q && seccion === c.id} onClick={() => ir(c.id)}><c.Icon size={17} /></button>)}
+          {visiblesRecientes.length > 0 && <button type="button" title="Usados hace poco" aria-label="Usados hace poco" aria-pressed={!q && seccion === 'recientes'} onClick={() => ir('recientes')}><Clock size={17} /></button>}
+          {(!ocultarPropiosVacios || propios.length > 0) && <button type="button" title="Del bot" aria-label="Emojis propios" aria-pressed={!q && seccion === 'bot'} onClick={() => ir('bot')}><Bot size={17} /></button>}
+          {CATEGORIAS.map(c => <button key={c.id} type="button" title={c.nombre} aria-label={c.nombre} aria-pressed={!q && seccion === c.id} onClick={() => ir(c.id)}><c.Icon size={17} /></button>)}
         </nav>
         <div className="se-lista" ref={caja} onScroll={alBajar} onMouseLeave={() => setEncima(null)}>
           {!datos ? <div className="wb-vacio"><Loader2 className="animate-spin" />Cargando los emojis de Discord…</div>
             : resultados ? (
               resultados.std.length + resultados.pro.length === 0
                 ? <div className="wb-vacio">Ningún emoji se llama «{buscar}».</div>
-                : <div className="se-rejilla">{resultados.pro.map(p => <BotonPropio key={p.id} p={p} />)}{resultados.std.map(x => <BotonStd key={x.h} x={x} />)}</div>
+                : <div className="se-rejilla">{resultados.pro.map(p => <Fragment key={p.id}>{renderCustom(p)}</Fragment>)}{resultados.std.map(x => <Fragment key={x.h}>{renderStandard(x)}</Fragment>)}</div>
             ) : (
               <>
-                {recientes.length > 0 && (
-                  <section data-seccion="recientes"><h4>Usados hace poco</h4><div className="se-rejilla">{recientes.map(v => <BotonReciente key={v} v={v} />)}</div></section>
+                {visiblesRecientes.length > 0 && (!compact || seccion === 'recientes') && (
+                  <section data-seccion="recientes"><h4>Usados hace poco</h4><div className="se-rejilla">{visiblesRecientes.map(v => <Fragment key={v}>{renderRecent(v)}</Fragment>)}</div></section>
                 )}
-                <section data-seccion="bot">
+                {(!ocultarPropiosVacios || propios.length > 0) && (!compact || seccion === 'bot') && <section data-seccion="bot">
                   <h4>Del bot <small>(su aplicación de Discord)</small></h4>
-                  {deApp.length ? <div className="se-rejilla">{deApp.map(p => <BotonPropio key={p.id} p={p} />)}</div> : <p className="se-nota">El bot todavía no tiene emojis propios. Súbelos en «Emojis propios».</p>}
-                  {deServidores.length > 0 && <><h4>De sus servidores</h4><div className="se-rejilla">{deServidores.map(p => <BotonPropio key={p.id} p={p} />)}</div></>}
-                </section>
-                {CATEGORIAS.map(c => (datos[c.id]?.length ? (
-                  <section key={c.id} data-seccion={c.id}><h4>{c.nombre}</h4><div className="se-rejilla">{datos[c.id].map(x => <BotonStd key={x.h} x={x} />)}</div></section>
+                  {deApp.length ? <div className="se-rejilla">{deApp.map(p => <Fragment key={p.id}>{renderCustom(p)}</Fragment>)}</div> : <p className="se-nota">El bot todavía no tiene emojis propios. Súbelos en «Emojis propios».</p>}
+                  {deServidores.length > 0 && <><h4>De sus servidores</h4><div className="se-rejilla">{deServidores.map(p => <Fragment key={p.id}>{renderCustom(p)}</Fragment>)}</div></>}
+                </section>}
+                {CATEGORIAS.map(c => (datos[c.id]?.length && (!compact || seccion === c.id) ? (
+                  <section key={c.id} data-seccion={c.id}><h4>{c.nombre}</h4><div className="se-rejilla">{datos[c.id].map(x => <Fragment key={x.h}>{renderStandard(x)}</Fragment>)}</div></section>
                 ) : null))}
               </>
             )}

@@ -1,0 +1,117 @@
+name: Release Moon Studios
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Traer todo el historial para poder hacer push a main después
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build y Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN:                       ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY:          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName:          ${{ github.ref_name }}
+          releaseName:      "Moon Studios ${{ github.ref_name }}"
+          releaseBody:      "Nueva versión de Moon Studios Portal Corporativo."
+          releaseDraft:     false
+          prerelease:       false
+          includeUpdaterJson: true   # genera latest.json y lo sube al release
+
+      # ── Copiar latest.json del release a la raíz del repo ─────────────────
+      # Tauri lee desde raw.githubusercontent.com/…/main/latest.json
+      # Usamos gh CLI (ya instalado en todos los runners de GitHub Actions)
+      # que maneja auth, redirects y CDN correctamente — sin curl ni python.
+      - name: Copiar latest.json a main
+        # Usar bash incluso en windows-latest (Git Bash viene incluido)
+        shell: bash
+        env:
+          # gh CLI necesita GH_TOKEN (además de GITHUB_TOKEN para git)
+          GH_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="${{ github.ref_name }}"
+
+          echo "──────────────────────────────────────────"
+          echo "  Esperando que los assets queden listos..."
+          echo "──────────────────────────────────────────"
+          # tauri-action puede tardar unos segundos en subir todos los assets
+          sleep 20
+
+          echo "  Descargando latest.json del release ${TAG}..."
+          # --clobber sobreescribe si existe un archivo previo en /tmp/upd/
+          mkdir -p /tmp/upd
+          gh release download "${TAG}" \
+            --pattern "latest.json" \
+            --dir /tmp/upd \
+            --clobber
+
+          if [ ! -f /tmp/upd/latest.json ]; then
+            echo "ERROR: latest.json no se descargó."
+            echo "Assets disponibles en el release ${TAG}:"
+            gh release view "${TAG}" --json assets --jq '.assets[].name'
+            exit 1
+          fi
+
+          echo ""
+          echo "=== latest.json descargado exitosamente ==="
+          cat /tmp/upd/latest.json
+          echo ""
+
+          # ── Configurar git ──────────────────────────────────────────────
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Ir a main (el checkout inicial estaba sobre el tag)
+          git fetch origin main
+          git checkout main
+          git pull origin main --no-rebase --ff-only
+
+          # Copiar el archivo descargado a la raíz del repo
+          cp /tmp/upd/latest.json ./latest.json
+
+          git add latest.json
+
+          if git diff --cached --quiet; then
+            echo "latest.json no cambió respecto a main — nada que commitear."
+            exit 0
+          fi
+
+          git commit -m "chore: update latest.json → ${TAG} [skip ci]"
+          git push origin main
+
+          echo ""
+          echo "✅ latest.json actualizado en main correctamente."
+          echo "   La app detectará la actualización en el próximo check (máx 30 min)."

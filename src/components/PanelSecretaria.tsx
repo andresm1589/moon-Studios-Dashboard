@@ -1,4 +1,8 @@
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { panelInk } from '@/lib/panelColors';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import WorkViewToolbar from './work/WorkViewToolbar';
+import { exportWorkspaceCsv } from '@/lib/workspaceExport';
 import { db, logActivity as registrarActividad } from '@/lib/firebase';
 import {
   collection, addDoc, deleteDoc, doc, onSnapshot,
@@ -55,6 +59,7 @@ function msgError(err: unknown): string {
 const fechaAGuardar = (s: string) => Timestamp.fromDate(new Date(`${s}T12:00:00`));
 
 export default function PanelSecretaria() {
+  const notesEmojiRef = useRef<HTMLTextAreaElement>(null);
   const { currentUser, userProfile, isAdmin, isCEO } = useAuth();
   const canEdit = isAdmin || isCEO || userProfile?.role === 'Secretaría';
   // Las reglas de secretaria_docs solo dejan borrar a CEO y Administración.
@@ -68,6 +73,9 @@ export default function PanelSecretaria() {
   const [activeTab,  setActiveTab]  = useState<Tab>('documentos');
   const [search,     setSearch]     = useState('');
   const [filterStatus, setFilterStatus] = useState<DocStatus | 'all'>('all');
+  const [docCategory, setDocCategory] = useState('all');
+  const [docFocus, setDocFocus] = useState<'all' | 'mine' | 'overdue' | 'week'>('all');
+  const [docOrder, setDocOrder] = useState<'recent' | 'name' | 'deadline'>('recent');
   const [showForm,   setShowForm]   = useState(false);
   const [editDoc,    setEditDoc]    = useState<SecDoc | null>(null);
   const [form,       setForm]       = useState<DocForm>(EMPTY_FORM);
@@ -227,8 +235,14 @@ export default function PanelSecretaria() {
       d.title.toLowerCase().includes(search.toLowerCase()) ||
       d.category.toLowerCase().includes(search.toLowerCase()) ||
       d.creatorName?.toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchSearch;
-  });
+    const open = d.status !== 'approved' && d.status !== 'archived';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = d.dueDate?.getTime();
+    const focus = docFocus === 'all' || (docFocus === 'mine' && d.creatorUid === userProfile?.uid)
+      || (docFocus === 'overdue' && open && due !== undefined && due < today.getTime())
+      || (docFocus === 'week' && open && due !== undefined && due >= today.getTime() && due < today.getTime() + 7 * 86_400_000);
+    return matchStatus && matchSearch && focus && (docCategory === 'all' || d.category === docCategory);
+  }).sort((a, b) => docOrder === 'name' ? a.title.localeCompare(b.title, 'es') : docOrder === 'deadline' ? (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) : 0);
 
   const countByStatus = (Object.keys(STATUS_META) as DocStatus[]).reduce((acc, s) => {
     acc[s] = docs.filter(d => d.status === s).length;
@@ -236,15 +250,15 @@ export default function PanelSecretaria() {
   }, {} as Record<DocStatus, number>);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="moon-module moon-module--panel-secretaria max-w-5xl mx-auto space-y-6">
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed top-20 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-light shadow-2xl"
+        <div className="moon-panel fixed top-20 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-light shadow-2xl"
           style={{
             background: toast.type === 'success' ? 'rgba(20,30,20,0.97)' : 'rgba(30,15,15,0.97)',
             borderColor: toast.type === 'success' ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)',
-            color: toast.type === 'success' ? '#34d399' : '#f87171',
+            color: panelInk(toast.type === 'success' ? '#34d399' : '#f87171'),
           }}>
           {toast.type === 'success' ? <Check className="w-4 h-4" strokeWidth={1.5} /> : <AlertCircle className="w-4 h-4" strokeWidth={1.5} />}
           {toast.msg}
@@ -256,14 +270,14 @@ export default function PanelSecretaria() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)' }}>
           <div className="w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl overflow-hidden"
-            style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)' }}>
+            style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-900">
-              <h2 className="text-white text-base font-light">
+            <div className="flex items-center justify-between px-6 py-5 border-b moon-panel-border">
+              <h2 className="moon-panel-ink text-base font-light">
                 {editDoc ? 'Editar documento' : 'Nuevo documento'}
               </h2>
               <button onClick={() => { setShowForm(false); setEditDoc(null); setForm(EMPTY_FORM); }}
-                className="w-8 h-8 rounded-xl bg-zinc-900 flex items-center justify-center text-zinc-500 hover:text-white">
+                className="w-8 h-8 rounded-xl moon-panel-surface flex items-center justify-center moon-panel-muted moon-panel-hover">
                 <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
@@ -271,90 +285,91 @@ export default function PanelSecretaria() {
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Título *</label>
+                  <label className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Título *</label>
                   <input
                     value={form.title}
                     onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
                     placeholder="Título del documento"
-                    className="w-full px-4 py-3 rounded-2xl text-white text-sm font-light placeholder-zinc-600 outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="w-full px-4 py-3 rounded-2xl moon-panel-ink text-sm font-light placeholder-zinc-600 outline-none"
+                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Categoría</label>
+                  <label className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Categoría</label>
                   <div className="relative">
                     <select
                       value={form.category}
                       onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                      className="w-full appearance-none px-4 py-3 pr-10 rounded-2xl text-white text-sm font-light outline-none cursor-pointer"
-                      style={{ background: '#111', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}>
-                      {DOC_CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#111', color: '#fff' }}>{c}</option>)}
+                      className="w-full appearance-none px-4 py-3 pr-10 rounded-2xl moon-panel-ink text-sm font-light outline-none cursor-pointer"
+                      style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)', color: "var(--moon-ink)" }}>
+                      {DOC_CATEGORIES.map(c => <option key={c} value={c} style={{ background: 'var(--moon-surface)', color: "var(--moon-ink)" }}>{c}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" strokeWidth={1.5} />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted pointer-events-none" strokeWidth={1.5} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Estado</label>
+                  <label className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Estado</label>
                   <div className="relative">
                     <select
                       value={form.status}
                       onChange={e => setForm(p => ({ ...p, status: e.target.value as DocStatus }))}
                       className="w-full appearance-none px-4 py-3 pr-10 rounded-2xl text-sm font-light outline-none cursor-pointer"
-                      style={{ background: '#111', border: '1px solid rgba(255,255,255,0.12)', color: STATUS_META[form.status as DocStatus]?.color ?? '#fff' }}>
+                      style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)', color: panelInk(STATUS_META[form.status as DocStatus]?.color ?? "var(--moon-ink)") }}>
                       {(Object.keys(STATUS_META) as DocStatus[]).map(s => (
-                        <option key={s} value={s} style={{ background: '#111', color: STATUS_META[s].color }}>{STATUS_META[s].label}</option>
+                        <option key={s} value={s} style={{ background: 'var(--moon-surface)', color: panelInk(STATUS_META[s].color) }}>{STATUS_META[s].label}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" strokeWidth={1.5} />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted pointer-events-none" strokeWidth={1.5} />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Contenido *</label>
+                  <label className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Contenido *</label>
                   <textarea
                     value={form.content}
                     onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
                     rows={8}
                     placeholder="Redacta el contenido del documento..."
-                    className="w-full px-4 py-3 rounded-2xl text-white text-sm font-light placeholder-zinc-600 outline-none resize-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="w-full px-4 py-3 rounded-2xl moon-panel-ink text-sm font-light placeholder-zinc-600 outline-none resize-none"
+                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}
                   />
                 </div>
                 <div>
-                  <label htmlFor="sec-due" className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Fecha límite</label>
+                  <label htmlFor="sec-due" className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Fecha límite</label>
                   <input
                     id="sec-due"
                     type="date"
                     value={form.dueDate}
                     onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-2xl text-white text-sm font-light outline-none [color-scheme:dark]"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="w-full px-4 py-3 rounded-2xl moon-panel-ink text-sm font-light outline-none [color-scheme:dark]"
+                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor="sec-notes" className="block text-zinc-500 text-xs font-light mb-2 uppercase tracking-wider">Notas internas</label>
+                  <label htmlFor="sec-notes" className="block moon-panel-muted text-xs font-light mb-2 uppercase tracking-wider">Notas internas</label>
                   <textarea
-                    id="sec-notes"
+                    id="sec-notes" ref={notesEmojiRef}
                     value={form.notes}
                     onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
                     rows={3}
                     placeholder="Pendientes, a quién se envió, observaciones..."
-                    className="w-full px-4 py-3 rounded-2xl text-white text-sm font-light placeholder-zinc-600 outline-none resize-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="w-full px-4 py-3 rounded-2xl moon-panel-ink text-sm font-light placeholder-zinc-600 outline-none resize-none"
+                    style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}
                   />
+                  <EmojiButton value={form.notes} onChange={notes => setForm(p => ({ ...p, notes }))} inputRef={notesEmojiRef} disabled={saving} unicodeOnly label="Añadir emoji a las notas internas" />
                 </div>
               </div>
             </div>
             {/* Footer */}
-            <div className="flex gap-3 px-6 py-5 border-t border-zinc-900">
+            <div className="flex gap-3 px-6 py-5 border-t moon-panel-border">
               <button onClick={() => { setShowForm(false); setEditDoc(null); setForm(EMPTY_FORM); }}
                 disabled={saving}
-                className="flex-1 py-3 rounded-2xl text-sm font-light text-zinc-500 hover:text-white transition-colors"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                className="flex-1 py-3 rounded-2xl text-sm font-light moon-panel-muted moon-panel-hover transition-colors"
+                style={{ background: 'var(--moon-surface-raised)', border: '1px solid var(--moon-line)' }}>
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 py-3 rounded-2xl text-sm font-light transition-all"
-                style={{ background: saving ? '#222' : '#fff', color: saving ? '#555' : '#000', cursor: saving ? 'not-allowed' : 'pointer' }}>
+                className="moon-panel-primary flex-1 py-3 rounded-2xl text-sm font-light transition-all"
+                style={{ background: saving ? "var(--moon-surface)" : "var(--moon-ink)", color: panelInk(saving ? "var(--moon-muted)" : "var(--moon-bg)"), cursor: saving ? 'not-allowed' : 'pointer' }}>
                 {saving ? 'Guardando...' : editDoc ? 'Actualizar' : 'Crear documento'}
               </button>
             </div>
@@ -363,14 +378,15 @@ export default function PanelSecretaria() {
       )}
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div data-moon-reveal="heading" className="moon-module-heading moon-work-page-heading flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-white text-xl font-light tracking-wide mb-1">Panel de Secretaría</h1>
-          <p className="text-zinc-500 text-sm font-light">{docs.length} documentos registrados</p>
+          <span className="moon-work-kicker">OPERACIONES Y ACUERDOS</span>
+          <h1 className="moon-page-title moon-panel-ink text-xl font-light tracking-wide mb-1">Panel de Secretaría</h1>
+          <p className="moon-panel-muted text-sm font-light">Documentos, revisiones y fechas clave · {docs.length} registros</p>
         </div>
         {canEdit && (
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-light bg-white text-black">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-light moon-panel-primary">
             <Plus className="w-4 h-4" strokeWidth={1.5} />
             Nuevo documento
           </button>
@@ -383,27 +399,27 @@ export default function PanelSecretaria() {
           const meta = STATUS_META[status];
           const Icon = meta.icon;
           return (
-            <button key={status}
-              onClick={() => setFilterStatus(filterStatus === status ? 'all' : status)}
-              className="rounded-2xl p-4 text-left transition-all"
+            <button data-moon-reveal="metric" key={status}
+              onClick={() => { setFilterStatus(filterStatus === status ? 'all' : status); setActiveTab('documentos'); }}
+              className="moon-stat rounded-2xl p-4 text-left transition-all"
               style={{
-                background: filterStatus === status ? `${meta.color}12` : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${filterStatus === status ? meta.color + '40' : 'rgba(255,255,255,0.06)'}`,
+                background: filterStatus === status ? `${meta.color}12` : "var(--moon-surface)",
+                border: `1px solid ${filterStatus === status ? meta.color + '40' : "var(--moon-line)"}`,
               }}>
-              <Icon className="w-4 h-4 mb-2" style={{ color: meta.color }} strokeWidth={1.5} />
-              <p className="text-white text-xl font-light">{countByStatus[status]}</p>
-              <p className="text-xs font-light mt-0.5" style={{ color: meta.color }}>{meta.label}</p>
+              <Icon className="w-4 h-4 mb-2" style={{ color: panelInk(meta.color) }} strokeWidth={1.5} />
+              <p className="moon-panel-ink text-xl font-light">{countByStatus[status]}</p>
+              <p className="text-xs font-light mt-0.5" style={{ color: panelInk(meta.color) }}>{meta.label}</p>
             </button>
           );
         })}
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div data-moon-reveal="card" className="moon-panel flex gap-1 p-1 rounded-2xl" style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}>
         {(['documentos', 'actividades'] as Tab[]).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className="flex-1 py-2 rounded-xl text-sm font-light capitalize transition-all flex items-center justify-center gap-2"
-            style={{ background: activeTab === tab ? 'rgba(255,255,255,0.08)' : 'transparent', color: activeTab === tab ? '#fff' : '#555' }}>
+            style={{ background: activeTab === tab ? "var(--moon-surface-raised)" : 'transparent', color: panelInk(activeTab === tab ? "var(--moon-ink)" : "var(--moon-muted)") }}>
             {tab === 'documentos' ? <FileText className="w-4 h-4" strokeWidth={1.5} /> : <Activity className="w-4 h-4" strokeWidth={1.5} />}
             {tab === 'documentos' ? `Documentos (${docs.length})` : `Actividad (${activities.length})`}
           </button>
@@ -413,31 +429,40 @@ export default function PanelSecretaria() {
       {/* ════ TAB: DOCUMENTOS ════ */}
       {activeTab === 'documentos' && (
         <div className="space-y-4">
+          <WorkViewToolbar label="Control documental" description="Separa documentos por categoría y atiende los vencimientos que siguen pendientes."
+            count={filteredDocs.length} total={docs.length} loading={loading}
+            onReset={search || filterStatus !== 'all' || docCategory !== 'all' || docFocus !== 'all' || docOrder !== 'recent' ? () => { setSearch(''); setFilterStatus('all'); setDocCategory('all'); setDocFocus('all'); setDocOrder('recent'); } : undefined}
+            onExport={() => exportWorkspaceCsv('moon-documentos', ['Documento', 'Categoría', 'Estado', 'Responsable', 'Fecha límite', 'Creado'], filteredDocs.map(d => [d.title, d.category, STATUS_META[d.status]?.label || d.status, d.creatorName, d.dueDate?.toLocaleDateString('sv-SE'), d.createdAt?.toLocaleDateString('sv-SE')]))}>
+            <label>Categoría<select value={docCategory} onChange={e => setDocCategory(e.target.value)}><option value="all">Todas las categorías</option>{[...new Set([...DOC_CATEGORIES, ...docs.map(d => d.category)])].sort((a, b) => a.localeCompare(b, 'es')).map(c => <option key={c} value={c}>{c}</option>)}</select></label>
+            <label>Seguimiento<select value={docFocus} onChange={e => setDocFocus(e.target.value as typeof docFocus)}><option value="all">Todos los documentos</option><option value="mine">Creados por mí</option><option value="overdue">Pendientes vencidos</option><option value="week">Pendientes próximos 7 días</option></select></label>
+            <label>Ordenar por<select value={docOrder} onChange={e => setDocOrder(e.target.value as typeof docOrder)}><option value="recent">Más recientes</option><option value="name">Nombre A–Z</option><option value="deadline">Fecha límite</option></select></label>
+          </WorkViewToolbar>
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" strokeWidth={1.5} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 moon-panel-muted" strokeWidth={1.5} />
             <input
               type="text"
               placeholder="Buscar documentos..."
+              aria-label="Buscar documentos de Secretaría"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl text-sm font-light text-white placeholder-zinc-600 outline-none"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl text-sm font-light moon-panel-ink placeholder-zinc-600 outline-none"
+              style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}
             />
           </div>
 
           {loading ? (
             <div className="py-16 flex items-center justify-center">
-              <div className="w-6 h-6 border border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
+              <div className="w-6 h-6 border moon-panel-border border-t-zinc-400 rounded-full animate-spin" />
             </div>
           ) : loadError ? (
             <div className="py-16 text-center rounded-3xl" style={{ border: '1px dashed rgba(248,113,113,0.25)' }}>
               <AlertCircle className="w-10 h-10 text-red-400/60 mx-auto mb-4" strokeWidth={1} />
-              <p className="text-zinc-400 text-sm font-light">{loadError}</p>
+              <p className="moon-panel-muted text-sm font-light">{loadError}</p>
             </div>
           ) : filteredDocs.length === 0 ? (
-            <div className="py-16 text-center rounded-3xl" style={{ border: '1px dashed rgba(255,255,255,0.08)' }}>
-              <FileText className="w-10 h-10 text-zinc-800 mx-auto mb-4" strokeWidth={1} />
-              <p className="text-zinc-500 text-sm font-light">No hay documentos</p>
+            <div className="py-16 text-center rounded-3xl" style={{ border: "1px dashed var(--moon-line)" }}>
+              <FileText className="w-10 h-10 moon-panel-muted mx-auto mb-4" strokeWidth={1} />
+              <p className="moon-panel-muted text-sm font-light">{search || filterStatus !== 'all' || docCategory !== 'all' || docFocus !== 'all' ? 'Ningún documento coincide con esta vista' : 'No hay documentos'}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -445,31 +470,31 @@ export default function PanelSecretaria() {
                 const statusMeta = STATUS_META[d.status];
                 const StatusIcon = statusMeta.icon;
                 return (
-                  <div key={d.id} className="rounded-2xl p-5 transition-all"
-                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div data-moon-reveal="card" key={d.id} className="moon-panel rounded-2xl p-5 transition-all"
+                    style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h3 className="text-white text-sm font-light">{d.title}</h3>
+                          <h3 className="moon-panel-ink text-sm font-light">{d.title}</h3>
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-light"
-                            style={{ color: statusMeta.color, background: `${statusMeta.color}14` }}>
+                            style={{ color: panelInk(statusMeta.color), background: `${statusMeta.color}14` }}>
                             <StatusIcon className="w-3 h-3" strokeWidth={1.5} />
                             {statusMeta.label}
                           </span>
-                          <span className="text-xs text-zinc-600 font-light px-2 py-0.5 rounded-lg"
-                            style={{ background: 'rgba(255,255,255,0.04)' }}>
+                          <span className="text-xs moon-panel-muted font-light px-2 py-0.5 rounded-lg"
+                            style={{ background: 'var(--moon-surface-raised)' }}>
                             {d.category}
                           </span>
                         </div>
-                        <p className="text-zinc-500 text-xs font-light line-clamp-2 mb-3">{d.content}</p>
-                        <div className="flex items-center gap-3 text-xs text-zinc-700 font-light flex-wrap">
+                        <p className="moon-panel-muted text-xs font-light line-clamp-2 mb-3">{d.content}</p>
+                        <div className="flex items-center gap-3 text-xs moon-panel-muted font-light flex-wrap">
                           {d.dueDate && (() => {
                             // Vencido: fecha pasada y el documento sigue abierto (borrador o en revisión).
                             const vencido = d.dueDate < new Date(new Date().setHours(0, 0, 0, 0)) &&
                               (d.status === 'draft' || d.status === 'review');
                             return (
                               <>
-                                <span className="flex items-center gap-1" style={{ color: vencido ? '#f87171' : '#a1a1aa' }}>
+                                <span className="flex items-center gap-1" style={{ color: panelInk(vencido ? '#f87171' : "var(--moon-muted)") }}>
                                   <CalendarDays className="w-3 h-3" strokeWidth={1.5} />
                                   {vencido ? 'Venció' : 'Vence'} {format(d.dueDate, 'dd MMM yyyy', { locale: es })}
                                 </span>
@@ -501,13 +526,13 @@ export default function PanelSecretaria() {
                             <button type="button"
                               onClick={() => setStatusMenu(m => (m === d.id ? null : d.id))}
                               aria-label="Cambiar estado" aria-haspopup="menu" aria-expanded={statusMenu === d.id}
-                              className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-600 hover:text-zinc-300"
-                              style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              className="w-8 h-8 rounded-xl flex items-center justify-center moon-panel-muted moon-panel-hover"
+                              style={{ background: 'var(--moon-surface-raised)' }}>
                               <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.5} />
                             </button>
                             <div className={`absolute right-0 top-10 z-20 w-44 rounded-2xl overflow-hidden shadow-2xl transition-opacity ${statusMenu === d.id ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}
                               role="menu"
-                              style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.1)' }}>
+                              style={{ background: 'var(--moon-surface)', border: '1px solid var(--moon-line)' }}>
                               {(Object.keys(STATUS_META) as DocStatus[]).filter(s => s !== d.status).map(s => {
                                 const m = STATUS_META[s];
                                 const Ic = m.icon;
@@ -515,7 +540,7 @@ export default function PanelSecretaria() {
                                   <button key={s} type="button" role="menuitem"
                                     onClick={() => handleStatusChange(d.id, s, d.title)}
                                     className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-xs font-light hover:bg-white/[0.05] transition-colors"
-                                    style={{ color: m.color }}>
+                                    style={{ color: panelInk(m.color) }}>
                                     <Ic className="w-3.5 h-3.5" strokeWidth={1.5} />
                                     {m.label}
                                   </button>
@@ -524,14 +549,14 @@ export default function PanelSecretaria() {
                             </div>
                           </div>
                           <button onClick={() => openEdit(d)} aria-label={`Editar ${d.title}`}
-                            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-600 hover:text-zinc-300"
-                            style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            className="w-8 h-8 rounded-xl flex items-center justify-center moon-panel-muted moon-panel-hover"
+                            style={{ background: 'var(--moon-surface-raised)' }}>
                             <Edit3 className="w-3.5 h-3.5" strokeWidth={1.5} />
                           </button>
                           {puedeBorrar && (
                             <button onClick={() => handleDelete(d.id, d.title)} disabled={deleting === d.id} aria-label={`Eliminar ${d.title}`}
-                              className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-700 hover:text-red-400"
-                              style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              className="w-8 h-8 rounded-xl flex items-center justify-center moon-panel-muted hover:text-red-400"
+                              style={{ background: 'var(--moon-surface-raised)' }}>
                               {deleting === d.id
                                 ? <div className="w-3.5 h-3.5 border border-red-700 border-t-transparent rounded-full animate-spin" />
                                 : <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />}
@@ -550,22 +575,22 @@ export default function PanelSecretaria() {
 
       {/* ════ TAB: ACTIVIDADES ════ */}
       {activeTab === 'actividades' && (
-        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--moon-line)' }}>
           {activities.length === 0 ? (
             <div className="py-16 text-center">
-              <Activity className="w-10 h-10 text-zinc-800 mx-auto mb-4" strokeWidth={1} />
-              <p className="text-zinc-500 text-sm font-light">{puedeVerActividad ? 'Sin actividad registrada' : 'El historial de actividad solo lo ven CEO y Administración'}</p>
+              <Activity className="w-10 h-10 moon-panel-muted mx-auto mb-4" strokeWidth={1} />
+              <p className="moon-panel-muted text-sm font-light">{puedeVerActividad ? 'Sin actividad registrada' : 'El historial de actividad solo lo ven CEO y Administración'}</p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-900/60">
               {activities.map(a => (
-                <div key={a.id} className="flex items-start gap-4 px-5 py-4">
-                  <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800/60 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Activity className="w-3.5 h-3.5 text-zinc-600" strokeWidth={1.5} />
+                <div data-moon-reveal="row" key={a.id} className="flex items-start gap-4 px-5 py-4">
+                  <div className="w-8 h-8 rounded-xl moon-panel-surface border moon-panel-border flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Activity className="w-3.5 h-3.5 moon-panel-muted" strokeWidth={1.5} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-light">{a.description}</p>
-                    <p className="text-zinc-600 text-xs font-light mt-1">
+                    <p className="moon-panel-ink text-sm font-light">{a.description}</p>
+                    <p className="moon-panel-muted text-xs font-light mt-1">
                       {a.userName} · {format(a.createdAt, 'dd MMM yyyy, HH:mm', { locale: es })}
                     </p>
                   </div>

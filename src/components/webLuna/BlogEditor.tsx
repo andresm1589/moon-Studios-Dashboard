@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus, Search, ArrowLeft, ExternalLink, Trash2, Star, Sparkles, RefreshCw, PartyPopper, BookOpen,
@@ -70,7 +71,7 @@ function problemas(a: Articulo, otros: Articulo[], anterior: string | null): str
 
 // ─── Piezas ──────────────────────────────────────────────────────────────────
 const Chip: React.FC<{ color: string; Icon?: React.ElementType; children: React.ReactNode }> = ({ color, Icon, children }) => (
-  <span className="inline-flex items-center gap-1 text-[10px] font-light px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: `${color}14`, color, border: `1px solid ${color}30` }}>
+  <span className="inline-flex items-center gap-1 text-[10px] font-light px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: `${color}14`, color: panelInk(color), border: `1px solid ${color}30` }}>
     {Icon && <Icon className="w-2.5 h-2.5" strokeWidth={2} />}{children}
   </span>
 );
@@ -82,8 +83,8 @@ const Portada: React.FC<{ a: Articulo; alto: number }> = ({ a, alto }) => {
     return <img src={a.portada} alt="" onError={() => setRota(true)} className="w-full object-cover" style={{ height: alto }} />;
   }
   return (
-    <div className="w-full flex items-center justify-center" style={{ height: alto, background: `radial-gradient(circle at 30% 20%, ${color}33, transparent 60%), linear-gradient(135deg, ${color}14, rgba(255,255,255,0.02))` }}>
-      <Icon className="w-7 h-7" strokeWidth={1.25} style={{ color }} />
+    <div className="w-full flex items-center justify-center" style={{ height: alto, background: `radial-gradient(circle at 30% 20%, ${color}33, transparent 60%), linear-gradient(135deg, ${color}14, color-mix(in srgb, var(--moon-ink) 2%, transparent))` }}>
+      <Icon className="w-7 h-7" strokeWidth={1.25} style={{ color: panelInk(color) }} />
     </div>
   );
 };
@@ -93,16 +94,16 @@ const TarjetaPrevia: React.FC<{ a: Articulo; lang: Lang }> = ({ a, lang }) => {
   const t = a.idiomas[lang] ?? a.idiomas.es;
   const c = cat(a.categoria);
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${bd}`, background: 'rgba(255,255,255,0.02)' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${bd}`, background: 'color-mix(in srgb, var(--moon-ink) 2%, transparent)' }}>
       <Portada key={a.portada ?? ''} a={a} alto={120} />
       <div className="p-3.5 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <Chip color={c.color} Icon={c.Icon}>{c.label}</Chip>
           {a.destacado && <Chip color="#facc15" Icon={Star}>Destacado</Chip>}
         </div>
-        <p className="text-sm font-medium text-white leading-snug line-clamp-2">{t?.titulo || 'Sin título'}</p>
-        <p className="text-[11px] font-light leading-relaxed line-clamp-3" style={{ color: mt }}>{t?.resumen || 'Sin resumen'}</p>
-        <p className="text-[10px] font-light flex items-center gap-2" style={{ color: tenue }}>
+        <p className="text-sm font-medium moon-panel-ink leading-snug line-clamp-2">{t?.titulo || 'Sin título'}</p>
+        <p className="text-[11px] font-light leading-relaxed line-clamp-3" style={{ color: panelInk(mt) }}>{t?.resumen || 'Sin resumen'}</p>
+        <p className="text-[10px] font-light flex items-center gap-2" style={{ color: panelInk(tenue) }}>
           <span>{fechaCorta(a.fecha)}</span>·<span>{minutos(t?.contenido ?? '')} min de lectura</span>
         </p>
       </div>
@@ -210,15 +211,15 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
   // ── Estados de carga ──
   if (cargando) return (
     <div className="flex flex-col items-center justify-center h-40 gap-3">
-      <div className="w-5 h-5 border border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
-      <p className="text-xs font-light" style={{ color: mt }}>Cargando el blog…</p>
+      <div className="w-5 h-5 border moon-panel-border border-t-zinc-300 rounded-full animate-spin" />
+      <p className="text-xs font-light" style={{ color: panelInk(mt) }}>Cargando el blog…</p>
     </div>
   );
   if (error) return (
     <div className="flex flex-col items-center justify-center h-40 gap-4 rounded-2xl text-center px-4" style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}>
       <div className="flex items-center gap-2">
-        <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#f87171' }} strokeWidth={1.5} />
-        <p className="text-sm font-light" style={{ color: '#f87171' }}>{error}</p>
+        <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: panelInk('#f87171') }} strokeWidth={1.5} />
+        <p className="text-sm font-light" style={{ color: panelInk('#f87171') }}>{error}</p>
       </div>
       <BotonSec onClick={() => { setCargando(true); setError(null); pedir(); }}><RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar</BotonSec>
     </div>
@@ -231,27 +232,27 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.5} style={{ color: mt }} />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.5} style={{ color: panelInk(mt) }} />
             <Entrada value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar por título, dirección o etiqueta…" className="!pl-9" />
           </div>
           <div className="flex gap-1 p-1 rounded-xl" style={{ background: sc, border: `1px solid ${bd}` }}>
             {([['todos', 'Todos'], ['publicados', 'Publicados'], ['borradores', 'Borradores']] as const).map(([id, label]) => (
               <button key={id} type="button" onClick={() => setFiltro(id)} className="px-3 py-1.5 rounded-lg text-xs font-light transition-all"
-                style={{ background: filtro === id ? 'rgba(255,255,255,0.08)' : 'transparent', color: filtro === id ? 'white' : mt }}>
-                {label} <span style={{ color: tenue }}>{n[id]}</span>
+                style={{ background: filtro === id ? 'color-mix(in srgb, var(--moon-ink) 8%, transparent)' : 'transparent', color: panelInk(filtro === id ? 'var(--moon-ink)' : mt) }}>
+                {label} <span style={{ color: panelInk(tenue) }}>{n[id]}</span>
               </button>
             ))}
           </div>
           <button type="button" onClick={() => abrir(null)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90" style={{ background: '#fff', color: '#000' }}>
+            className="moon-panel-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90" style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}>
             <Plus className="w-4 h-4" strokeWidth={1.5} /> Nuevo artículo
           </button>
         </div>
 
         {visibles.length === 0 ? (
           <div className="rounded-2xl p-10 text-center space-y-2" style={{ border: `1px dashed ${bd}` }}>
-            <Newspaper className="w-6 h-6 mx-auto" strokeWidth={1.25} style={{ color: mt }} />
-            <p className="text-sm font-light" style={{ color: mt }}>{articulos.length ? 'Ningún artículo coincide.' : 'El blog está vacío. Escribe el primero.'}</p>
+            <Newspaper className="w-6 h-6 mx-auto" strokeWidth={1.25} style={{ color: panelInk(mt) }} />
+            <p className="text-sm font-light" style={{ color: panelInk(mt) }}>{articulos.length ? 'Ningún artículo coincide.' : 'El blog está vacío. Escribe el primero.'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -271,19 +272,19 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
                     </div>
                   </div>
                   <div className="p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 text-[10px] font-light" style={{ color: tenue }}>
-                      <c.Icon className="w-3 h-3" strokeWidth={1.5} style={{ color: c.color }} />
-                      <span style={{ color: c.color }}>{c.label}</span>·<span>{fechaCorta(a.fecha)}</span>
+                    <div className="flex items-center gap-2 text-[10px] font-light" style={{ color: panelInk(tenue) }}>
+                      <c.Icon className="w-3 h-3" strokeWidth={1.5} style={{ color: panelInk(c.color) }} />
+                      <span style={{ color: panelInk(c.color) }}>{c.label}</span>·<span>{fechaCorta(a.fecha)}</span>
                     </div>
-                    <p className="text-sm font-light text-white leading-snug line-clamp-2 group-hover:text-white">{es?.titulo || a.slug}</p>
-                    <p className="text-[11px] font-light leading-relaxed line-clamp-2" style={{ color: mt }}>{es?.resumen}</p>
+                    <p className="text-sm font-light moon-panel-ink leading-snug line-clamp-2 group-moon-panel-hover">{es?.titulo || a.slug}</p>
+                    <p className="text-[11px] font-light leading-relaxed line-clamp-2" style={{ color: panelInk(mt) }}>{es?.resumen}</p>
                     <div className="flex items-center gap-1 pt-1">
                       {LANGS.map(l => (
-                        <span key={l.id} className="text-[9px] font-mono px-1.5 py-px rounded" style={{ border: `1px solid ${bd}`, color: a.idiomas[l.id] ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.18)' }}>
+                        <span key={l.id} className="text-[9px] font-mono px-1.5 py-px rounded" style={{ border: `1px solid ${bd}`, color: panelInk(a.idiomas[l.id] ? 'color-mix(in srgb, var(--moon-ink) 70%, transparent)' : 'color-mix(in srgb, var(--moon-ink) 18%, transparent)') }}>
                           {l.id.toUpperCase()}
                         </span>
                       ))}
-                      <span className="ml-auto text-[10px] font-mono truncate" style={{ color: tenue }}>/{a.slug}</span>
+                      <span className="ml-auto text-[10px] font-mono truncate" style={{ color: panelInk(tenue) }}>/{a.slug}</span>
                     </div>
                   </div>
                 </button>
@@ -306,11 +307,11 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BotonSec onClick={salir}><ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Todos los artículos</BotonSec>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-light" style={{ color: mt }}>
+          <span className="text-[11px] font-light" style={{ color: panelInk(mt) }}>
             {ed.anterior ? `Guardado · ${fechaHora(ed.base.actualizadoEn)}` : 'Artículo nuevo, sin guardar'}
           </span>
           {enWeb && (
-            <a href={`${WEB}/blog/${ed.anterior}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all hover:text-white" style={{ color: mt }}>
+            <a href={`${WEB}/blog/${ed.anterior}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all moon-panel-hover" style={{ color: panelInk(mt) }}>
               <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver en la web
             </a>
           )}
@@ -353,8 +354,8 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
               <Etiqueta>Fecha</Etiqueta>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <CalendarDays className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} style={{ color: mt }} />
-                  <Entrada type="date" value={a.fecha} onChange={e => cambiar(x => { x.fecha = e.target.value; })} className="!pl-9" style={{ colorScheme: 'dark' }} />
+                  <CalendarDays className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} style={{ color: panelInk(mt) }} />
+                  <Entrada type="date" value={a.fecha} onChange={e => cambiar(x => { x.fecha = e.target.value; })} className="!pl-9" style={{ colorScheme: 'inherit' }} />
                 </div>
                 <BotonSec onClick={() => cambiar(x => { x.fecha = hoy(); })} className="flex-shrink-0">Hoy</BotonSec>
               </div>
@@ -364,9 +365,9 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
               <div className="grid grid-cols-2 gap-1.5">
                 {Object.entries(CATEGORIAS).map(([id, { label, Icon, color }]) => (
                   <button key={id} type="button" onClick={() => cambiar(x => { x.categoria = id; })}
-                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-light transition-all hover:bg-white/[0.04]"
-                    style={{ border: `1px solid ${a.categoria === id ? `${color}66` : bd}`, background: a.categoria === id ? `${color}12` : 'transparent', color: a.categoria === id ? 'white' : mt }}>
-                    <Icon className="w-3.5 h-3.5" strokeWidth={1.5} style={{ color }} /> {label}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-light transition-all moon-panel-hover"
+                    style={{ border: `1px solid ${a.categoria === id ? `${color}66` : bd}`, background: a.categoria === id ? `${color}12` : 'transparent', color: panelInk(a.categoria === id ? 'var(--moon-ink)' : mt) }}>
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.5} style={{ color: panelInk(color) }} /> {label}
                   </button>
                 ))}
               </div>
@@ -380,17 +381,17 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
           <Bloque Icon={Link2} titulo="Dirección" color="#38bdf8">
             <div>
               <div className="flex items-center rounded-xl overflow-hidden" style={{ background: sc, border: `1px solid ${bd}` }}>
-                <span className="pl-3 text-xs font-mono flex-shrink-0" style={{ color: tenue }}>/blog/</span>
+                <span className="pl-3 text-xs font-mono flex-shrink-0" style={{ color: panelInk(tenue) }}>/blog/</span>
                 <input value={a.slug} maxLength={80}
                   onChange={e => { const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'); setEd(p => p && ({ ...p, slugManual: true, borrador: { ...p.borrador, slug: v } })); }}
-                  className="flex-1 min-w-0 bg-transparent pr-3 py-2.5 text-xs font-mono outline-none text-white" placeholder="sale-del-titulo" />
+                  className="flex-1 min-w-0 bg-transparent pr-3 py-2.5 text-xs font-mono outline-none moon-panel-ink" placeholder="sale-del-titulo" />
               </div>
-              <p className="mt-1.5 text-[10px] font-light leading-relaxed" style={{ color: tenue }}>
+              <p className="mt-1.5 text-[10px] font-light leading-relaxed" style={{ color: panelInk(tenue) }}>
                 {ed.slugManual ? 'Minúsculas, números y guiones.' : 'Sale del título en español; edítala para fijarla.'}
               </p>
             </div>
             {renombra && enWeb && (
-              <p className="flex items-start gap-1.5 text-[11px] font-light leading-relaxed" style={{ color: '#facc15' }}>
+              <p className="flex items-start gap-1.5 text-[11px] font-light leading-relaxed" style={{ color: panelInk('#facc15') }}>
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" strokeWidth={1.5} /> Cambia el enlace público: /blog/{ed.anterior} dejará de abrir.
               </p>
             )}
@@ -403,9 +404,9 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
           <Bloque Icon={Tags} titulo="Etiquetas" texto="Hasta 8. Ayudan a encontrar el artículo." color="#a5b4fc">
             <div className="flex flex-wrap gap-1.5">
               {a.etiquetas.map(e => (
-                <span key={e} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-light" style={{ border: `1px solid ${bd}`, color: 'rgba(255,255,255,0.75)' }}>
+                <span key={e} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-light" style={{ border: `1px solid ${bd}`, color: 'var(--moon-ink)' }}>
                   #{e}
-                  <button type="button" aria-label={`Quitar ${e}`} onClick={() => cambiar(x => { x.etiquetas = x.etiquetas.filter(y => y !== e); })} className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/10">
+                  <button type="button" aria-label={`Quitar ${e}`} onClick={() => cambiar(x => { x.etiquetas = x.etiquetas.filter(y => y !== e); })} className="w-4 h-4 flex items-center justify-center rounded-full moon-panel-hover">
                     <X className="w-2.5 h-2.5" strokeWidth={2} />
                   </button>
                 </span>
@@ -429,7 +430,7 @@ export const BlogEditor: React.FC<{ lunaFetch: LunaFetch; onSucio: (s: boolean) 
       <Acciones hayCambios={hayCambios || !ed.anterior} guardando={guardando}
         onDescartar={() => setEd(p => p && ({ ...p, borrador: copia(p.base), slugManual: !!p.anterior }))}
         onGuardar={guardar} textoGuardar={a.publicado ? 'Publicar artículo' : 'Guardar borrador'}
-        izquierda={ed.anterior ? <BotonSec onClick={borrar} disabled={guardando} style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.25)' }}><Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Borrar artículo</BotonSec> : null} />
+        izquierda={ed.anterior ? <BotonSec onClick={borrar} disabled={guardando} style={{ color: panelInk('#f87171'), borderColor: 'rgba(248,113,113,0.25)' }}><Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Borrar artículo</BotonSec> : null} />
     </div>
   );
 };

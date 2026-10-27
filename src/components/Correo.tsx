@@ -1,3 +1,7 @@
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
+import { panelInk } from '@/lib/panelColors';
+import '@/styles/enterprise-sections.css';
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +75,8 @@ const CorreoComponent: React.FC = () => {
   const [activeFolder, setActiveFolder] = useState<Folder>('inbox');
   const [selectedMail, setSelectedMail] = useState<Correo | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [oldestFirst, setOldestFirst] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerFile, setViewerFile] = useState<Attachment | null>(null);
@@ -93,6 +99,8 @@ const CorreoComponent: React.FC = () => {
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+  const subjectEmojiRef = useRef<HTMLInputElement>(null);
+  const bodyEmojiRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { getAllUsers().then(d => setUsers(d as UserProfile[])).catch(e => console.error('usuarios:', e)); }, []);
 
@@ -125,7 +133,7 @@ const CorreoComponent: React.FC = () => {
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); resetCompose(); setShowCompose(true); }
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'n' && !showCompose) { e.preventDefault(); resetCompose(); setShowCompose(true); }
       if (e.key === 'Escape' && showCompose) { setShowCompose(false); resetCompose(); }
       if (e.key === 'Escape' && !showCompose && selectedMail) { setSelectedMail(null); setMobileView('list'); }
     };
@@ -150,10 +158,14 @@ const CorreoComponent: React.FC = () => {
     if (activeFolder === 'starred') return (m.toUid === uid || m.fromUid === uid) && !m.draft && destacado(m, uid);
     return false;
   }).filter(m => {
+    if (onlyUnread && !(m.toUid === uid && !m.read && !m.draft)) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return m.subject?.toLowerCase().includes(q) || m.body?.toLowerCase().includes(q) ||
       m.fromName?.toLowerCase().includes(q) || m.toName?.toLowerCase().includes(q);
+  }).sort((a, b) => {
+    const time = (value: Correo['createdAt']) => value?.toMillis?.() ?? (new Date(value ?? 0).getTime() || 0);
+    return oldestFirst ? time(a.createdAt) - time(b.createdAt) : time(b.createdAt) - time(a.createdAt);
   });
 
   const visible = (m: Correo) => !!uid && !enPapelera(m, uid) && !borradoDef(m, uid);
@@ -360,6 +372,7 @@ const CorreoComponent: React.FC = () => {
 
   const handleFolderSelect = (folderId: Folder) => {
     setActiveFolder(folderId);
+    setOnlyUnread(false);
     setSelectedMail(null);
     setMobileView('list');
     setShowMobileSidebar(false);
@@ -369,7 +382,11 @@ const CorreoComponent: React.FC = () => {
      RENDER
   ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <>
+    <section className="moon-module moon-module--correo">
+      <header className="enterprise-mail-heading">
+        <div><span className="enterprise-kicker"><span aria-hidden="true" />Equipo · Comunicación interna</span><h1 className="moon-page-title">Correo del equipo</h1><p>{unreadCount} sin leer · {draftCount} borradores guardados</p></div>
+        <button type="button" className="enterprise-action enterprise-action--primary" title="Redactar (Ctrl + Alt + N)" onClick={() => { resetCompose(); setShowCompose(true); }}><Plus />Redactar</button>
+      </header>
       <style>{`
         /* ── Correo theme tokens ── */
         :root,
@@ -477,10 +494,10 @@ const CorreoComponent: React.FC = () => {
         .correo-up-anim { animation: correoSlideUp 0.2s ease forwards; }
 
         /* ── Responsive ── */
-        @media (max-width: 767px) {
+        @media (max-width: 1099px) {
           .correo-desktop-only { display: none !important; }
         }
-        @media (min-width: 768px) {
+        @media (min-width: 1100px) {
           .correo-mobile-only { display: none !important; }
         }
 
@@ -532,7 +549,7 @@ const CorreoComponent: React.FC = () => {
                     className="correo-folder-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-light"
                     style={{
                       background: activeFolder === item.id ? 'var(--correo-selected-bg)' : 'transparent',
-                      color: activeFolder === item.id ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)',
+                      color: panelInk(activeFolder === item.id ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)'),
                       border: 'none',
                     }}>
                     <item.icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
@@ -567,11 +584,11 @@ const CorreoComponent: React.FC = () => {
       </AnimatePresence>
 
       {/* ── Main Layout ── */}
-      <div className="flex rounded-2xl overflow-hidden border relative"
+      <div data-moon-reveal="card" className="moon-panel flex rounded-2xl overflow-hidden border relative"
         style={{
           background: 'var(--correo-bg)',
           borderColor: 'var(--correo-border)',
-          height: 'calc(100vh - 7rem)',
+          height: '100%',
         }}>
 
         {/* New mail banner */}
@@ -605,7 +622,7 @@ const CorreoComponent: React.FC = () => {
                 className="correo-folder-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-light"
                 style={{
                   background: activeFolder === item.id ? 'var(--correo-selected-bg)' : 'transparent',
-                  color: activeFolder === item.id ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)',
+                  color: panelInk(activeFolder === item.id ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)'),
                   border: 'none',
                 }}>
                 <item.icon className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
@@ -637,7 +654,7 @@ const CorreoComponent: React.FC = () => {
         </aside>
 
         {/* ── Mail List Panel ── */}
-        <div className={`flex flex-col border-r ${
+        <div className={`enterprise-mail-list flex flex-col border-r ${
           // Desktop: always visible if no mail selected, or w-72 if selected
           // Mobile: visible only when mobileView === 'list'
           selectedMail
@@ -652,11 +669,11 @@ const CorreoComponent: React.FC = () => {
           }}>
 
           {/* Toolbar */}
-          <div className="h-12 flex items-center gap-2 px-3 border-b flex-shrink-0"
+          <div className="enterprise-mail-toolbar flex items-center gap-2 border-b flex-shrink-0"
             style={{ borderColor: 'var(--correo-border)' }}>
             {/* Mobile menu button */}
             <button onClick={() => setShowMobileSidebar(true)}
-              className="correo-mobile-only w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              aria-label="Abrir carpetas del correo" className="correo-mobile-only w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ background: 'var(--correo-surface-hover)', color: 'var(--correo-text-secondary)', border: 'none' }}>
               <Menu className="w-4 h-4" />
             </button>
@@ -670,22 +687,28 @@ const CorreoComponent: React.FC = () => {
             {activeFolder === 'trash' && folderMails.length > 0 && (
               <button onClick={emptyTrash}
                 className="flex items-center gap-1 text-xs font-light px-2.5 py-1 rounded-lg"
-                style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                style={{ color: panelInk('#f87171'), background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
                 <Trash2 className="w-3 h-3" strokeWidth={1.5} /> Vaciar
               </button>
             )}
 
             {/* Search */}
-            <div className="relative">
+            <div className="enterprise-mail-search relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--correo-text-muted)' }} strokeWidth={1.5} />
               <input
                 value={searchQuery}
+                aria-label="Buscar en el correo"
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Buscar..."
                 className="correo-input pl-7 pr-3 py-1.5 rounded-xl text-xs font-light outline-none"
-                style={{ width: '7rem' }}
               />
             </div>
+          </div>
+
+          <div className="enterprise-mail-options" aria-label="Opciones del correo">
+            {activeFolder === 'inbox' && <button type="button" aria-pressed={onlyUnread} onClick={() => setOnlyUnread(v => !v)}>Solo sin leer</button>}
+            <button type="button" aria-pressed={oldestFirst} onClick={() => setOldestFirst(v => !v)}>{oldestFirst ? 'Antiguos primero' : 'Recientes primero'}</button>
+            {(searchQuery || onlyUnread) && <button type="button" onClick={() => { setSearchQuery(''); setOnlyUnread(false); }}>Limpiar</button>}
           </div>
 
           {/* List */}
@@ -716,8 +739,8 @@ const CorreoComponent: React.FC = () => {
                   const av = mail.fromUid === uid ? mail.toAvatar : mail.fromAvatar;
                   const nm = mail.fromUid === uid ? mail.toName : mail.fromName;
                   return (
-                    <div key={mail.id}
-                      className="correo-mail-item px-3 py-3 cursor-pointer border-b relative correo-mail-anim"
+                    <div data-moon-reveal="row" key={mail.id}
+                      className="correo-mail-item px-3 py-3 cursor-pointer border-b relative"
                       style={{
                         borderBottomColor: 'var(--correo-divider)',
                         background: isSelected
@@ -737,7 +760,7 @@ const CorreoComponent: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-0.5">
                             <span className="text-sm truncate font-light"
-                              style={{ color: isUnread ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)', fontWeight: isUnread ? 400 : 300 }}>
+                              style={{ color: panelInk(isUnread ? 'var(--correo-text-primary)' : 'var(--correo-text-secondary)'), fontWeight: isUnread ? 400 : 300 }}>
                               {nm}
                             </span>
                             <span className="text-[10px] font-light flex-shrink-0"
@@ -746,17 +769,17 @@ const CorreoComponent: React.FC = () => {
                             </span>
                           </div>
                           <p className="text-xs truncate mb-0.5 font-light"
-                            style={{ color: isUnread ? 'var(--correo-text-primary)' : 'var(--correo-text-muted)' }}>
-                            {mail.draft && <span style={{ color: '#eab308', marginRight: 4 }}>[Borrador]</span>}
-                            {mail.subject || '(Sin asunto)'}
+                            style={{ color: panelInk(isUnread ? 'var(--correo-text-primary)' : 'var(--correo-text-muted)') }}>
+                            {mail.draft && <span style={{ color: panelInk('#eab308'), marginRight: 4 }}>[Borrador]</span>}
+                            <EmojiText text={mail.subject || '(Sin asunto)'} size={16} />
                           </p>
                           <p className="text-[11px] font-light truncate"
                             style={{ color: 'var(--correo-text-muted)' }}>
-                            {mail.body?.replace(/\n/g, ' ')}
+                            <EmojiText text={mail.body?.replace(/\n/g, ' ') ?? ''} size={16} />
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             {isUnread && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--correo-unread-dot)' }} />}
-                            {uid && destacado(mail, uid) && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
+                            {uid && destacado(mail, uid) && <Star className="w-3 h-3 moon-panel-tone-amber fill-yellow-400" />}
                             {mail.attachments?.length > 0 && <Paperclip className="w-3 h-3" style={{ color: 'var(--correo-text-muted)' }} />}
                             {mail.forwarded && <Forward className="w-3 h-3" style={{ color: 'var(--correo-text-muted)' }} />}
                           </div>
@@ -795,7 +818,7 @@ const CorreoComponent: React.FC = () => {
                 ].map(({ icon: Icon, color, fn, title }, i) => (
                   <button key={i} onClick={fn} title={title}
                     className="correo-folder-btn w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ color, background: 'transparent', border: 'none' }}>
+                    style={{ color: panelInk(color), background: 'transparent', border: 'none' }}>
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.5} style={{ fill: Icon === Star && (uid && destacado(selectedMail, uid)) ? '#facc15' : 'none' }} />
                   </button>
                 ))}
@@ -810,9 +833,9 @@ const CorreoComponent: React.FC = () => {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-4 md:p-7 correo-scroll">
-                <h1 className="text-lg md:text-xl font-light mb-4 md:mb-5 leading-snug"
+                <h1 className="moon-page-title text-lg md:text-xl font-light mb-4 md:mb-5 leading-snug"
                   style={{ color: 'var(--correo-text-primary)' }}>
-                  {selectedMail.subject || '(Sin asunto)'}
+                  <EmojiText text={selectedMail.subject || '(Sin asunto)'} />
                 </h1>
 
                 <div className="flex items-start gap-3 mb-5 pb-4 md:pb-5 border-b"
@@ -843,7 +866,7 @@ const CorreoComponent: React.FC = () => {
 
                 <p className="text-sm font-light leading-relaxed whitespace-pre-wrap mb-6 md:mb-8"
                   style={{ color: 'var(--correo-text-secondary)' }}>
-                  {selectedMail.body}
+                  <EmojiText text={selectedMail.body} />
                 </p>
 
                 {selectedMail.attachments?.length > 0 && (
@@ -853,7 +876,7 @@ const CorreoComponent: React.FC = () => {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedMail.attachments.map((att, i) => (
-                        <div key={i} className="rounded-2xl overflow-hidden border"
+                        <div data-moon-reveal="card" key={i} className="moon-panel rounded-2xl overflow-hidden border"
                           style={{ background: 'var(--correo-surface)', borderColor: 'var(--correo-border)' }}>
                           {att.type.startsWith('image/') ? (
                             <div className="aspect-video overflow-hidden cursor-pointer"
@@ -989,17 +1012,20 @@ const CorreoComponent: React.FC = () => {
             <div className="flex items-center gap-3 px-5 py-3">
               <span className="text-xs font-light w-14 flex-shrink-0" style={{ color: 'var(--correo-text-secondary)' }}>Asunto</span>
               <input
+                ref={subjectEmojiRef}
                 value={composeSubject}
                 onChange={e => setComposeSubject(e.target.value)}
                 placeholder="Escribe el asunto..."
                 className="flex-1 bg-transparent text-sm font-light outline-none"
                 style={{ color: 'var(--correo-text-primary)' }}
               />
+              <EmojiButton value={composeSubject} onChange={setComposeSubject} inputRef={subjectEmojiRef} disabled={sendingMail} unicodeOnly label="Añadir emoji al asunto" />
             </div>
 
             {/* Body */}
             <div className="px-5 py-4">
               <textarea
+                ref={bodyEmojiRef}
                 value={composeBody}
                 onChange={e => setComposeBody(e.target.value)}
                 placeholder="Escribe tu mensaje aquí..."
@@ -1008,8 +1034,9 @@ const CorreoComponent: React.FC = () => {
                 className="w-full bg-transparent text-sm font-light outline-none resize-none leading-relaxed"
                 style={{ color: 'var(--correo-text-primary)', minHeight: '160px' }}
               />
-              <div className="flex justify-end mt-1">
-                <span className="text-xs font-light" style={{ color: composeBody.length > 4500 ? '#f87171' : 'var(--correo-text-muted)' }}>
+              <div className="flex justify-between items-center mt-1">
+                <EmojiButton value={composeBody} onChange={setComposeBody} inputRef={bodyEmojiRef} maxLength={5000} disabled={sendingMail} unicodeOnly label="Añadir emoji al correo" />
+                <span className="text-xs font-light" style={{ color: panelInk(composeBody.length > 4500 ? '#f87171' : 'var(--correo-text-muted)') }}>
                   {composeBody.length} / 5000
                 </span>
               </div>
@@ -1109,7 +1136,7 @@ const CorreoComponent: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </section>
   );
 };
 

@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useState } from 'react';
 import {
   MessageCircle, Mail, Share2, Clock, HelpCircle, Megaphone, ExternalLink, Inbox,
@@ -41,10 +42,10 @@ export const ContactoEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Contacto;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[11px] font-light" style={{ color: mt }}>
+        <p className="text-[11px] font-light" style={{ color: panelInk(mt) }}>
           {original.predeterminado ? 'Contenido predeterminado (nunca se editó)' : `Editado · ${fechaHora(original.actualizadoEn)}`}
         </p>
-        <a href={`${WEB}/contacto`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all hover:text-white" style={{ color: mt }}>
+        <a href={`${WEB}/contacto`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all moon-panel-hover" style={{ color: panelInk(mt) }}>
           <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver /contacto en la web
         </a>
       </div>
@@ -77,7 +78,7 @@ export const ContactoEditor: React.FC<{ lunaFetch: LunaFetch; inicial: Contacto;
                 <div>
                   <Etiqueta>Tipo</Etiqueta>
                   <div className="relative">
-                    <Icon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} style={{ color: '#38bdf8' }} />
+                    <Icon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} style={{ color: panelInk('#38bdf8') }} />
                     <Seleccion value={r.tipo} onChange={e => c(x => { x.tipo = e.target.value; })} className="!pl-8">
                       {REDES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                     </Seleccion>

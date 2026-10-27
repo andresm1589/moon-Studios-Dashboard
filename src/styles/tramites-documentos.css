@@ -1,0 +1,91 @@
+/* The document always keeps paper/ink colors, independently of the panel theme. */
+.tr-doc { --doc-ink: #171719; --doc-muted: #626269; --doc-line: #d9d9d7; min-width: 0; color: var(--doc-ink); }
+.tr-doc__aviso { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 0 0 12px; font-size: 11px; color: var(--moon-muted, #76767f); }
+.tr-doc__estado { display: inline-flex; padding: 5px 8px; border: 1px solid var(--moon-line, #777); border-radius: 6px; font-size: 9px; font-weight: 600; letter-spacing: .1em; }
+.tr-doc__papel { padding: clamp(20px, 5vw, 48px); border: 1px solid #d9d9d7; background: #fff; color: var(--doc-ink); box-shadow: 0 8px 24px #00000008; overflow-wrap: anywhere; }
+.tr-doc__cabecera { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-top: 14px; border-top: 2px solid var(--doc-ink); }
+.tr-doc__marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tr-doc__marca img { display: block; width: 44px; height: 44px; flex-shrink: 0; object-fit: contain; }
+.tr-doc__marca > div { display: grid; gap: 4px; }
+.tr-doc__marca strong { font-size: 18px; line-height: 1; letter-spacing: -.03em; color: var(--doc-ink); }
+.tr-doc__marca span { color: var(--doc-muted); font-size: 7px; letter-spacing: .15em; }
+.tr-doc__cabecera > div:last-child { display: grid; justify-items: end; gap: 6px; max-width: 43%; text-align: right; }
+.tr-doc__cabecera > div:last-child span { font-size: 7px; color: var(--doc-muted); letter-spacing: .08em; }
+.tr-doc__cabecera > div:last-child strong { font-size: 8px; font-weight: 500; }
+.tr-doc__titulo { margin: 40px 0 25px; padding-bottom: 24px; border-bottom: 1px solid var(--doc-line); }
+.tr-doc__titulo > span { font-size: 9px; letter-spacing: .16em; color: var(--doc-muted); }
+.tr-doc__titulo h3 { margin: 12px 0 0; font-size: clamp(23px, 3.3vw, 32px); font-weight: 550; line-height: 1.2; color: var(--doc-ink); letter-spacing: -.03em; }
+.tr-doc__datos { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 25px; margin: 0 0 28px; }
+.tr-doc__datos > div { display: grid; gap: 6px; min-width: 0; }
+.tr-doc__datos .tr-doc__destinatario { grid-column: 1 / -1; }
+.tr-doc dt, .tr-doc__autor > span { color: var(--doc-muted); font-size: 8px; font-weight: 400; letter-spacing: .12em; }
+.tr-doc dd { margin: 0; font-size: 12px; line-height: 1.6; }
+.tr-doc__destinatario dd { font-size: 19px; font-weight: 500; }
+.tr-doc__contenido { white-space: pre-wrap; font-size: 12px; line-height: 1.9; margin-bottom: 28px; color: var(--doc-ink); }
+.tr-doc__autor { display: grid; gap: 8px; padding-top: 22px; border-top: 1px solid var(--doc-line); }
+.tr-doc__autor strong { font-size: 12px; font-weight: 500; }
+.tr-doc__autor p { margin: 0; font-size: 10px; line-height: 1.6; color: var(--doc-muted); }
+.tr-doc__autor p:last-child { margin-top: 8px; }
+.tr-doc__pie { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 14px; margin-top: 40px; border-top: 1px solid var(--doc-line); color: var(--doc-muted); font-size: 8px; }
+.tr-doc__tarjetas { display: grid; gap: 18px; justify-items: center; }
+.tr-doc__tarjeta { display: flex; flex-direction: column; width: min(100%, 510px); min-height: 314px; border: 1px solid var(--doc-line); border-radius: 16px; background: #fff; color: var(--doc-ink); overflow: hidden; box-shadow: 0 8px 24px #00000008; overflow-wrap: anywhere; }
+.tr-doc__tarjeta header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 15px 22px; }
+.tr-doc__tarjeta header > span { font-size: 8px; letter-spacing: .03em; flex-shrink: 0; }
+.tr-doc__tarjeta--frente header { background: #171719; color: #cdcdcf; }
+.tr-doc__marca--inversa strong { color: #fff; font-size: 19px; }
+.tr-doc__marca--inversa span { color: #cdcdcf; font-size: 7px; }
+.tr-doc__tarjeta .tr-doc__marca img { width: 42px; height: 42px; }
+.tr-doc__identidad { padding: 19px 22px 13px; }
+.tr-doc__tarjeta small { display: block; margin-bottom: 5px; font-size: 8px; font-weight: 400; letter-spacing: .08em; color: var(--doc-muted); }
+.tr-doc__identidad h3 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 550; letter-spacing: -.03em; color: var(--doc-ink); }
+.tr-doc__duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 0 22px 18px; }
+.tr-doc__tarjeta strong { display: block; font-size: 12px; font-weight: 550; line-height: 1.4; }
+.tr-doc__tarjeta .tr-doc__marca strong { font-size: 19px; line-height: 1.1; }
+.tr-doc__tarjeta--frente footer { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--doc-line); padding: 12px 22px; margin-top: auto; }
+.tr-doc__tarjeta--frente footer > div:last-child { text-align: right; }
+.tr-doc__tarjeta--frente footer strong { font-size: 10px; }
+.tr-doc__tarjeta--reverso { padding: 5px 0; }
+.tr-doc__tarjeta--reverso header strong { font-size: 14px; }
+.tr-doc__tarjeta--reverso header > span { color: var(--doc-muted); }
+.tr-doc__consulta { display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 18px; padding: 0 22px; }
+.tr-doc__consulta > div { display: grid; gap: 18px; }
+.tr-doc__qr { display: block; width: 132px; height: 132px; object-fit: contain; background: #fff; }
+.tr-doc__qr--loading { display: grid; place-items: center; color: var(--doc-muted); border: 1px solid var(--doc-line); font-size: 11px; }
+.tr-doc__emision { margin: 10px 22px 12px; font-size: 10px; color: var(--doc-muted); }
+.tr-doc__tarjeta--reverso footer { margin-top: auto; padding: 0 22px 13px; }
+.tr-doc__tarjeta--reverso footer strong { font-size: 10px; }
+.tr-doc__tarjeta--reverso footer p { margin: 5px 0 0; color: var(--doc-muted); font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
+@media (max-width: 520px) {
+  .tr-doc__cabecera { align-items: start; gap: 12px; }
+  .tr-doc__marca { gap: 8px; }
+  .tr-doc__marca img { width: 34px; height: 34px; }
+  .tr-doc__marca strong { font-size: 15px; }
+  .tr-doc__marca span { font-size: 6px; letter-spacing: .08em; }
+  .tr-doc__cabecera > div:last-child { max-width: 40%; }
+  .tr-doc__titulo { margin-top: 30px; }
+  .tr-doc__datos { grid-template-columns: 1fr; gap: 16px; }
+  .tr-doc__tarjeta { border-radius: 12px; min-height: 275px; }
+  .tr-doc__tarjeta header { padding: 13px 15px; }
+  .tr-doc__tarjeta header > span { font-size: 6.5px; }
+  .tr-doc__tarjeta .tr-doc__marca img { width: 34px; height: 34px; }
+  .tr-doc__tarjeta .tr-doc__marca strong { font-size: 16px; }
+  .tr-doc__identidad { padding: 17px 15px 13px; }
+  .tr-doc__identidad h3 { font-size: 21px; }
+  .tr-doc__duo { padding: 0 15px 16px; gap: 12px; }
+  .tr-doc__tarjeta--frente footer { padding: 12px 15px; }
+  .tr-doc__consulta { grid-template-columns: 95px minmax(0, 1fr); gap: 10px; padding: 0 15px; }
+  .tr-doc__qr { width: 95px; height: 95px; }
+  .tr-doc__consulta > div { gap: 12px; }
+  .tr-doc__consulta strong { font-size: 10px; }
+  .tr-doc__emision { margin: 12px 15px; }
+  .tr-doc__tarjeta--reverso footer { padding: 0 15px 12px; }
+}
+
+/* Logotipo completo de Moon Studios en la vista previa (igual que el PDF). */
+.tr-doc__marca { flex-direction: column; align-items: flex-start; gap: 6px; }
+.tr-doc__marca img.tr-doc__wordmark { width: auto; height: 30px; max-width: 100%; aspect-ratio: 1314 / 310; object-fit: contain; }
+.tr-doc__tarjeta .tr-doc__marca img.tr-doc__wordmark { width: auto; height: 26px; }
+@media (max-width: 640px) {
+  .tr-doc__marca img.tr-doc__wordmark { height: 24px; width: auto; }
+  .tr-doc__tarjeta .tr-doc__marca img.tr-doc__wordmark { height: 20px; width: auto; }
+}

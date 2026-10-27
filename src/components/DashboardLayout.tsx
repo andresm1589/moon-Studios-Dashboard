@@ -1,35 +1,37 @@
-/**
- * DashboardLayout — ACTUALIZADO
- * ─────────────────────────────────────────────────────────────────
- * Se ha reemplazado el bloque useEffect de estilos globales para
- * soportar Tema Sistema, Fuentes Personalizadas y variables CSS.
- * ─────────────────────────────────────────────────────────────────
- */
+/** Moon Studios workspace shell. Business rules remain in the authenticated layout. */
 
 import { unlockAudio } from '@/lib/notificationSound';
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import { useOutlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { BrandLogo } from '@/components/BrandLogo';
+import { ProteccionErrores } from '@/components/ProteccionErrores';
+import { WorkspaceMotion } from '@/components/WorkspaceMotion';
+import { WorkspaceMotionControl } from '@/components/WorkspaceMotionControl';
+import { AnimatePresence } from 'framer-motion';
 import { logoutUser } from '@/lib/firebase';
+import { activarPushWeb } from '@/lib/pushWeb';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useTabSync } from '@/hooks/useTabSync';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TabSyncModal, AutoLogoutModal, SESSION_MODAL_STYLES } from '@/components/SessionModals';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import './dashboard-shell.css';
 import {
   LayoutDashboard, Calendar, Megaphone, Bot, Bell,
-  Settings, LogOut, Moon, Crown, ChevronLeft, ChevronRight,
+  Settings, LogOut, Crown, ChevronLeft, ChevronRight,
   AlertCircle, X, Mail, MessagesSquare, GitBranch, MessageSquare,
   Calculator, Globe, Menu, Code2, Palette, FileText, UserCog, Users, ShieldCheck,
-  CheckCheck, Inbox, Trash2, BellOff, FolderKanban, ListTodo
+  CheckCheck, Inbox, Trash2, BellOff, FolderKanban, ListTodo, Search, Sun, Moon, Vote, ClipboardList, SlidersHorizontal, Presentation
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { NotifCategory } from '@/hooks/useNotifications';
-import { atajoDe } from '@/lib/ajustes/atajos';
+import { atajoDe, esMac } from '@/lib/ajustes/atajos';
 import { fechaLarga, hora } from '@/lib/ajustes/fecha';
 
 // ── Categorías ────────────────────────────────────────────────────────────────
@@ -43,502 +45,38 @@ const CATEGORY_COLOR: Record<NotifCategory, string> = {
   announcement: '#a78bfa', email: '#60a5fa', thread: '#34d399', message: '#fb923c', task: '#fbbf24', security: '#f87171',
 };
 
-// ── Estilos globales ──────────────────────────────────────────────────────────
-const GLOBAL_STYLES = `
-  /* ─── CSS VARIABLES ─── */
-  :root {
-    --accent: #6366f1;
-    --base-font-size: 14px;
-    --bg-main: #0a0a0a;
-    --bg-sidebar: #080808;
-    --bg-header: rgba(0,0,0,0.45);
-    --border-main: rgba(255,255,255,0.06);
-    --border-header: rgba(255,255,255,0.05);
-    --text-primary: rgba(255,255,255,0.85);
-    --text-muted: rgba(255,255,255,0.46);
-    --nav-active-bg: rgba(255,255,255,0.07);
-    --nav-hover-bg: rgba(255,255,255,0.04);
-    --sidebar-card-bg: rgba(255,255,255,0.03);
-    --sidebar-card-border: rgba(255,255,255,0.06);
-    --btn-bg: rgba(255,255,255,0.03);
-    --btn-border: rgba(255,255,255,0.06);
-    --btn-color: rgba(255,255,255,0.46);
-    --btn-hover-bg: rgba(255,255,255,0.07);
-    --btn-hover-border: rgba(255,255,255,0.12);
-    --btn-hover-color: rgba(255,255,255,0.75);
-    --icon-color: rgba(255,255,255,0.46);
-    --icon-active: rgba(255,255,255,0.9);
-    --icon-bg-active: rgba(255,255,255,0.07);
-    --icon-border-active: rgba(255,255,255,0.1);
-    --icon-bg-hover: rgba(255,255,255,0.04);
-    --icon-border-hover: rgba(255,255,255,0.06);
-    --sidebar-logo-bg: rgba(255,255,255,0.04);
-    --sidebar-logo-border: rgba(255,255,255,0.09);
-    --sidebar-logo-color: rgba(255,255,255,0.65);
-    --sidebar-divider: rgba(255,255,255,0.06);
-    --sidebar-logo-border-bottom: rgba(255,255,255,0.05);
-    --sidebar-footer-border: rgba(255,255,255,0.05);
-    --header-icon-bg: rgba(255,255,255,0.04);
-    --header-icon-border: rgba(255,255,255,0.07);
-    --header-icon-color: rgba(255,255,255,0.4);
-    --header-icon-bg-hover: rgba(255,255,255,0.08);
-    --header-icon-border-hover: rgba(255,255,255,0.12);
-    --header-separator: rgba(255,255,255,0.06);
-    --badge-bg: #fff;
-    --badge-color: #000;
-    --notif-bg: rgba(8,8,8,0.98);
-    --notif-border: rgba(255,255,255,0.08);
-    --notif-unread-bg: rgba(255,255,255,0.025);
-    --notif-footer-border: rgba(255,255,255,0.04);
-    --mobile-nav-bg: rgba(8,8,8,0.98);
-    --mobile-nav-border: rgba(255,255,255,0.06);
-    --surface-hover: rgba(255,255,255,0.04);
-    --surface-subtle: rgba(255,255,255,0.03);
-    --surface-card: rgba(255,255,255,0.02);
-    --overlay-bg: rgba(255,255,255,0.04);
-    --overlay-border: rgba(255,255,255,0.08);
-    --content-primary: rgba(255,255,255,0.85);
-    --content-secondary: rgba(255,255,255,0.55);
-    --content-tertiary: rgba(255,255,255,0.45);
-    --content-quaternary: rgba(255,255,255,0.42);
-    --active-panel-bg: rgba(255,255,255,0.1);
-    --active-panel-border: rgba(255,255,255,0.15);
-    --avatar-ring-hover: rgba(255,255,255,0.2);
-    --scrollbar-thumb: rgba(255,255,255,0.05);
-    --logout-bg: rgba(8,8,8,0.98);
-    --logout-border: rgba(255,255,255,0.08);
-    --logout-shadow: rgba(0,0,0,0.9);
-    --logout-icon-bg: rgba(255,255,255,0.04);
-    --logout-icon-border: rgba(255,255,255,0.08);
-    --logout-btn-bg: rgba(255,255,255,0.04);
-    --logout-btn-border: rgba(255,255,255,0.07);
-    --logout-text-primary: rgba(255,255,255,0.85);
-    --logout-text-muted: rgba(255,255,255,0.3);
-    --logout-text-name: rgba(255,255,255,0.6);
-    --logout-dot: rgba(255,255,255,0.4);
-    --notif-item-border: rgba(255,255,255,0.03);
-    --notif-item-unread-bg: rgba(255,255,255,0.025);
-    --notif-item-hover-unread: rgba(255,255,255,0.05);
-    --notif-item-hover: rgba(255,255,255,0.02);
-    --notif-icon-bg: rgba(255,255,255,0.04);
-    --notif-empty-bg: rgba(255,255,255,0.03);
-    --notif-empty-border: rgba(255,255,255,0.06);
-    --notif-badge-bg: rgba(255,255,255,0.1);
-    --notif-badge-border: rgba(255,255,255,0.12);
-    --notif-tab-active-bg: rgba(255,255,255,0.08);
-    --notif-tab-active-border: rgba(255,255,255,0.1);
-    --notif-close-bg: rgba(255,255,255,0.04);
-    --notif-close-border: rgba(255,255,255,0.07);
-    --notif-readall-bg: rgba(255,255,255,0.04);
-    --notif-readall-border: rgba(255,255,255,0.07);
-    --notif-count-bg: rgba(255,255,255,0.1);
-    --mobile-nav-active-bg: rgba(255,255,255,0.08);
-    --mobile-nav-icon-active: rgba(255,255,255,0.9);
-    --mobile-nav-icon: rgba(255,255,255,0.46);
-    --mobile-nav-label-active: rgba(255,255,255,0.75);
-    --mobile-nav-label: rgba(255,255,255,0.28);
-  }
-
-  html.light {
-    --bg-main: #f1f1f3;
-    --bg-sidebar: #ffffff;
-    --bg-header: rgba(255,255,255,0.92);
-    --border-main: rgba(0,0,0,0.08);
-    --border-header: rgba(0,0,0,0.07);
-    --text-primary: rgba(0,0,0,0.85);
-    --text-muted: rgba(0,0,0,0.4);
-    --nav-active-bg: rgba(0,0,0,0.06);
-    --nav-hover-bg: rgba(0,0,0,0.03);
-    --sidebar-card-bg: rgba(0,0,0,0.03);
-    --sidebar-card-border: rgba(0,0,0,0.07);
-    --btn-bg: rgba(0,0,0,0.04);
-    --btn-border: rgba(0,0,0,0.08);
-    --btn-color: rgba(0,0,0,0.56);
-    --btn-hover-bg: rgba(0,0,0,0.07);
-    --btn-hover-border: rgba(0,0,0,0.14);
-    --btn-hover-color: rgba(0,0,0,0.75);
-    --icon-color: rgba(0,0,0,0.55);
-    --icon-active: rgba(0,0,0,0.85);
-    --icon-bg-active: rgba(0,0,0,0.06);
-    --icon-border-active: rgba(0,0,0,0.1);
-    --icon-bg-hover: rgba(0,0,0,0.04);
-    --icon-border-hover: rgba(0,0,0,0.07);
-    --sidebar-logo-bg: rgba(0,0,0,0.05);
-    --sidebar-logo-border: rgba(0,0,0,0.09);
-    --sidebar-logo-color: rgba(0,0,0,0.5);
-    --sidebar-divider: rgba(0,0,0,0.06);
-    --sidebar-logo-border-bottom: rgba(0,0,0,0.05);
-    --sidebar-footer-border: rgba(0,0,0,0.05);
-    --header-icon-bg: rgba(0,0,0,0.04);
-    --header-icon-border: rgba(0,0,0,0.07);
-    --header-icon-color: rgba(0,0,0,0.4);
-    --header-icon-bg-hover: rgba(0,0,0,0.08);
-    --header-icon-border-hover: rgba(0,0,0,0.12);
-    --header-separator: rgba(0,0,0,0.07);
-    --badge-bg: #000;
-    --badge-color: #fff;
-    --notif-bg: rgba(255,255,255,0.98);
-    --notif-border: rgba(0,0,0,0.1);
-    --notif-unread-bg: rgba(0,0,0,0.02);
-    --notif-footer-border: rgba(0,0,0,0.05);
-    --mobile-nav-bg: rgba(255,255,255,0.98);
-    --mobile-nav-border: rgba(0,0,0,0.07);
-    --surface-hover: rgba(0,0,0,0.03);
-    --surface-subtle: rgba(0,0,0,0.03);
-    --surface-card: rgba(0,0,0,0.02);
-    --overlay-bg: rgba(0,0,0,0.04);
-    --overlay-border: rgba(0,0,0,0.08);
-    --content-primary: rgba(0,0,0,0.85);
-    --content-secondary: rgba(0,0,0,0.55);
-    --content-tertiary: rgba(0,0,0,0.5);
-    --content-quaternary: rgba(0,0,0,0.46);
-    --active-panel-bg: rgba(0,0,0,0.08);
-    --active-panel-border: rgba(0,0,0,0.12);
-    --avatar-ring-hover: rgba(0,0,0,0.15);
-    --scrollbar-thumb: rgba(0,0,0,0.12);
-    --logout-bg: rgba(248,248,250,0.99);
-    --logout-border: rgba(0,0,0,0.1);
-    --logout-shadow: rgba(0,0,0,0.15);
-    --logout-icon-bg: rgba(0,0,0,0.05);
-    --logout-icon-border: rgba(0,0,0,0.08);
-    --logout-btn-bg: rgba(0,0,0,0.04);
-    --logout-btn-border: rgba(0,0,0,0.08);
-    --logout-text-primary: rgba(0,0,0,0.8);
-    --logout-text-muted: rgba(0,0,0,0.45);
-    --logout-text-name: rgba(0,0,0,0.6);
-    --logout-dot: rgba(0,0,0,0.3);
-    --notif-item-border: rgba(0,0,0,0.04);
-    --notif-item-unread-bg: rgba(0,0,0,0.025);
-    --notif-item-hover-unread: rgba(0,0,0,0.05);
-    --notif-item-hover: rgba(0,0,0,0.02);
-    --notif-icon-bg: rgba(0,0,0,0.04);
-    --notif-empty-bg: rgba(0,0,0,0.03);
-    --notif-empty-border: rgba(0,0,0,0.07);
-    --notif-badge-bg: rgba(0,0,0,0.08);
-    --notif-badge-border: rgba(0,0,0,0.1);
-    --notif-tab-active-bg: rgba(0,0,0,0.07);
-    --notif-tab-active-border: rgba(0,0,0,0.09);
-    --notif-close-bg: rgba(0,0,0,0.04);
-    --notif-close-border: rgba(0,0,0,0.07);
-    --notif-readall-bg: rgba(0,0,0,0.04);
-    --notif-readall-border: rgba(0,0,0,0.07);
-    --notif-count-bg: rgba(0,0,0,0.06);
-    --mobile-nav-active-bg: rgba(0,0,0,0.07);
-    --mobile-nav-icon-active: rgba(0,0,0,0.85);
-    --mobile-nav-icon: rgba(0,0,0,0.55);
-    --mobile-nav-label-active: rgba(0,0,0,0.7);
-    --mobile-nav-label: rgba(0,0,0,0.3);
-  }
-
-  /* ─── TRANSITIONS ─── */
-  .sidebar-transition {
-    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .sidebar-content-transition {
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-  .sidebar-icon-transition {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* ─── KEYFRAMES ─── */
-  @keyframes _loOverlayIn { from{opacity:0} to{opacity:1} }
-  @keyframes _loCardIn {
-    from { opacity:0; transform:translateY(14px) scale(0.97); }
-    to   { opacity:1; transform:translateY(0) scale(1); }
-  }
-  @keyframes _loCardOut {
-    from { opacity:1; transform:scale(1); filter:blur(0px); }
-    to   { opacity:0; transform:scale(0.94); filter:blur(3px); }
-  }
-  @keyframes _loBar { from{width:0%} to{width:100%} }
-  @keyframes _loPageOut {
-    0%   { opacity:1; transform:scale(1); filter:blur(0px); }
-    100% { opacity:0; transform:scale(1.012); filter:blur(8px); }
-  }
-  @keyframes _loDot {
-    0%,80%,100% { opacity:0.15; transform:scale(0.75); }
-    40% { opacity:1; transform:scale(1); }
-  }
-  @keyframes notifPanelIn {
-    from { opacity:0; transform:translateY(-6px) scale(0.98); }
-    to   { opacity:1; transform:translateY(0) scale(1); }
-  }
-  @keyframes notifDrawerIn {
-    from { opacity:0; transform:translateX(100%); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  @keyframes notifDrawerOut {
-    from { opacity:1; transform:translateX(0); }
-    to   { opacity:0; transform:translateX(100%); }
-  }
-  @keyframes notifItemIn {
-    from { opacity:0; transform:translateX(6px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  @keyframes sidebarFadeIn {
-    from { opacity:0; transform:translateX(-4px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  @keyframes bellRing {
-    0%,100% { transform: rotate(0deg); }
-    15%     { transform: rotate(14deg); }
-    30%     { transform: rotate(-12deg); }
-    45%     { transform: rotate(10deg); }
-    60%     { transform: rotate(-8deg); }
-    75%     { transform: rotate(4deg); }
-  }
-  @keyframes dotPulse {
-    0%,100% { opacity:1; transform:scale(1); }
-    50% { opacity:0.5; transform:scale(0.8); }
-  }
-  @keyframes navItemSlide {
-    from { opacity:0; transform:translateX(-8px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  @keyframes badgePop {
-    0%   { transform:scale(0.5); opacity:0; }
-    70%  { transform:scale(1.15); opacity:1; }
-    100% { transform:scale(1); opacity:1; }
-  }
-  @keyframes headerSlideDown {
-    from { opacity:0; transform:translateY(-8px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  @keyframes onlinePulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); }
-    50%     { box-shadow: 0 0 0 4px rgba(255,255,255,0); }
-  }
-  @keyframes shimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
-  @keyframes uploadBar {
-    0%   { width: 0%; margin-left: 0; }
-    50%  { width: 70%; margin-left: 15%; }
-    100% { width: 0%; margin-left: 100%; }
-  }
-  @keyframes dropdownIn {
-    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  @keyframes optionIn {
-    from { opacity: 0; transform: translateX(-4px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* ─── CLASES DE ANIMACIÓN ─── */
-  .__lo_overlay  { animation:_loOverlayIn 0.22s ease forwards; }
-  .__lo_card_in  { animation:_loCardIn 0.3s cubic-bezier(0.22,1,0.36,1) forwards; }
-  .__lo_card_out { animation:_loCardOut 0.2s ease-in forwards; }
-  .__lo_bar      { animation:_loBar 1.7s cubic-bezier(0.4,0,0.15,1) forwards; }
-  .__lo_page     { animation:_loPageOut 0.5s ease forwards; }
-  .__lo_dot      { display:inline-block; }
-  .__lo_dot:nth-child(1){ animation:_loDot 1.1s ease-in-out 0s infinite; }
-  .__lo_dot:nth-child(2){ animation:_loDot 1.1s ease-in-out 0.18s infinite; }
-  .__lo_dot:nth-child(3){ animation:_loDot 1.1s ease-in-out 0.36s infinite; }
-
-  .notif-panel-anim { animation: notifPanelIn 0.22s cubic-bezier(0.22,1,0.36,1) forwards; }
-  .notif-item-anim  { animation: notifItemIn 0.22s cubic-bezier(0.22,1,0.36,1) both; }
-
-  /* ─── NOTIF DRAWER ─── */
-  .notif-drawer-overlay {
-    position: fixed; inset: 0; z-index: 9989;
-    background: rgba(0,0,0,0.35);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    animation: _loOverlayIn 0.22s ease forwards;
-  }
-  .notif-drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 9990;
-    width: 380px; max-width: 100vw;
-    display: flex; flex-direction: column;
-    background: var(--notif-bg);
-    border-left: 1px solid var(--notif-border);
-    box-shadow: -24px 0 60px rgba(0,0,0,0.25);
-    animation: notifDrawerIn 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
-  }
-  .notif-drawer.closing {
-    animation: notifDrawerOut 0.22s cubic-bezier(0.4,0,1,1) forwards;
-  }
-  @media (max-width: 480px) {
-    .notif-drawer { width: 100vw; border-left: none; border-top: 1px solid var(--notif-border); top: 56px; border-radius: 16px 16px 0 0; }
-  }
-  .header-anim { animation: headerSlideDown 0.4s cubic-bezier(0.22,1,0.36,1) both; }
-
-  /* ─── TEMA DINÁMICO ─── */
-  .nav-item-active {
-    background: var(--nav-active-bg);
-    color: var(--text-primary);
-  }
-  .nav-item-active-bar {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    border-radius: 0 2px 2px 0;
-    background: var(--accent-user, #6366f1);
-    transition: height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
-  }
-  .nav-item-hover:hover {
-    background: var(--nav-hover-bg);
-  }
-  .nav-section-label {
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    padding: 0 10px;
-    margin: 14px 0 5px;
-    user-select: none;
-    transition: opacity 0.2s ease;
-  }
-  .sidebar-divider {
-    height: 1px;
-    margin: 6px 10px;
-    background: var(--border-main);
-  }
-  .sidebar-badge {
-    background: var(--accent-user, #6366f1);
-    color: #000;
-    font-size: 9px;
-    font-weight: 600;
-    padding: 2px 5px;
-    border-radius: 20px;
-    line-height: 1;
-    animation: badgePop 0.3s cubic-bezier(0.22,1,0.36,1);
-  }
-  .bell-has-unread { animation: bellRing 1.8s ease-in-out 1s 1; }
-  .unread-dot      { animation: dotPulse 2s ease-in-out infinite; }
-  .online-dot-pulse { animation: onlinePulse 2.5s ease-in-out infinite; }
-
-  .user-card-sidebar {
-    background: var(--sidebar-card-bg);
-    border: 1px solid var(--sidebar-card-border);
-    border-radius: 10px;
-    transition: background 0.2s ease, border-color 0.2s ease;
-  }
-  .user-card-sidebar:hover {
-    background: var(--nav-hover-bg);
-    border-color: var(--border-main);
-  }
-  .footer-btn-mono {
-    background: var(--btn-bg);
-    border: 1px solid var(--btn-border);
-    border-radius: 9px;
-    color: var(--btn-color);
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
-    cursor: pointer;
-  }
-  .footer-btn-mono:hover {
-    background: var(--btn-hover-bg);
-    border-color: var(--btn-hover-border);
-    color: var(--btn-hover-color);
-    transform: scale(1.03);
-  }
-  .footer-btn-mono:active { transform: scale(0.97); }
-
-  .nav-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-main) transparent;
-  }
-  .nav-scroll::-webkit-scrollbar { width: 3px; }
-  .nav-scroll::-webkit-scrollbar-track { background: transparent; }
-  .nav-scroll::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 4px; }
-
-  .main-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-main) transparent;
-  }
-  .main-scroll::-webkit-scrollbar { width: 4px; }
-  .main-scroll::-webkit-scrollbar-track { background: transparent; }
-  .main-scroll::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 4px; }
-
-  .notif-scroll::-webkit-scrollbar { width: 3px; }
-  .notif-scroll::-webkit-scrollbar-track { background: transparent; }
-  .notif-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
-
-  .nav-tooltip {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-4px);
-    transition: opacity 0.15s ease, transform 0.15s ease;
-  }
-  .group:hover .nav-tooltip {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  .header-icon-btn {
-    width: 34px; height: 34px;
-    border-radius: 10px;
-    background: var(--header-icon-bg);
-    border: 1px solid var(--header-icon-border);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    position: relative;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
-  }
-  .header-icon-btn:hover {
-    background: var(--header-icon-bg-hover);
-    border-color: var(--header-icon-border-hover);
-    transform: scale(1.05);
-  }
-  .header-icon-btn:active { transform: scale(0.96); }
-  .header-icon-btn.active-panel {
-    background: var(--active-panel-bg);
-    border-color: var(--active-panel-border);
-  }
-  .avatar-ring {
-    transition: box-shadow 0.2s ease;
-  }
-  .avatar-ring:hover {
-    box-shadow: 0 0 0 2px var(--avatar-ring-hover);
-  }
-  .bottom-nav-safe { }
-  .nav-item-mounted {
-    animation: navItemSlide 0.28s cubic-bezier(0.22,1,0.36,1) both;
-  }
-
-`;
-
-// ── Clock ─────────────────────────────────────────────────────────────────────
-const Clock: React.FC<{ isMobile: boolean }> = memo(({ isMobile }) => {
+// El reloj se actualiza de forma aislada para no volver a renderizar los paneles.
+const Clock = memo(() => {
   const [time, setTime] = useState(new Date());
-    // ─── INJECT GLOBAL STYLES ───────────────────────────────────────────────────
   useEffect(() => {
-    const styleId = 'dashboard-layout-styles';
-    let styleEl = document.getElementById(styleId);
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = GLOBAL_STYLES + (SESSION_MODAL_STYLES || '');
-    // No cleanup - styles persist for the session
+    const timer = window.setInterval(() => setTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
-
-useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <div className="header-anim">
-      <h1 className="font-light text-xs tracking-widest uppercase truncate" style={{ color: 'var(--text-primary)' }}>
-        {/* En la zona horaria y el idioma de Configuración → Accesibilidad. */}
-        {fechaLarga(time, isMobile ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-      </h1>
-      <p className="text-[10px] font-light tracking-widest" style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-        {hora(time, true)}
-      </p>
-    </div>
-  );
+  return <div className="moon-shell-clock"><span>{fechaLarga(time, { day: 'numeric', month: 'short', year: 'numeric' })}</span><time dateTime={time.toISOString()}>{hora(time, true)}</time></div>;
 });
 Clock.displayName = 'Clock';
+
+
+function useDialogFocus(ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const workspace = document.querySelector<HTMLElement>('.moon-shell');
+    const wasInert = workspace?.inert ?? false;
+    if (workspace) workspace.inert = true;
+    const focusable = () => Array.from(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]') ?? []);
+    (focusable()[0] ?? ref.current)?.focus({ preventScroll: true });
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      const first = elements[0]; const last = elements[elements.length - 1];
+      if (!first) { event.preventDefault(); ref.current?.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', trapFocus);
+    return () => { document.removeEventListener('keydown', trapFocus); if (workspace) workspace.inert = wasInert; previous?.focus({ preventScroll: true }); };
+  }, [ref]);
+}
 
 // ── LogoutModal ───────────────────────────────────────────────────────────────
 interface LogoutModalProps {
@@ -548,14 +86,17 @@ interface LogoutModalProps {
   cardClass: string;
   userName: string;
 }
-const LogoutModal: React.FC<LogoutModalProps> = ({ phase, onCancel, onConfirm, cardClass, userName }) =>
-  createPortal(
+const LogoutModal: React.FC<LogoutModalProps> = ({ phase, onCancel, onConfirm, cardClass, userName }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
+  return createPortal(
     <div
       className="__lo_overlay fixed inset-0 flex items-center justify-center px-4"
-      style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(20px)', zIndex: 99999 }}
+      style={{ background: 'rgba(0,0,0,0.82)', zIndex: 99999 }}
     >
       <div
-        className={`${cardClass} relative w-full max-w-[300px]`}
+        ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="moon-logout-title" tabIndex={-1}
+        className={`${cardClass} moon-shell-logout-card relative w-full max-w-[360px]`}
         style={{
           background: 'var(--logout-bg)',
           border: '1px solid var(--logout-border)',
@@ -577,8 +118,8 @@ const LogoutModal: React.FC<LogoutModalProps> = ({ phase, onCancel, onConfirm, c
                   <LogOut style={{ width: '16px', height: '16px', color: 'var(--content-tertiary)' }} strokeWidth={1.5} />
                 </div>
               </div>
-              <p style={{ color: 'var(--logout-text-primary)', fontSize: '14px', fontWeight: 300, marginBottom: '5px' }}>¿Cerrar sesión?</p>
-              <p style={{ color: 'var(--logout-text-muted)', fontSize: '11px', fontWeight: 300, marginBottom: '24px', lineHeight: 1.6 }}>
+              <h2 id="moon-logout-title" style={{ color: 'var(--logout-text-primary)', fontSize: '20px', fontWeight: 500, marginBottom: '8px', letterSpacing: '-.03em' }}>¿Cerrar sesión?</h2>
+              <p style={{ color: 'var(--logout-text-muted)', fontSize: '13px', fontWeight: 400, marginBottom: '24px', lineHeight: 1.6 }}>
                 Saldrás como <span style={{ color: 'var(--logout-text-name)' }}>{userName}</span>
               </p>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -603,7 +144,7 @@ const LogoutModal: React.FC<LogoutModalProps> = ({ phase, onCancel, onConfirm, c
                   <LogOut style={{ width: '16px', height: '16px', color: 'var(--content-tertiary)' }} strokeWidth={1.5} />
                 </div>
               </div>
-              <p style={{ color: 'var(--content-tertiary)', fontSize: '10px', fontWeight: 300, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '10px' }}>Cerrando sesión</p>
+              <h2 id="moon-logout-title" style={{ color: 'var(--content-primary)', fontSize: '16px', fontWeight: 500, marginBottom: '12px' }}>Cerrando sesión</h2>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '5px' }}>
                 {[0, 1, 2].map(i => (
                   <span key={i} className="__lo_dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--logout-dot)' }} />
@@ -616,6 +157,7 @@ const LogoutModal: React.FC<LogoutModalProps> = ({ phase, onCancel, onConfirm, c
     </div>,
     document.body
   );
+};
 
 // ── NotifPanel ────────────────────────────────────────────────────────────────
 interface NotifPanelProps {
@@ -648,6 +190,8 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
 }) => {
   const [activeCategory, setActiveCategory] = useState<NotifCategory | 'all'>('all');
   const [closing, setClosing] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
 
   const dismissOne = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -687,14 +231,14 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
       />
 
       {/* Drawer */}
-      <div className={`notif-drawer${closing ? ' closing' : ''}`}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Notificaciones" tabIndex={-1} className={`notif-drawer${closing ? ' closing' : ''}`}>
 
         {/* ── Header ── */}
         <div style={{ padding: '20px 20px 14px', flexShrink: 0, borderBottom: '1px solid var(--notif-footer-border)' }}>
           {/* Top row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
+              <button aria-label="Cerrar notificaciones"
                 onClick={handleClose}
                 style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'var(--notif-close-bg)', border: '1px solid var(--notif-close-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--content-tertiary)', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--content-primary)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--overlay-bg)'; }}
@@ -706,7 +250,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: 'var(--content-primary)', fontSize: '13px', fontWeight: 400, letterSpacing: '-0.01em' }}>Notificaciones</span>
                   {visibleUnread > 0 && (
-                    <span style={{ fontSize: '9px', fontWeight: 600, background: 'var(--accent-user, #6366f1)', color: '#fff', padding: '2px 7px', borderRadius: '20px', animation: 'badgePop 0.3s cubic-bezier(0.22,1,0.36,1)', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 600, background: 'var(--badge-bg)', color: 'var(--badge-color)', padding: '3px 7px', borderRadius: '20px', animation: 'badgePop 0.3s cubic-bezier(0.22,1,0.36,1)', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                       {visibleUnread} nuevas
                     </span>
                   )}
@@ -757,7 +301,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
           {/* Category tabs */}
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
             <button onClick={() => setActiveCategory('all')}
-              style={{ padding: '5px 11px', borderRadius: '8px', fontSize: '10px', fontWeight: 300, cursor: 'pointer', transition: 'all 0.15s ease', background: activeCategory === 'all' ? 'var(--notif-tab-active-bg)' : 'transparent', border: activeCategory === 'all' ? '1px solid var(--notif-tab-active-border)' : '1px solid transparent', color: activeCategory === 'all' ? 'var(--content-primary)' : 'var(--content-tertiary)' }}>
+              style={{ padding: '5px 11px', borderRadius: '8px', fontSize: '10px', fontWeight: 300, cursor: 'pointer', transition: 'all 0.15s ease', background: activeCategory === 'all' ? 'var(--notif-tab-active-bg)' : 'transparent', border: activeCategory === 'all' ? '1px solid var(--notif-tab-active-border)' : '1px solid transparent', color: activeCategory === 'all' ? 'var(--badge-color)' : 'var(--content-tertiary)' }}>
               Todo
             </button>
             {categories.map(cat => {
@@ -802,7 +346,7 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
               {nuevoGrupo && (
                 <div style={{ padding: '14px 20px 6px', fontSize: '9.5px', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--content-quaternary)', position: 'sticky', top: 0, zIndex: 1, background: 'var(--notif-bg)' }}>{grupo}</div>
               )}
-              <div className="notif-item-anim"
+              <div className="notif-item-anim" role="button" tabIndex={0} aria-label={`${n.title}${isUnread ? ", sin leer" : ", leída"}`} onKeyDown={event => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); markOneRead(n.id); if (n.linkTo) { onNavigate(n.linkTo); handleClose(); } } }}
                 onClick={() => { markOneRead(n.id); if (n.linkTo) { onNavigate(n.linkTo); handleClose(); } }}
                 style={{ animationDelay: `${Math.min(idx, 6) * 0.025}s`, padding: '13px 16px 13px 20px', cursor: 'pointer', borderBottom: '1px solid var(--notif-item-border)', background: isUnread ? 'var(--notif-item-unread-bg)' : 'transparent', transition: 'background 0.15s ease', display: 'flex', gap: '12px', alignItems: 'flex-start', position: 'relative' }}
                 onMouseEnter={e => {
@@ -870,95 +414,13 @@ const NotifPanel: React.FC<NotifPanelProps> = memo(({
 NotifPanel.displayName = 'NotifPanel';
 
 // ── NavItem type ──────────────────────────────────────────────────────────────
-interface NavItem { path: string; label: string; icon: React.FC<any>; show: boolean; badge?: number; }
+export interface NavItem { path: string; label: string; icon: React.FC<any>; show?: boolean; badge?: number; }
 
-// ── SidebarNavLink ────────────────────────────────────────────────────────────
-const SidebarNavLink: React.FC<{ item: NavItem; collapsed: boolean; delay?: number }> = memo(({ item, collapsed, delay = 0 }) => (
-  <NavLink
-    to={item.path}
-    end={item.path === '/dashboard'}
-    className={({ isActive }) =>
-      `flex items-center gap-2.5 px-2 py-2 rounded-xl transition-all duration-200 relative group nav-item-hover nav-item-mounted
-       ${isActive ? 'nav-item-active' : ''}`
-    }
-    style={{ animationDelay: `${delay}ms` }}
-  >
-    {({ isActive }) => (
-      <>
-        {/* barra lateral activa */}
-        <span
-          className="nav-item-active-bar"
-          style={{ height: isActive ? '60%' : '0%', opacity: isActive ? 1 : 0 }}
-        />
-
-        {/* ícono */}
-        <div
-          className={`flex items-center justify-center rounded-lg flex-shrink-0 sidebar-icon-transition
-          ${collapsed ? 'w-8 h-8' : 'w-7 h-7'}`}
-          style={{
-            background: isActive ? 'var(--icon-bg-active)' : 'transparent',
-            border: isActive ? '1px solid var(--icon-border-active)' : '1px solid transparent',
-          }}
-        >
-          <item.icon
-            className="sidebar-icon-transition"
-            style={{
-              width: collapsed ? '15px' : '13px',
-              height: collapsed ? '15px' : '13px',
-              color: isActive ? 'var(--icon-active)' : 'var(--icon-color)',
-              transition: 'color 0.2s ease, width 0.25s ease, height 0.25s ease',
-            }}
-            strokeWidth={isActive ? 1.75 : 1.5}
-          />
-        </div>
-
-        {/* texto — se oculta al colapsar */}
-        {!collapsed && (
-          <span
-            className="text-xs font-light whitespace-nowrap overflow-hidden flex-1 tracking-wide sidebar-content-transition"
-            style={{ color: isActive ? 'var(--icon-active)' : 'var(--icon-color)' }}
-          >
-            {item.label}
-          </span>
-        )}
-
-        {/* badge expandido */}
-        {!collapsed && (item.badge ?? 0) > 0 && (
-          <span className="sidebar-badge">{(item.badge ?? 0) > 9 ? '9+' : item.badge}</span>
-        )}
-
-        {/* badge colapsado */}
-        {collapsed && (item.badge ?? 0) > 0 && (
-          <span
-            className="absolute top-0.5 right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full sidebar-badge"
-            style={{ fontSize: '8px' }}
-          >
-            {(item.badge ?? 0) > 9 ? '9' : item.badge}
-          </span>
-        )}
-
-        {/* tooltip colapsado */}
-        {collapsed && (
-          <div className="nav-tooltip absolute left-[52px] top-1/2 -translate-y-1/2 z-50 pointer-events-none">
-            <div
-              style={{
-                background: 'rgba(15,15,15,0.97)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.8)',
-                fontSize: '11px',
-                fontWeight: 300,
-                padding: '5px 10px',
-                borderRadius: '8px',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-              }}
-            >
-              {item.label}
-            </div>
-          </div>
-        )}
-      </>
-    )}
+const SidebarNavLink = memo(({ item, collapsed }: { item: NavItem; collapsed: boolean }) => (
+  <NavLink to={item.path} end={item.path === '/dashboard'} title={collapsed ? item.label : undefined} aria-label={collapsed ? item.label : undefined} className={({ isActive }) => `moon-shell-link${isActive ? ' is-active' : ''}${collapsed ? ' is-compact' : ''}`}>
+    <item.icon size={18} strokeWidth={1.7} aria-hidden="true" />
+    {!collapsed && <span className="moon-shell-link-label">{item.label}</span>}
+    {(item.badge ?? 0) > 0 && <span className="moon-shell-badge">{(item.badge ?? 0) > 9 ? '9+' : item.badge}</span>}
   </NavLink>
 ));
 SidebarNavLink.displayName = 'SidebarNavLink';
@@ -967,19 +429,26 @@ SidebarNavLink.displayName = 'SidebarNavLink';
 // MAIN LAYOUT
 // ═══════════════════════════════════════════════════════════════════════════════
 const DashboardLayout: React.FC = () => {
-  const { currentUser, userProfile, loading, puede } = useAuth();
-  const { settings, toggleSidebar, toggleTheme } = useSettings();
+  const outlet = useOutlet();
+  const { currentUser, userProfile, loading, puede, userRole, accesoAdmin } = useAuth();
+  const { settings, toggleSidebar, toggleTheme, isDark } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useIsMobile();
 
   const [notifOpen, setNotifOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutPhase, setLogoutPhase] = useState<'idle' | 'confirming' | 'leaving'>('idle');
   const [cardAnimClass, setCardAnimClass] = useState('__lo_card_in');
   const [pageAnimClass, setPageAnimClass] = useState('');
 
   const sidebarCollapsed = settings.sidebarCollapsed;
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.dataset.moonSessionStyles = 'true';
+    style.textContent = SESSION_MODAL_STYLES;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   // Atajos de teclado (lib/ajustes/atajos.ts: la misma lista que muestra Configuración).
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {
@@ -1011,12 +480,14 @@ const DashboardLayout: React.FC = () => {
   const { notifications, unreadCount, readIds, markOneRead, markAllRead, markPanelSeen, dismissOne, dismissAllRead, dismissAll } =
     useNotifications({
       uid: currentUser?.uid,
+      rol: userRole || undefined,
+      puedeRevisarTramites: userRole === 'CEO' || (userRole === 'Administración' && accesoAdmin?.tramites.resolver === true),
       puedeVerMensajeria: puede('admin'),
-      escritorio: settings.desktopNotifs !== false,
+      escritorio: settings.notifications !== false && settings.desktopNotifs !== false,
       silencio: { activo: !!settings.quietHoursEnabled, desde: settings.quietFrom, hasta: settings.quietTo },
       soundType: settings.notificationSound ?? 'default',
       soundVolume: settings.notificationVolume ?? 0.7,
-      muted: settings.notificationsMuted ?? false,
+      muted: settings.notifications === false || (settings.notificationsMuted ?? false),
       enabledCategories: {
         announcement: settings.notifyAnnouncements ?? true,
         email: settings.notifyEmails ?? true,
@@ -1029,12 +500,21 @@ const DashboardLayout: React.FC = () => {
 
   const unreadMails = notifications.filter(n => n.category === 'email' && !readIds.has(n.id)).length;
 
+  // Push del navegador: con permiso concedido, este navegador recibe los avisos aunque la pestaña esté cerrada.
+  const avisosSistema = settings.notifications !== false && settings.desktopNotifs !== false;
+  useEffect(() => {
+    if (!currentUser || !avisosSistema) return;
+    const activar = () => { void activarPushWeb(currentUser); };
+    activar();
+    window.addEventListener('moon-permiso-notificaciones', activar);
+    return () => window.removeEventListener('moon-permiso-notificaciones', activar);
+  }, [currentUser, avisosSistema]);
+
   // Ajuste "Contador en el título": "(3) moon Studios — Portal Oficial".
   useEffect(() => {
     const base = document.title.replace(/^\(\d+\)\s*/, '');
     document.title = settings.badgeCount !== false && unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
   }, [unreadCount, settings.badgeCount]);
-  const initials = (userProfile?.displayName ?? 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   useEffect(() => { if (!loading && !currentUser) navigate('/'); }, [currentUser, loading, navigate]);
   useEffect(() => {
@@ -1052,7 +532,6 @@ const DashboardLayout: React.FC = () => {
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [logoutPhase, notifOpen]);
-  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
   useEffect(() => { setNotifOpen(false); }, [location.pathname]);
 
   const handleLogoutClick = () => { setCardAnimClass('__lo_card_in'); setLogoutPhase('confirming'); };
@@ -1083,8 +562,12 @@ const DashboardLayout: React.FC = () => {
     { path: '/dashboard/mensajeria', label: 'Mensajería', icon: MessagesSquare, show: true },
     { path: '/dashboard/webs', label: 'Webs', icon: Globe, show: puede('webs') },
     { path: '/dashboard/proyectos',    label: 'Proyectos',    icon: FolderKanban,    show: true },
+    { path: '/dashboard/elecciones', label: 'Elecciones', icon: Vote, show: true },
+    { path: '/dashboard/tramites', label: 'Trámites', icon: ClipboardList, show: true },
+    { path: '/dashboard/conferencias', label: 'Conferencias', icon: Presentation, show: true },
     // Cada panel se muestra según ROLE_PERMISSIONS (src/types): el CEO los ve todos.
     { path: '/dashboard/ceo-panel', label: 'Panel CEO', icon: Crown, show: puede('ceo') },
+    { path: '/dashboard/administracion', label: 'Centro de administración', icon: SlidersHorizontal, show: puede('acceso') },
     { path: '/dashboard/admin', label: 'Panel Admin', icon: ShieldCheck, show: puede('admin') },
     { path: '/dashboard/roles', label: 'Gestión Roles', icon: UserCog, show: puede('roles') },
     { path: '/dashboard/users', label: 'Usuarios', icon: Users, show: puede('admin') },
@@ -1095,429 +578,126 @@ const DashboardLayout: React.FC = () => {
     { path: '/dashboard/settings', label: 'Configuración', icon: Settings, show: true },
   ].filter(i => i.show);
 
-  // grupos de nav
-  const principalItems = navItems.filter(i => ['/dashboard', '/dashboard/calendar', '/dashboard/tareas', '/dashboard/announcements'].includes(i.path));
-  const commsItems = navItems.filter(i => ['/dashboard/correo', '/dashboard/hilos', '/dashboard/mensajeria', '/dashboard/discord'].includes(i.path));
-  const gestionItems = navItems.filter(i => ![
-    '/dashboard', '/dashboard/calendar', '/dashboard/tareas', '/dashboard/announcements',
-    '/dashboard/correo', '/dashboard/hilos', '/dashboard/mensajeria',
-    '/dashboard/discord', '/dashboard/settings',
-  ].includes(i.path));
-  const settingsItem = navItems.filter(i => i.path === '/dashboard/settings');
-
-  if (loading) return (
-    <div className="h-full flex items-center justify-center" style={{ background: '#080808' }}>
-      <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', borderTopColor: 'rgba(255,255,255,0.5)', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  if (loading) return <div className="moon-shell-loading" role="status"><BrandLogo compact /><span>Cargando tu espacio…</span></div>;
 
   return (
     <>
-      
-      {showTabModal && <TabSyncModal onStayHere={handleStayHere} onGoToOther={handleGoToOther} />}
-      {showWarning && <AutoLogoutModal countdown={countdown} totalSeconds={60} onStayActive={handleStayActive} />}
-      {logoutPhase !== 'idle' && (
-        <LogoutModal
-          phase={logoutPhase}
-          onCancel={handleCancelLogout}
-          onConfirm={handleConfirmLogout}
-          cardClass={cardAnimClass}
-          userName={userProfile?.displayName ?? 'Usuario'}
-        />
-      )}
-
-      {/* ── MOBILE DRAWER ── */}
-<Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-  <SheetContent
-    side="left"
-    className="w-[272px] p-0 flex flex-col"
-    style={{
-      background: 'var(--bg-sidebar)',
-      borderRight: '1px solid var(--border-main)',
-    }}
-  >
-    {/* Header */}
-    <SheetHeader
-      className="px-5 py-4 flex-shrink-0"
-      style={{ borderBottom: '1px solid var(--border-main)' }}
-    >
-      <SheetTitle className="flex items-center gap-2.5">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center"
-          style={{
-            background: 'var(--sidebar-logo-bg)',
-            border: '1px solid var(--sidebar-logo-border)',
-          }}
-        >
-          <Moon className="w-4 h-4" style={{ color: 'var(--sidebar-logo-color)' }} strokeWidth={1.5} />
-        </div>
-        <span
-          className="text-sm font-light tracking-[0.22em] uppercase"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Moon Studios
-        </span>
-      </SheetTitle>
-    </SheetHeader>
-
-    {/* Nav */}
-    <nav className="flex-1 py-3 px-3 overflow-y-auto nav-scroll space-y-0.5">
-      {navItems.map((item, i) => (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          end={item.path === '/dashboard'}
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 relative nav-item-mounted nav-item-hover
-             ${isActive ? 'nav-item-active' : ''}`
-          }
-          style={{ animationDelay: `${i * 25}ms` }}
-        >
-          {({ isActive }) => (
-            <>
-              {isActive && (
-                <span className="nav-item-active-bar" style={{ height: '55%', opacity: 1 }} />
-              )}
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: isActive ? 'var(--icon-bg-active)' : 'transparent',
-                  border: isActive ? '1px solid var(--icon-border-active)' : '1px solid transparent',
-                }}
-              >
-                <item.icon
-                  className="w-3.5 h-3.5"
-                  style={{ color: isActive ? 'var(--icon-active)' : 'var(--icon-color)' }}
-                  strokeWidth={isActive ? 1.75 : 1.5}
-                />
-              </div>
-              <span
-                className="text-sm font-light tracking-wide flex-1"
-                style={{ color: isActive ? 'var(--icon-active)' : 'var(--icon-color)' }}
-              >
-                {item.label}
-              </span>
-              {(item.badge ?? 0) > 0 && (
-                <span className="sidebar-badge">
-                  {(item.badge ?? 0) > 9 ? '9+' : item.badge}
-                </span>
-              )}
-            </>
-          )}
-        </NavLink>
-      ))}
-    </nav>
-
-    {/* Footer */}
-    <div
-      className="flex-shrink-0"
-      style={{
-        borderTop: '1px solid var(--border-main)',
-        padding: '12px',
-        background: 'var(--bg-sidebar)',
-      }}
-    >
-      {/* User card */}
-      <div
-        className="flex items-center gap-2.5 p-2.5 rounded-xl mb-3 user-card-sidebar"
-      >
-        <div
-          className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-          style={{
-            background: 'var(--nav-hover-bg)',
-            border: '1px solid var(--border-main)',
-          }}
-        >
-          {userProfile?.avatar
-            ? <img src={userProfile.avatar} alt={userProfile.displayName} className="w-full h-full object-cover" />
-            : <span className="text-xs font-light" style={{ color: 'var(--text-primary)' }}>{initials}</span>
-          }
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-light truncate" style={{ color: 'var(--text-primary)' }}>
-            {userProfile?.displayName || 'Usuario'}
-          </p>
-          <p className="text-[9px] font-light uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            {userProfile?.role}
-          </p>
-        </div>
-        <div
-          className="online-dot-pulse"
-          style={{
-            width: '6px', height: '6px', borderRadius: '50%',
-            background: 'var(--accent-user, #6366f1)', flexShrink: 0,
-          }}
-        />
-      </div>
-
-      {/* Logout */}
-      <button
-        onClick={() => { setMobileMenuOpen(false); handleLogoutClick(); }}
-        className="footer-btn-mono w-full flex items-center gap-2.5 px-3 py-2.5"
-      >
-        <LogOut className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
-        <span className="text-xs font-light">Cerrar Sesión</span>
-      </button>
-    </div>
-  </SheetContent>
-</Sheet>
-
-      {/* ── MAIN LAYOUT ── */}
-      <div className={`h-full flex overflow-hidden ${pageAnimClass}`} style={{ background: 'var(--bg-main)' }}>
-
-        {/* ── DESKTOP SIDEBAR ── */}
-        {!isMobile && (
-          <aside
-            className={`flex flex-col sidebar-transition flex-shrink-0 h-full relative ${sidebarCollapsed ? 'w-[60px]' : 'w-[218px]'}`}
-            style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-main)' }}
-          >
-            {/* Logo */}
-            <div
-              className={`h-14 flex items-center flex-shrink-0 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'px-3 justify-center' : 'px-4 gap-2.5'}`}
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-            >
-              <div
-                className="flex items-center justify-center flex-shrink-0 rounded-xl sidebar-icon-transition"
-                style={{ width: '30px', height: '30px', background: 'var(--sidebar-logo-bg)', border: '1px solid var(--sidebar-logo-border)' }}
-              >
-                <Moon className="w-3.5 h-3.5" style={{ color: 'var(--sidebar-logo-color)' }} strokeWidth={1.5} />
-              </div>
-              {!sidebarCollapsed && (
-              <div className="sidebar-content-transition overflow-hidden">
-                <span className="text-xs font-light tracking-[0.28em] uppercase whitespace-nowrap"
-                  style={{ color: 'var(--text-primary)' }}>Moon Studios</span>
-                <div style={{ height: '1px', background: 'linear-gradient(90deg, var(--border-main), transparent)', marginTop: '2px' }} />
-              </div>
-            )}
-            </div>
-
-            {/* Nav */}
-            <nav className="flex-1 py-3 px-2 overflow-y-auto overflow-x-hidden nav-scroll space-y-0.5">
-
-              {/* Principal */}
-              {!sidebarCollapsed && <div className="nav-section-label">Principal</div>}
-              {sidebarCollapsed && <div style={{ height: '12px' }} />}
-              {principalItems.map((item, i) => (
-                <SidebarNavLink key={item.path} item={item} collapsed={sidebarCollapsed} delay={i * 30} />
-              ))}
-
-              {/* Comunicación */}
-              {!sidebarCollapsed && <div className="nav-section-label" style={{ marginTop: '12px' }}>Comunicación</div>}
-              {!sidebarCollapsed && <div className="sidebar-divider" style={{ margin: '0 4px 2px' }} />}
-              {sidebarCollapsed && <div style={{ height: '10px' }} />}
-              {commsItems.map((item, i) => (
-                <SidebarNavLink key={item.path} item={item} collapsed={sidebarCollapsed} delay={principalItems.length * 30 + i * 30} />
-              ))}
-
-              {/* Gestión */}
-              {gestionItems.length > 0 && (
-                <>
-                  {!sidebarCollapsed && <div className="nav-section-label" style={{ marginTop: '12px' }}>Gestión</div>}
-                  {!sidebarCollapsed && <div className="sidebar-divider" style={{ margin: '0 4px 2px' }} />}
-                  {sidebarCollapsed && <div style={{ height: '10px' }} />}
-                  {gestionItems.map((item, i) => (
-                    <SidebarNavLink key={item.path} item={item} collapsed={sidebarCollapsed} delay={(principalItems.length + commsItems.length) * 30 + i * 30} />
-                  ))}
-                </>
-              )}
-
-              {/* Settings */}
-              {!sidebarCollapsed && <div className="sidebar-divider" style={{ marginTop: '10px' }} />}
-              {sidebarCollapsed && <div style={{ height: '10px' }} />}
-              {settingsItem.map(item => (
-                <SidebarNavLink key={item.path} item={item} collapsed={sidebarCollapsed} />
-              ))}
-            </nav>
-
-            {/* Footer — User card + botones */}
-            <div
-              className="flex-shrink-0"
-              style={{ borderTop: '1px solid var(--sidebar-footer-border)', padding: sidebarCollapsed ? '10px 8px' : '10px' }}
-            >
-              {/* User card — solo visible expandido */}
-              {!sidebarCollapsed && (
-                <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl mb-2 sidebar-content-transition user-card-sidebar">
-                  <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'var(--nav-hover-bg)', border: '1px solid var(--border-main)' }}>
-                    {userProfile?.avatar
-                      ? <img src={userProfile.avatar} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-[10px] font-light" style={{ color: 'var(--text-primary)' }}>{initials}</span>
-                    }
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-light truncate leading-none" style={{ color: 'var(--text-primary)' }}>
-                      {userProfile?.displayName || 'Usuario'}
-                    </p>
-                    <p className="text-[9px] font-light uppercase tracking-wider mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {userProfile?.role}
-                    </p>
-                  </div>
-                  <div
-                    className="online-dot-pulse"
-                    style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-user, #6366f1)', flexShrink: 0 }}
-                  />
-                </div>
-              )}
-
-              {/* Avatar centrado cuando colapsado */}
-              {sidebarCollapsed && (
-                <div className="flex justify-center mb-2 sidebar-content-transition">
-                  <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center avatar-ring"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                    {userProfile?.avatar
-                      ? <img src={userProfile.avatar} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-[10px] font-light" style={{ color: 'rgba(255,255,255,0.75)' }}>{initials}</span>
-                    }
-                  </div>
-                </div>
-              )}
-
-              {/* Botones */}
-              <div className={`flex ${sidebarCollapsed ? 'flex-col gap-1.5' : 'flex-row gap-1.5'}`}>
-                {/* Collapse toggle */}
-                <button
-                  onClick={toggleSidebar}
-                  className="footer-btn-mono flex items-center justify-center sidebar-icon-transition"
-                  style={{
-                    flex: sidebarCollapsed ? 'unset' : 1,
-                    width: sidebarCollapsed ? '100%' : 'auto',
-                    height: '30px',
-                    gap: '5px',
-                  }}
-                  title={sidebarCollapsed ? 'Expandir' : 'Colapsar'}
-                >
-                  {sidebarCollapsed
-                    ? <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-                    : <><ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /><span className="text-[10px] font-light tracking-wide">Colapsar</span></>
-                  }
-                </button>
-
-                {/* Logout */}
-                <button
-                  onClick={handleLogoutClick}
-                  className="footer-btn-mono flex items-center justify-center sidebar-icon-transition"
-                  style={{
-                    flex: sidebarCollapsed ? 'unset' : 1,
-                    width: sidebarCollapsed ? '100%' : 'auto',
-                    height: '30px',
-                    gap: '5px',
-                  }}
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.5} />
-                  {!sidebarCollapsed && <span className="text-[10px] font-light tracking-wide">Salir</span>}
-                </button>
-              </div>
-            </div>
-          </aside>
-        )}
-
-        {/* ── CONTENT AREA ── */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-
-          {/* ── HEADER ── */}
-          <header
-            className="header-anim h-14 flex items-center justify-between flex-shrink-0"
-            style={{
-              padding: '0 20px',
-              background: 'var(--bg-header)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              borderBottom: '1px solid var(--border-header)',
-            }}
-          >
-            <div className="flex items-center gap-3">
-              {isMobile && (
-                <button
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="header-icon-btn"
-                >
-                  <Menu className="w-4 h-4" style={{ color: 'var(--header-icon-color)' }} strokeWidth={1.5} />
-                </button>
-              )}
-              <Clock isMobile={isMobile} />
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Bell */}
-              <button
-                onClick={handleOpenPanel}
-                className={`header-icon-btn ${notifOpen ? 'active-panel' : ''} ${unreadCount > 0 && !notifOpen ? 'bell-has-unread' : ''}`}
-              >
-                <Bell className="w-4 h-4" style={{ color: notifOpen ? 'var(--icon-active)' : 'var(--header-icon-color)' }} strokeWidth={1.5} />
-                {unreadCount > 0 && (
-                  <span
-                    className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full px-0.5"
-                    style={{ background: 'var(--badge-bg)', color: 'var(--badge-color)', fontSize: '8px', fontWeight: 700, animation: 'badgePop 0.3s cubic-bezier(0.22,1,0.36,1)' }}
-                  >
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {notifOpen && (
-                <NotifPanel
-                  notifications={notifications}
-                  unreadCount={unreadCount}
-                  readIds={readIds}
-                  markOneRead={markOneRead}
-                  markAllRead={markAllRead}
-                  dismissOne={dismissOne}
-                  dismissAllRead={dismissAllRead}
-                  dismissAll={dismissAll}
-                  onClose={() => setNotifOpen(false)}
-                  onNavigate={navigate}
-                  uid={currentUser?.uid}
-                />
-              )}
-
-              {/* Separador */}
-              <div style={{ width: '1px', height: '18px', background: 'var(--header-separator)' }} />
-
-              {/* User info */}
-              <div className="flex items-center gap-2.5">
-                {!isMobile && (
-                  <div className="text-right sidebar-content-transition">
-                    <p className="text-sm font-light" style={{ color: 'var(--text-primary)' }}>{userProfile?.displayName || 'Usuario'}</p>
-                    <p className="text-[9px] font-light uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{userProfile?.role}</p>
-                  </div>
-                )}
-                <div
-                  className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center avatar-ring"
-                  style={{ background: 'var(--nav-hover-bg)', border: '1px solid var(--border-main)' }}
-                >
-                  {userProfile?.avatar ? (
-                    <>
-                      <img
-                        src={userProfile.avatar}
-                        alt={userProfile.displayName}
-                        className="w-full h-full object-cover"
-                        onError={e => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          const next = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (next) next.style.display = 'flex';
-                        }}
-                      />
-                      <span className="text-xs font-light hidden w-full h-full items-center justify-center"
-                        style={{ color: 'var(--text-primary)' }}>{initials}</span>
-                    </>
-                  ) : (
-                    <span className="text-xs font-light" style={{ color: 'var(--text-primary)' }}>{initials}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* ── MAIN CONTENT ── */}
-          <main className="flex-1 p-4 md:p-6 overflow-y-auto main-scroll">
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <AnimatePresence>{showTabModal && <TabSyncModal key="tab-session" onStayHere={handleStayHere} onGoToOther={handleGoToOther} />}</AnimatePresence>
+      <AnimatePresence>{showWarning && <AutoLogoutModal key="idle-session" countdown={countdown} totalSeconds={60} onStayActive={handleStayActive} onLogout={() => { void doLogout(); }} />}</AnimatePresence>
+      {logoutPhase !== 'idle' && <LogoutModal phase={logoutPhase} onCancel={handleCancelLogout} onConfirm={handleConfirmLogout} cardClass={cardAnimClass} userName={userProfile?.displayName ?? 'Usuario'} />}
+      <DashboardShellView navItems={navItems} displayName={userProfile?.displayName || 'Usuario'} avatar={userProfile?.avatar} role={userProfile?.role} sidebarCollapsed={sidebarCollapsed} isDark={isDark} unreadCount={unreadCount} notifOpen={notifOpen} toggleSidebar={toggleSidebar} toggleTheme={toggleTheme} onOpenNotifications={handleOpenPanel} onLogout={handleLogoutClick} pageAnimClass={pageAnimClass}>{outlet}</DashboardShellView>
+      {notifOpen && <NotifPanel notifications={notifications} unreadCount={unreadCount} readIds={readIds} markOneRead={markOneRead} markAllRead={markAllRead} dismissOne={dismissOne} dismissAllRead={dismissAllRead} dismissAll={dismissAll} onClose={() => setNotifOpen(false)} onNavigate={navigate} uid={currentUser?.uid} />}
     </>
   );
 };
+
+
+export interface DashboardShellViewProps {
+  navItems: NavItem[];
+  displayName: string;
+  avatar?: string;
+  role?: string;
+  sidebarCollapsed: boolean;
+  isDark: boolean;
+  unreadCount: number;
+  notifOpen: boolean;
+  toggleSidebar: () => void;
+  toggleTheme: () => void;
+  onOpenNotifications: () => void;
+  onLogout: () => void;
+  pageAnimClass?: string;
+  children: React.ReactNode;
+}
+
+/** Presentación compartida por la aplicación y la comprobación visual aislada. */
+export function DashboardShellView({ navItems, displayName, avatar, role, sidebarCollapsed, isDark, unreadCount, notifOpen, toggleSidebar, toggleTheme, onOpenNotifications, onLogout, pageAnimClass = '', children }: DashboardShellViewProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const mainRef = useRef<HTMLElement>(null);
+  const initials = (displayName || 'U').split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
+  useLayoutEffect(() => { setMobileMenuOpen(false); setSearchOpen(false); mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }, [location.pathname]);
+  useEffect(() => {
+    const openSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(value => !value); }
+    };
+    window.addEventListener('keydown', openSearch);
+    return () => window.removeEventListener('keydown', openSearch);
+  }, []);
+  const navGroups = [
+    { label: 'Tu espacio', paths: ['/dashboard', '/dashboard/tareas', '/dashboard/calendar', '/dashboard/proyectos', '/dashboard/tramites', '/dashboard/elecciones'] },
+    { label: 'Comunicación', paths: ['/dashboard/correo', '/dashboard/mensajeria', '/dashboard/hilos', '/dashboard/conferencias', '/dashboard/announcements', '/dashboard/discord'] },
+    { label: 'Estudio', paths: ['/dashboard/webs', '/dashboard/programacion', '/dashboard/diseno', '/dashboard/contador', '/dashboard/secretaria'] },
+    { label: 'Administración', paths: ['/dashboard/ceo-panel', '/dashboard/administracion', '/dashboard/admin', '/dashboard/roles', '/dashboard/users'] },
+  ].map(group => ({ ...group, items: group.paths.flatMap(path => navItems.filter(item => item.path === path)) })).filter(group => group.items.length > 0);
+  const settingsItem = navItems.find(item => item.path === '/dashboard/settings');
+  const activeItem = navItems.find(item => item.path === location.pathname || (item.path === '/dashboard/elecciones' && location.pathname.startsWith(`${item.path}/`)));
+  const activeGroup = navGroups.find(group => group.items.some(item => item.path === activeItem?.path));
+  const searchResults = navItems.filter(item => item.label.toLocaleLowerCase('es').includes(searchQuery.trim().toLocaleLowerCase('es')));
+  const renderNavigation = (compact = false) => navGroups.map(group => (
+    <section className="moon-shell-nav-group" key={group.label} aria-label={group.label}>
+      {!compact && <h2 className="moon-shell-section-label">{group.label}</h2>}
+      {group.items.map(item => <SidebarNavLink key={item.path} item={item} collapsed={compact} />)}
+    </section>
+  ));
+  const renderAvatar = () => <span className="moon-shell-avatar">{avatar && <img src={avatar} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} />}<span aria-hidden="true">{initials}</span></span>;
+
+
+  return <>
+      <Dialog open={searchOpen} onOpenChange={open => { setSearchOpen(open); if (!open) setSearchQuery(''); }}>
+        <DialogContent className="moon-shell-search-dialog">
+          <DialogTitle>Ir a un espacio</DialogTitle>
+          <DialogDescription>Encuentra las herramientas disponibles para tu cuenta.</DialogDescription>
+          <div className="moon-shell-search-field" data-moon-field-frame><Search size={18} aria-hidden="true" /><input autoFocus aria-label="Buscar herramienta" placeholder="Buscar tareas, proyectos, correo…" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} /></div>
+          <nav className="moon-shell-search-results" aria-label="Resultados de búsqueda">
+            {searchResults.map(item => <button key={item.path} onClick={() => { setSearchOpen(false); setSearchQuery(''); navigate(item.path); }}><item.icon size={18} aria-hidden="true" /><span>{item.label}</span><ChevronRight size={16} aria-hidden="true" /></button>)}
+            {searchResults.length === 0 && <p>No encontramos esa herramienta. Prueba con otro nombre.</p>}
+          </nav>
+        </DialogContent>
+      </Dialog>
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="moon-shell-mobile-panel">
+          <SheetHeader className="moon-shell-mobile-brand"><SheetTitle><BrandLogo /></SheetTitle><SheetDescription>Espacio de trabajo</SheetDescription></SheetHeader>
+          <nav className="moon-shell-navigation" aria-label="Navegación móvil">{renderNavigation()}{settingsItem && <SidebarNavLink item={settingsItem} collapsed={false} />}</nav>
+          <div className="moon-shell-mobile-footer"><div className="moon-shell-profile">{renderAvatar()}<div><strong>{displayName || 'Usuario'}</strong><span>{role || 'Equipo Moon'}</span></div></div><button className="moon-shell-footer-button" onClick={() => { setMobileMenuOpen(false); onLogout(); }}><LogOut size={16} aria-hidden="true" />Cerrar sesión</button></div>
+        </SheetContent>
+      </Sheet>
+      <div className={`moon-shell ${sidebarCollapsed ? 'is-collapsed' : ''} ${pageAnimClass}`}>
+        <a className="moon-shell-skip" href="#moon-main-content">Saltar al contenido</a>
+        {!isMobile && <aside className="moon-shell-sidebar" aria-label="Barra lateral">
+          <div className="moon-shell-brand"><NavLink to="/dashboard" aria-label="Moon Studios, inicio"><BrandLogo compact={sidebarCollapsed} /></NavLink>{!sidebarCollapsed && <span>WORKSPACE <span>01</span></span>}</div>
+          <nav className="moon-shell-navigation" aria-label="Navegación principal">{renderNavigation(sidebarCollapsed)}</nav>
+          <div className="moon-shell-sidebar-footer">
+            {settingsItem && <SidebarNavLink item={settingsItem} collapsed={sidebarCollapsed} />}
+            <div className="moon-shell-profile">{renderAvatar()}{!sidebarCollapsed && <div><strong>{displayName || 'Usuario'}</strong><span>{role || 'Equipo Moon'}</span></div>}</div>
+            <div className="moon-shell-footer-actions"><button className="moon-shell-footer-button" onClick={toggleSidebar} title={sidebarCollapsed ? 'Expandir navegación' : 'Contraer navegación'} aria-label={sidebarCollapsed ? 'Expandir navegación' : 'Contraer navegación'} aria-expanded={!sidebarCollapsed}>{sidebarCollapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /><span>Contraer</span></>}</button><button className="moon-shell-footer-button" onClick={onLogout} title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={16} />{!sidebarCollapsed && <span>Salir</span>}</button></div>
+          </div>
+        </aside>}
+        <div className="moon-shell-workspace">
+          <header className="moon-shell-header">
+            <div className="moon-shell-header-start">
+              {isMobile && <button className="moon-shell-icon-button" onClick={() => setMobileMenuOpen(true)} aria-label="Abrir navegación" aria-expanded={mobileMenuOpen}><Menu size={20} /></button>}
+              {isMobile && <BrandLogo compact className="moon-shell-mobile-mark" />}
+              <div className="moon-shell-breadcrumb"><span>{activeGroup?.label || 'Tu espacio'}</span><ChevronRight size={13} aria-hidden="true" /><strong>{activeItem?.label || 'Dashboard'}</strong></div>
+            </div>
+            <div className="moon-shell-header-actions">
+              <Clock />
+              <button className="moon-shell-search-button" onClick={() => setSearchOpen(true)} aria-label="Buscar herramienta"><Search size={17} /><span>Buscar</span><kbd>{esMac ? '⌘' : 'Ctrl'} K</kbd></button>
+              <WorkspaceMotionControl />
+              <button className="moon-shell-icon-button moon-shell-theme-toggle" onClick={toggleTheme} aria-label={isDark ? 'Activar tema claro' : 'Activar tema oscuro'} title={isDark ? 'Tema claro' : 'Tema oscuro'}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
+              <button onClick={onOpenNotifications} className={`moon-shell-icon-button${notifOpen ? ' is-active' : ''}`} aria-label={unreadCount ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'} aria-expanded={notifOpen}><Bell size={18} />{unreadCount > 0 && <span className="moon-shell-notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
+              <button className="moon-shell-profile-shortcut" onClick={() => navigate('/dashboard/settings')} aria-label="Abrir mi cuenta">{renderAvatar()}</button>
+            </div>
+          </header>
+
+          <main ref={mainRef} id="moon-main-content" tabIndex={-1} className="moon-shell-main main-scroll"><WorkspaceMotion routeKey={location.pathname === '/dashboard/elecciones' || location.pathname.startsWith('/dashboard/elecciones/') ? '/dashboard/elecciones' : location.pathname}><ProteccionErrores nombre={location.pathname}><React.Suspense fallback={<div className="moon-page-loader" role="status"><BrandLogo compact /><span>Cargando tu herramienta…</span></div>}>{children}</React.Suspense></ProteccionErrores></WorkspaceMotion></main>
+        </div>
+      </div>
+
+  </>;
+}
 
 export default DashboardLayout;

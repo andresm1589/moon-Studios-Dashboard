@@ -9,9 +9,10 @@
 // index.css, bloque «AJUSTES DEL USUARIO».
 
 import type { Settings } from '@/contexts/SettingsContext';
+import { coloresAcento } from './acento';
 
 // ── Fuentes ──────────────────────────────────────────────────────────────────
-const gf = (familia: string, pesos = '200;300;400') =>
+const gf = (familia: string, pesos = '300;400;500;600;700') =>
   `https://fonts.googleapis.com/css2?family=${familia.replace(/ /g, '+')}:wght@${pesos}&display=swap`;
 
 export const FUENTES = [
@@ -50,14 +51,14 @@ const alfas = [2, 3, 4, 5, 6, 7, 8, 10, 12, 18, 20, 25, 30, 35, 40, 45, 50, 55, 
 function variablesDeTema(oscuro: boolean, contraste: boolean): Record<string, string> {
   const c = oscuro ? '255,255,255' : '0,0,0';
   const v: Record<string, string> = {
-    '--bg-main':             oscuro ? '#0a0a0a' : '#f1f1f3',
-    '--bg-sidebar':          oscuro ? '#080808' : '#ffffff',
-    '--bg-header':           oscuro ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.85)',
+    '--bg-main':             'var(--moon-bg)',
+    '--bg-sidebar':          'var(--moon-surface)',
+    '--bg-header':           'var(--moon-bg)',
     '--border-main':         `rgba(${c},${contraste ? 0.22 : oscuro ? 0.06 : 0.08})`,
     '--border-header':       `rgba(${c},${contraste ? 0.2 : oscuro ? 0.05 : 0.07})`,
-    '--text-primary':        `rgba(${c},${contraste ? 1 : 0.85})`,
+    '--text-primary':        'var(--moon-ink)',
     // 0.3/0.4 daban ~2.4:1 de contraste: el menú y las etiquetas casi no se leían.
-    '--text-muted':          `rgba(${c},${contraste ? 0.78 : oscuro ? 0.46 : 0.56})`,
+    '--text-muted':          'var(--moon-muted)',
     '--nav-active-bg':       `rgba(${c},${oscuro ? 0.07 : 0.06})`,
     '--nav-hover-bg':        `rgba(${c},${oscuro ? 0.04 : 0.03})`,
     '--sidebar-card-bg':     `rgba(${c},0.03)`,
@@ -96,6 +97,9 @@ export function aplicarAjustes(s: Settings) {
   raiz.style.setProperty('--accent-color', acento);
   raiz.style.setProperty('--accent-hover', acento + 'cc');
   raiz.style.setProperty('--settings-accent', acento);
+  const colores = coloresAcento(acento, oscuro);
+  raiz.style.setProperty('--accent-user-ink', colores.ink);
+  raiz.style.setProperty('--accent-on-user', colores.on);
 
   // Texto: tamaño (y compacto) en la raíz; la fuente, cargada y en la raíz.
   const base = TAMANOS[s.fontSize ?? 'md'] ?? 14;
@@ -114,8 +118,9 @@ export function aplicarAjustes(s: Settings) {
   raiz.classList.toggle('ajustes-lector', !!s.screenReader);
   raiz.classList.toggle('sidebar-collapsed', !!s.sidebarCollapsed);
 
-  // Idioma de la página (lectores de pantalla, corrector, formato del navegador).
-  raiz.lang = s.language || 'es';
+  // El ajuste cambia formatos regionales; la interfaz sigue estando en español.
+  raiz.lang = 'es';
+  raiz.dataset.locale = s.language || 'es';
   // Antes se ponía aria-live en <html>: convertía toda la página en una región
   // «viva» y el lector anunciaba cualquier cambio. Se quita si quedó puesto.
   raiz.removeAttribute('aria-live');

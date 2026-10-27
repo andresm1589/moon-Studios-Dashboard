@@ -57,7 +57,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
         {SITIOS.map(s => (
-          <section key={s.nombre} className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
+          <section data-moon-reveal="card" key={s.nombre} className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="wb-avatar" style={{ borderRadius: 11 }}><s.Icon size={17} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -68,7 +68,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
               {s.cifras.map(c => (
-                <button key={c.t} type="button" className="wb-fila" style={{ display: 'grid', gap: 2, padding: '10px 12px' }} onClick={() => ir(c.ir)}>
+                <button data-moon-reveal="row" key={c.t} type="button" className="wb-fila" style={{ display: 'grid', gap: 2, padding: '10px 12px' }} onClick={() => ir(c.ir)}>
                   <span style={{ fontSize: 18, fontWeight: 300, color: 'hsl(var(--foreground))' }}>{c.v}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 300, color: 'hsl(var(--muted-foreground))' }}>{c.t}</span>
                 </button>
@@ -79,7 +79,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-        <section className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
+        <section data-moon-reveal="card" className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 className="wb-h2"><Inbox />Solicitudes por atender</h2>
             <button type="button" className="wb-btn" onClick={() => ir('portal')}>Ver todas<ChevronRight /></button>
@@ -87,7 +87,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
           {pendientes.length ? (
             <div className="wb-lista">
               {pendientes.slice(0, 5).map(s => (
-                <button key={s.id} type="button" className="wb-fila" onClick={() => ir('portal')}>
+                <button data-moon-reveal="row" key={s.id} type="button" className="wb-fila" onClick={() => ir('portal')}>
                   <span className="wb-avatar" style={{ borderRadius: 10, width: 32, height: 32 }}><FileText size={15} /></span>
                   <span className="wb-fila-texto"><b>{s.titulo || 'Sin título'}</b><small>{TIPOS[s.tipo] ?? s.tipo} · {hace(s.creadoEn)}</small></span>
                   <ChevronRight size={15} style={{ color: 'hsl(var(--muted-foreground))' }} />
@@ -97,7 +97,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
           ) : <div className="wb-vacio" style={{ padding: 20 }}><CheckCircle2 />Todo respondido.</div>}
         </section>
 
-        <section className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
+        <section data-moon-reveal="card" className="wb-tarjeta" style={{ padding: 16, display: 'grid', gap: 12, alignContent: 'start' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 className="wb-h2"><Building2 />Socios en revisión</h2>
             <button type="button" className="wb-btn" onClick={() => ir('socios')}>Ver socios<ChevronRight /></button>
@@ -105,7 +105,7 @@ export function ResumenWebs({ datos, ir }: { datos: DatosWebs | null; ir: (id: s
           {sociosRev.length ? (
             <div className="wb-lista">
               {sociosRev.slice(0, 5).map(s => (
-                <button key={s.id} type="button" className="wb-fila" onClick={() => ir('socios')}>
+                <button data-moon-reveal="row" key={s.id} type="button" className="wb-fila" onClick={() => ir('socios')}>
                   <span className="wb-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{(s.nombre || '?').charAt(0).toUpperCase()}</span>
                   <span className="wb-fila-texto"><b>{s.nombre}</b><small><NivelChip monto={s.monto} etiqueta={s.tierLabel} /> · {hace(s.creadoEn)}</small></span>
                   <span className="wb-monto">{dolares(s.monto)}</span>

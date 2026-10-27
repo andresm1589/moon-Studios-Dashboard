@@ -51,6 +51,8 @@ lib-cov
 .cache/
 *.tsbuildinfo
 .dataconnect
+.moon-qa/
+.netlify/
 
 # ── Runtime ──
 pids
@@ -73,3 +75,6 @@ bower_components
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local Moon CMS QA harness (uses mocked services)
+.moon-qa/

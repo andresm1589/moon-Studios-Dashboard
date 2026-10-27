@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ShieldCheck, ScrollText, Cookie, Save, Loader2, RefreshCw, Plus, Trash2,
@@ -59,8 +60,8 @@ const paraGuardar = (d: Documento) => ({
 // ─── UI ──────────────────────────────────────────────────────────────────────
 const Etiqueta: React.FC<{ children: React.ReactNode; hint?: string }> = ({ children, hint }) => (
   <div className="mb-1.5">
-    <span className="text-[10px] uppercase tracking-widest font-light" style={{ color: mt }}>{children}</span>
-    {hint && <span className="ml-2 text-[10px] font-light" style={{ color: 'rgba(255,255,255,0.25)' }}>{hint}</span>}
+    <span className="text-[10px] uppercase tracking-widest font-light" style={{ color: panelInk(mt) }}>{children}</span>
+    {hint && <span className="ml-2 text-[10px] font-light" style={{ color: 'var(--moon-muted)' }}>{hint}</span>}
   </div>
 );
 
@@ -72,12 +73,12 @@ const Area: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (props
   <textarea {...props} className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-light outline-none transition-all leading-relaxed resize-y focus:border-white/20 ${props.className ?? ''}`} style={{ ...estiloControl, ...props.style }} />
 );
 const BotonSec: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, className, ...props }) => (
-  <button type="button" {...props} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all hover:bg-white/5 disabled:opacity-40 disabled:pointer-events-none ${className ?? ''}`} style={{ border: `1px solid ${bd}`, color: mt, ...props.style }}>
+  <button type="button" {...props} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light transition-all moon-panel-hover disabled:opacity-40 disabled:pointer-events-none ${className ?? ''}`} style={{ border: `1px solid ${bd}`, color: panelInk(mt), ...props.style }}>
     {children}
   </button>
 );
 const BotonIcono: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
-  <button type="button" {...props} className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-white/5 disabled:opacity-25 disabled:pointer-events-none" style={{ color: mt, ...props.style }}>
+  <button type="button" {...props} className="w-7 h-7 flex items-center justify-center rounded-lg transition-all moon-panel-hover disabled:opacity-25 disabled:pointer-events-none" style={{ color: panelInk(mt), ...props.style }}>
     {children}
   </button>
 );
@@ -186,15 +187,15 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
 
   if (cargando) return (
     <div className="flex flex-col items-center justify-center h-40 gap-3">
-      <div className="w-5 h-5 border border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
-      <p className="text-xs font-light" style={{ color: mt }}>Cargando textos legales…</p>
+      <div className="w-5 h-5 border moon-panel-border border-t-zinc-300 rounded-full animate-spin" />
+      <p className="text-xs font-light" style={{ color: panelInk(mt) }}>Cargando textos legales…</p>
     </div>
   );
   if (error || !doc) return (
     <div className="flex flex-col items-center justify-center h-40 gap-4 rounded-2xl text-center px-4" style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}>
       <div className="flex items-center gap-2">
-        <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#f87171' }} strokeWidth={1.5} />
-        <p className="text-sm font-light" style={{ color: '#f87171' }}>{error ?? 'La API no devolvió los textos legales.'}</p>
+        <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: panelInk('#f87171') }} strokeWidth={1.5} />
+        <p className="text-sm font-light" style={{ color: panelInk('#f87171') }}>{error ?? 'La API no devolvió los textos legales.'}</p>
       </div>
       <BotonSec onClick={reintentar}><RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar</BotonSec>
     </div>
@@ -210,17 +211,17 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
           const o = originales[id]; const activo = id === docActivo;
           return (
             <button key={id} type="button" onClick={() => { setDocActivo(id); setAbierta(0); }}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:bg-white/[0.04]"
-              style={{ background: activo ? 'rgba(255,255,255,0.06)' : 'transparent', border: `1px solid ${activo ? `${color}55` : bd}` }}>
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all moon-panel-hover"
+              style={{ background: activo ? 'color-mix(in srgb, var(--moon-ink) 6%, transparent)' : 'transparent', border: `1px solid ${activo ? `${color}55` : bd}` }}>
               <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}14`, border: `1px solid ${color}30` }}>
-                <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
+                <Icon className="w-4 h-4" style={{ color: panelInk(color) }} strokeWidth={1.5} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-sm font-light text-white">
+                <span className="flex items-center gap-2 text-sm font-light moon-panel-ink">
                   {label}
                   {sucio(id) && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#facc15' }} title="Cambios sin guardar" />}
                 </span>
-                <span className="block text-[11px] font-light truncate" style={{ color: mt }}>
+                <span className="block text-[11px] font-light truncate" style={{ color: panelInk(mt) }}>
                   {o?.predeterminado ? 'Texto predeterminado' : `Editado · ${fechaHora(o?.actualizadoEn ?? null)}`} · v{o?.version}
                 </span>
               </span>
@@ -233,11 +234,11 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
       <div className="rounded-2xl p-4 space-y-4" style={{ background: sf, border: `1px solid ${bd}` }}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <infoDoc.Icon className="w-4 h-4" style={{ color: infoDoc.color }} strokeWidth={1.5} />
-            <span className="text-sm font-light text-white">{infoDoc.label}</span>
-            <span className="text-[10px] font-light px-2 py-0.5 rounded-full" style={{ border: `1px solid ${bd}`, color: mt }}>/{docActivo}</span>
+            <infoDoc.Icon className="w-4 h-4" style={{ color: panelInk(infoDoc.color) }} strokeWidth={1.5} />
+            <span className="text-sm font-light moon-panel-ink">{infoDoc.label}</span>
+            <span className="text-[10px] font-light px-2 py-0.5 rounded-full" style={{ border: `1px solid ${bd}`, color: panelInk(mt) }}>/{docActivo}</span>
           </div>
-          <a href={`${WEB}/${docActivo}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all hover:text-white" style={{ color: mt }}>
+          <a href={`${WEB}/${docActivo}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-light transition-all moon-panel-hover" style={{ color: panelInk(mt) }}>
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} /> Ver en la web
           </a>
         </div>
@@ -262,7 +263,7 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
           {LANGS.map(l => (
             <button key={l.id} type="button" onClick={() => { setLang(l.id); setAbierta(0); }}
               className="px-3 py-1.5 rounded-lg text-xs font-light transition-all"
-              style={{ background: lang === l.id ? 'rgba(255,255,255,0.08)' : 'transparent', color: lang === l.id ? 'white' : mt, opacity: doc.idiomas[l.id] ? 1 : 0.55 }}>
+              style={{ background: lang === l.id ? 'color-mix(in srgb, var(--moon-ink) 8%, transparent)' : 'transparent', color: panelInk(lang === l.id ? 'var(--moon-ink)' : mt), opacity: doc.idiomas[l.id] ? 1 : 0.55 }}>
               {l.label}
             </button>
           ))}
@@ -274,7 +275,7 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
 
       {!texto ? (
         <div className="rounded-2xl p-6 text-center space-y-3" style={{ border: `1px dashed ${bd}` }}>
-          <p className="text-sm font-light" style={{ color: mt }}>
+          <p className="text-sm font-light" style={{ color: panelInk(mt) }}>
             Este documento no tiene texto en {LANGS.find(l => l.id === lang)!.label}: la web muestra el español a quien tenga ese idioma.
           </p>
           <div className="flex justify-center">
@@ -294,12 +295,12 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
             </div>
           </div>
 
-          <div className="flex items-start gap-2 px-3.5 py-3 rounded-xl text-[11px] font-light leading-relaxed" style={{ background: 'rgba(165,180,252,0.05)', border: '1px solid rgba(165,180,252,0.15)', color: mt }}>
-            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#a5b4fc' }} strokeWidth={1.5} />
+          <div className="flex items-start gap-2 px-3.5 py-3 rounded-xl text-[11px] font-light leading-relaxed" style={{ background: 'rgba(165,180,252,0.05)', border: '1px solid rgba(165,180,252,0.15)', color: panelInk(mt) }}>
+            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: panelInk('#a5b4fc') }} strokeWidth={1.5} />
             <span>
-              Formato del texto: una línea en blanco separa párrafos · <code className="text-white/70">- </code> al inicio hace una lista ·
-              {' '}<code className="text-white/70">**negrita**</code> · una línea solo en negrita es un subtítulo ·
-              {' '}<code className="text-white/70">[texto](https://…)</code>, <code className="text-white/70">[correo](mailto:…)</code> o <code className="text-white/70">[otra página](/cookies)</code> para enlaces.
+              Formato del texto: una línea en blanco separa párrafos · <code className="moon-panel-muted">- </code> al inicio hace una lista ·
+              {' '}<code className="moon-panel-muted">**negrita**</code> · una línea solo en negrita es un subtítulo ·
+              {' '}<code className="moon-panel-muted">[texto](https://…)</code>, <code className="moon-panel-muted">[correo](mailto:…)</code> o <code className="moon-panel-muted">[otra página](/cookies)</code> para enlaces.
             </span>
           </div>
 
@@ -312,11 +313,11 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
             {texto.secciones.map((s, i) => {
               const abiertaAqui = abierta === i;
               return (
-                <div key={i} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${abiertaAqui ? 'rgba(255,255,255,0.14)' : bd}`, background: abiertaAqui ? sf : 'transparent' }}>
+                <div key={i} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${abiertaAqui ? 'color-mix(in srgb, var(--moon-ink) 14%, transparent)' : bd}`, background: abiertaAqui ? sf : 'transparent' }}>
                   <div className="flex items-center gap-2 px-3 py-2">
                     <button type="button" onClick={() => setAbierta(abiertaAqui ? null : i)} className="flex items-center gap-3 min-w-0 flex-1 text-left py-1">
-                      <span className="text-[10px] font-mono flex-shrink-0" style={{ color: mt }}>{String(i + 1).padStart(2, '0')}</span>
-                      <span className="text-sm font-light text-white truncate">{s.titulo || 'Sin título'}</span>
+                      <span className="text-[10px] font-mono flex-shrink-0" style={{ color: panelInk(mt) }}>{String(i + 1).padStart(2, '0')}</span>
+                      <span className="text-sm font-light moon-panel-ink truncate">{s.titulo || 'Sin título'}</span>
                     </button>
                     <BotonIcono title="Subir" onClick={() => moverSeccion(i, -1)} disabled={i === 0}><ArrowUp className="w-3.5 h-3.5" strokeWidth={1.5} /></BotonIcono>
                     <BotonIcono title="Bajar" onClick={() => moverSeccion(i, 1)} disabled={i === texto.secciones.length - 1}><ArrowDown className="w-3.5 h-3.5" strokeWidth={1.5} /></BotonIcono>
@@ -361,10 +362,10 @@ export const LegalLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }
           <BotonSec onClick={restaurar} disabled={guardando || !!original?.predeterminado}><RotateCcw className="w-3.5 h-3.5" strokeWidth={1.5} /> Restaurar predeterminado</BotonSec>
         </div>
         <div className="flex items-center gap-3">
-          {hayCambios && <span className="text-[11px] font-light" style={{ color: '#facc15' }}>Cambios sin guardar</span>}
+          {hayCambios && <span className="text-[11px] font-light" style={{ color: panelInk('#facc15') }}>Cambios sin guardar</span>}
           <button type="button" onClick={guardar} disabled={guardando || !hayCambios}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
-            style={{ background: '#fff', color: '#000' }}>
+            className="moon-panel-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-light transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: 'var(--moon-accent)', color: 'var(--moon-accent-ink)' }}>
             {guardando ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</> : <><Save className="w-4 h-4" strokeWidth={1.5} /> Publicar {infoDoc.label.toLowerCase()}</>}
           </button>
         </div>

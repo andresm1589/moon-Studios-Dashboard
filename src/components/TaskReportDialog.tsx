@@ -1,3 +1,5 @@
+import { EmojiText } from '@/components/discord/EmojiText';
+import { EmojiButton } from '@/components/discord/EmojiButton';
 /**
  * TaskReportDialog.tsx
  * Diálogo para que cada persona reporte cómo va una tarea.
@@ -77,6 +79,8 @@ const TaskReportDialog: React.FC<TaskReportDialogProps> = ({
 }) => {
   const [reportStatus, setReportStatus] = useState<ReportStatus>('in-progress');
   const [comment,      setComment]      = useState('');
+  const commentEmojiRef = useRef<HTMLTextAreaElement>(null);
+  const reasonEmojiRef = useRef<HTMLTextAreaElement>(null);
   const [reason,       setReason]       = useState('');
   const [attachments,  setAttachments]  = useState<Attachment[]>([]);
   const [uploading,    setUploading]    = useState(false);
@@ -279,7 +283,7 @@ const TaskReportDialog: React.FC<TaskReportDialogProps> = ({
               {existingReport ? 'Actualizar mi reporte' : 'Reportar avance'}
             </DialogTitle>
             <DialogDescription className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-              {task.title}
+              <EmojiText text={task.title} />
             </DialogDescription>
           </div>
         </div>
@@ -329,16 +333,18 @@ const TaskReportDialog: React.FC<TaskReportDialogProps> = ({
             {reportStatus === 'not-completed' && (
               <div>
                 <label className="tr-form-label" htmlFor="rep-motivo">¿Qué lo impidió? <span className="tr-req">*</span></label>
-                <textarea id="rep-motivo" value={reason} onChange={e => setReason(e.target.value)} rows={2} maxLength={2000}
+                <textarea ref={reasonEmojiRef} id="rep-motivo" value={reason} onChange={e => setReason(e.target.value)} rows={2} maxLength={2000}
                   placeholder="Explica qué impidió completar la tarea…" className="w-full px-3 py-2.5 text-sm resize-none" />
+                <EmojiButton value={reason} onChange={setReason} inputRef={reasonEmojiRef} maxLength={2000} disabled={saving} label="Añadir emoji al motivo" />
               </div>
             )}
 
             {/* ── Comentario ── */}
             <div>
               <label className="tr-form-label" htmlFor="rep-comentario">Comentario o avance</label>
-              <textarea id="rep-comentario" value={comment} onChange={e => setComment(e.target.value)} rows={3} maxLength={4000}
+              <textarea ref={commentEmojiRef} id="rep-comentario" value={comment} onChange={e => setComment(e.target.value)} rows={3} maxLength={4000}
                 placeholder="Qué hiciste, qué falta o cualquier nota útil…" className="w-full px-3 py-2.5 text-sm resize-none leading-relaxed" />
+              <EmojiButton value={comment} onChange={setComment} inputRef={commentEmojiRef} maxLength={4000} disabled={saving} label="Añadir emoji al comentario de la tarea" />
             </div>
 
             {/* ── Adjuntos ── */}

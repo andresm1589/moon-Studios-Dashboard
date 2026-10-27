@@ -8,6 +8,8 @@
 // Estas funciones hacen lo correcto en cada caso.
 
 import { isTauri } from '@tauri-apps/api/core';
+import { regionActual } from '@/lib/ajustes/fecha';
+import { crearSolicitudPermiso, estaEnHorasDeSilencio } from '@/lib/ajustes/notificaciones';
 
 /** Dirección pública del portal web (para links que se comparten). */
 export const URL_PUBLICA = 'https://moon-studios-dashboard.netlify.app';
@@ -34,8 +36,6 @@ export async function abrirExterno(url: string): Promise<void> {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-let permisoPedido: Promise<boolean> | null = null;
-
 async function permisoNotificaciones(): Promise<boolean> {
   if (esEscritorio()) {
     const n = await import('@tauri-apps/plugin-notification');
@@ -48,16 +48,16 @@ async function permisoNotificaciones(): Promise<boolean> {
   return (await Notification.requestPermission()) === 'granted';
 }
 
-/** Pide el permiso una sola vez por sesión (se llama al activar el ajuste). */
-export const pedirPermisoNotificaciones = (): Promise<boolean> => {
-  permisoPedido ??= permisoNotificaciones().catch(() => false);
-  return permisoPedido;
-};
+/** Deduplica solicitudes simultáneas y reconsulta cambios de permiso posteriores. */
+export const pedirPermisoNotificaciones = crearSolicitudPermiso(permisoNotificaciones);
 
 /** Notificación del sistema (Windows en la app, el navegador en la web). */
 export async function notificarSistema(titulo: string, cuerpo: string): Promise<void> {
   try {
-    if (!(await pedirPermisoNotificaciones())) return;
+    // En la web el permiso se pide con un clic (Configuración → Notificaciones):
+    // pedirlo en segundo plano lo bloquean los navegadores y no mostraba nada.
+    if (!esEscritorio()) { if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return; }
+    else if (!(await pedirPermisoNotificaciones())) return;
     if (esEscritorio()) {
       const { sendNotification } = await import('@tauri-apps/plugin-notification');
       sendNotification({ title: titulo, body: cuerpo });
@@ -71,10 +71,7 @@ export async function notificarSistema(titulo: string, cuerpo: string): Promise<
 
 /** ¿Estamos dentro de las horas de silencio? ('HH:mm', puede cruzar medianoche) */
 export function enHorasDeSilencio(desde?: string, hasta?: string, ahora = new Date()): boolean {
-  if (!desde || !hasta) return false;
-  const min = (s: string) => { const [h, m] = s.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
-  const a = min(desde), b = min(hasta), x = ahora.getHours() * 60 + ahora.getMinutes();
-  return a <= b ? x >= a && x < b : x >= a || x < b;
+  return estaEnHorasDeSilencio(desde, hasta, ahora, regionActual().zona);
 }
 
 /**

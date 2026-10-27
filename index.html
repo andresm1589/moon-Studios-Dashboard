@@ -14,13 +14,13 @@
     <meta name="robots" content="noindex, nofollow" />
 
     <!-- ── Favicon ── -->
-    <link rel="icon" id="dynamic-favicon" type="image/png" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png" />
+    <link rel="icon" id="dynamic-favicon" type="image/svg+xml" href="/brand/moon-symbol.svg" />
+    <link rel="apple-touch-icon" href="/brand/moon-symbol-original.png" />
 
     <!-- ── Open Graph ── -->
     <meta property="og:title" content="moon Studios — Portal Oficial" />
     <meta property="og:description" content="Plataforma digital corporativa de moon Studios." />
-    <meta property="og:image" content="https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png" />
+    <meta property="og:image" content="https://moon-studios.netlify.app/brand/moon-symbol-original.png" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://moon-studios-dashboard.netlify.app" />
     <meta property="og:site_name" content="moon Studios" />
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="moon Studios — Portal Oficial" />
     <meta name="twitter:description" content="Sistema empresarial moon Studios." />
-    <meta name="twitter:image" content="https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png" />
+    <meta name="twitter:image" content="https://moon-studios.netlify.app/brand/moon-symbol-original.png" />
 
     <!-- ── Fuente corporativa ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -157,6 +157,21 @@
         to   { opacity: 1; transform: translateY(0);   }
       }
 
+      /* Launch feedback is indeterminate; it never claims authentication. */
+      #splash { gap: 22px; background: #0c0d0e; }
+      .splash-emblem { width: 128px; height: 128px; position: relative; display: grid; place-items: center; }
+      .splash-emblem::before, .splash-emblem::after { content: ''; position: absolute; inset: 0; border: 1px solid #303234; border-radius: 50%; }
+      .splash-emblem::after { border-top-color: #f2f3ef; border-right-color: transparent; animation: splashOrbit 1.8s linear infinite; }
+      #splash .splash-logo { width: 67px; height: 67px; filter: brightness(0) invert(1); animation: splashMark .65s cubic-bezier(.22,1,.36,1) both; }
+      #splash .splash-title { font: 500 18px/1.2 'DM Sans', sans-serif; letter-spacing: -.02em; }
+      #splash .splash-title span { color: #a0a3a6; }
+      #splash .splash-bar-wrap { width: 150px; height: 2px; background: #2c2e31; }
+      #splash .splash-bar { width: 45%; transform-origin: left; background: #f2f3ef; animation: splashProgress 1.3s ease-in-out infinite; }
+      #splash .splash-sub { color: #a0a3a6; font-size: 9px; letter-spacing: .14em; }
+      @keyframes splashOrbit { to { transform: rotate(360deg); } }
+      @keyframes splashMark { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+      @keyframes splashProgress { from { transform: translateX(-110%); } to { transform: translateX(330%); } }
+      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; transition: none !important; } .splash-emblem::after { animation: none; } }
       /* ── App root: respeta el alto de la titlebar de Tauri ── */
       #root {
         padding-top: var(--titlebar-h);
@@ -180,18 +195,18 @@
 
     <!-- ── Pantalla de bienvenida ── -->
     <div id="splash" role="status" aria-label="Cargando moon Studios">
-      <img
+      <div class="splash-emblem"><img
         class="splash-logo"
-        src="https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png"
+        src="/brand/moon-symbol-transparent.svg"
         alt="moon Studios"
         crossorigin="anonymous"
         onerror="this.style.display='none'"
-      />
+      /></div>
       <p class="splash-title">moon <span>Studios</span></p>
       <div class="splash-bar-wrap">
         <div class="splash-bar"></div>
       </div>
-      <p class="splash-sub">Iniciando portal corporativo</p>
+      <p class="splash-sub">Preparando tu espacio de trabajo</p>
     </div>
 
     <!-- ── App React ── -->
@@ -199,9 +214,9 @@
     <script type="module" src="/src/main.tsx"></script>
 
     <script>
-      // ── Favicon dinámico desde URL externa ──
+      // ── Favicon dinámico desde la identidad local ──
       (function () {
-        const LOGO_URL = 'https://ufvebjscabomuayqtyyo.supabase.co/storage/v1/object/public/task-reports/MARCA%20DE%20AGUA%20BLANCO.png';
+        const LOGO_URL = '/brand/moon-symbol-transparent.svg';
         const link = document.getElementById('dynamic-favicon');
 
         const img = new Image();
@@ -213,7 +228,9 @@
           ctx.fillStyle = '#0a0a0f';
           ctx.fillRect(0, 0, 64, 64);
           const p = 6;
+          ctx.filter = 'brightness(0) invert(1)';
           ctx.drawImage(img, p, p, 64 - p * 2, 64 - p * 2);
+          link.type = 'image/png';
           link.href = canvas.toDataURL('image/png');
         };
         img.onerror = function () {
@@ -235,7 +252,7 @@
       // ── Ocultar splash cuando React esté listo ──
       (function () {
         const splash = document.getElementById('splash');
-        const MIN_DISPLAY = 2200;
+        const MIN_DISPLAY = 400;
         const start = Date.now();
 
         const hideSplash = () => {

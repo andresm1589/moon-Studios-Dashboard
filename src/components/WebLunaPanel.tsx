@@ -1,3 +1,4 @@
+import { panelInk } from '@/lib/panelColors';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Building2, Mail, Newspaper, AlertCircle, RefreshCw } from 'lucide-react';
 import { EmpresaEditor, type Empresa } from './webLuna/EmpresaEditor';
@@ -52,17 +53,17 @@ export const WebLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }) 
           const on = id === activa;
           return (
             <button key={id} type="button" onClick={() => setActiva(id)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:bg-white/[0.04]"
-              style={{ background: on ? 'rgba(255,255,255,0.06)' : 'transparent', border: `1px solid ${on ? `${color}55` : bd}` }}>
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all moon-panel-hover"
+              style={{ background: on ? 'color-mix(in srgb, var(--moon-ink) 6%, transparent)' : 'transparent', border: `1px solid ${on ? `${color}55` : bd}` }}>
               <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}14`, border: `1px solid ${color}30` }}>
-                <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
+                <Icon className="w-4 h-4" style={{ color: panelInk(color) }} strokeWidth={1.5} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-sm font-light text-white">
+                <span className="flex items-center gap-2 text-sm font-light moon-panel-ink">
                   {label}
                   {sucios[id] && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#facc15' }} title="Cambios sin guardar" />}
                 </span>
-                <span className="block text-[11px] font-light font-mono" style={{ color: mt }}>{ruta}</span>
+                <span className="block text-[11px] font-light font-mono" style={{ color: panelInk(mt) }}>{ruta}</span>
               </span>
             </button>
           );
@@ -72,16 +73,16 @@ export const WebLunaPanel: React.FC<{ lunaFetch: LunaFetch }> = ({ lunaFetch }) 
       {activa !== 'blog' && error && (
         <div className="flex flex-col items-center justify-center h-40 gap-4 rounded-2xl text-center px-4" style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}>
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#f87171' }} strokeWidth={1.5} />
-            <p className="text-sm font-light" style={{ color: '#f87171' }}>{error}</p>
+            <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: panelInk('#f87171') }} strokeWidth={1.5} />
+            <p className="text-sm font-light" style={{ color: panelInk('#f87171') }}>{error}</p>
           </div>
           <BotonSec onClick={() => { setError(null); pedir(); }}><RefreshCw className="w-3.5 h-3.5" strokeWidth={1.5} /> Reintentar</BotonSec>
         </div>
       )}
       {activa !== 'blog' && !error && !docs && (
         <div className="flex flex-col items-center justify-center h-40 gap-3">
-          <div className="w-5 h-5 border border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
-          <p className="text-xs font-light" style={{ color: mt }}>Cargando el contenido de la web…</p>
+          <div className="w-5 h-5 border moon-panel-border border-t-zinc-300 rounded-full animate-spin" />
+          <p className="text-xs font-light" style={{ color: panelInk(mt) }}>Cargando el contenido de la web…</p>
         </div>
       )}
 

@@ -19,22 +19,34 @@ export type Permission =
   | 'programacion'
   | 'contador'
   | 'webs'
-  | 'ceo';
+  | 'ceo'
+  | 'tramites_gestion'
+  | 'acceso'
+  | 'conferencias';
 
 // Quién ve qué panel. El menú lateral, las rutas y la tabla de "Gestión Roles"
 // leen de acá: antes cada uno tenía su propio `role === '…'` y el CEO se
 // quedaba fuera de Admin, Roles, Contador, Programación, Diseño y Secretaría
 // aunque este mapa ya decía que los tenía.
-// Administración conserva exactamente lo que veía (Admin, Roles, Webs).
+// Administración: esta lista es solo el valor de respaldo. Lo que ve de verdad
+// lo decide el CEO en «Acceso de Administración» (lib/tramites, permisosAdministracion).
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  CEO:            ['roles', 'admin', 'diseno', 'secretaria', 'programacion', 'contador', 'webs', 'ceo'],
-  Administración: ['admin', 'roles', 'webs'],
+  CEO:            ['roles', 'admin', 'diseno', 'secretaria', 'programacion', 'contador', 'webs', 'ceo', 'tramites_gestion', 'acceso', 'conferencias'],
+  Administración: ['admin', 'roles', 'webs', 'tramites_gestion', 'acceso', 'conferencias'],
   Diseño:         ['diseno'],
   Secretaría:     ['secretaria'],
   Programación:   ['programacion'],
   Contador:       ['contador'],
   Empleado:       [],
 };
+
+/**
+ * Cuenta del equipo de Moon Studios. En `users` también viven las cuentas de
+ * clientes e invitados (rol `client`: portal web, MOON FEST, app): son otro
+ * sistema y nunca aparecen en los directorios, listas ni asignaciones del equipo.
+ */
+export const esRolDelEquipo = (role: unknown): role is UserRole =>
+  typeof role === 'string' && Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role);
 
 export const tienePermiso = (role: string | null | undefined, permiso: Permission): boolean =>
   !!role && (ROLE_PERMISSIONS[role as UserRole]?.includes(permiso) ?? false);

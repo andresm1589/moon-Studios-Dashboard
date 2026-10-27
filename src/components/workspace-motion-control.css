@@ -1,0 +1,15 @@
+.moon-motion-control-trigger { position:relative; }
+.moon-motion-control-trigger > span { position:absolute; right:5px; bottom:5px; width:5px; height:5px; border-radius:50%; background:var(--moon-muted); border:1px solid var(--moon-bg); }
+.moon-motion-control-trigger.is-running > span { background:#49a987; }
+.moon-motion-controls-dialog { background:var(--moon-surface); color:var(--moon-ink); border-color:var(--moon-line); max-width:470px; }
+.moon-motion-controls-panel { background:var(--moon-surface); border:1px solid var(--moon-line); border-radius:14px; padding:20px; }
+.moon-motion-controls-status { display:flex; gap:9px; align-items:center; margin:0 0 10px; color:var(--moon-ink); font-size:1rem; font-weight:600; }
+.moon-motion-controls-status > span { width:7px; height:7px; border-radius:50%; background:var(--moon-muted); }
+.moon-motion-controls-status > span.is-active { background:#49a987; }
+.moon-motion-controls-copy { color:var(--moon-muted); font-size:.87rem; line-height:1.7; margin:0 0 12px; }
+.moon-motion-controls-actions { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 12px; }
+.moon-motion-controls-actions button { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px; border:1px solid var(--moon-line); background:var(--moon-surface-raised); color:var(--moon-ink); border-radius:8px; font-size:.85rem; cursor:pointer; }
+html .moon-motion-controls-actions button.is-primary { background:var(--moon-accent)!important; color:var(--moon-accent-ink)!important; }
+.moon-motion-controls-actions button:focus-visible { outline:2px solid var(--moon-ink); outline-offset:3px; }
+.moon-motion-controls small { color:var(--moon-muted); font-size:.75rem; }
+@media(max-width:639px) { .moon-motion-controls-dialog { width:calc(100% - 28px); } .moon-motion-control-trigger { width:30px!important; min-width:30px!important; } }

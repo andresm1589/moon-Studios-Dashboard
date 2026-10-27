@@ -1,0 +1,33 @@
+    // Website CMS: only the published document is public; drafts require staff.
+    function canManageMoonWebsite() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['CEO', 'Administración'];
+    }
+
+    function validMoonWebsiteDocument() {
+      return request.resource.data.keys().hasOnly(['content', 'revision', 'updatedAt', 'updatedBy']) &&
+        request.resource.data.keys().hasAll(['content', 'revision', 'updatedAt', 'updatedBy']) &&
+        request.resource.data.content is map &&
+        request.resource.data.content.version == 1 &&
+        request.resource.data.content.brand is map &&
+        request.resource.data.content.hero is map &&
+        request.resource.data.content.sections is list &&
+        request.resource.data.content.sections.size() > 0 &&
+        request.resource.data.content.sections.size() <= 9 &&
+        request.resource.data.revision is int &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /moonStudios/web {
+      allow get: if true;
+      allow create: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == 1;
+      allow update: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == resource.data.revision + 1;
+    }
+
+    match /moonStudios/webDraft {
+      allow get: if canManageMoonWebsite();
+      allow create: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == 1;
+      allow update: if canManageMoonWebsite() && validMoonWebsiteDocument() && request.resource.data.revision == resource.data.revision + 1;
+    }

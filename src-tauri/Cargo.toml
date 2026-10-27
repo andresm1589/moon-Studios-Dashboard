@@ -1,6 +1,6 @@
 [package]
 name = "moon-studios"
-version = "2.0.10"
+version = "2.1.90"
 description = "Portal corporativo moon Studios"
 authors = ["moon Studios"]
 license = ""
@@ -19,7 +19,19 @@ tauri-build = { version = "2.6.1", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.11.1", features = [] }
+tauri = { version = "2.11.1", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2" 
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-window-state = "2"
+# «Abrir al iniciar Windows» (arranca oculta en la bandeja para seguir avisando).
+tauri-plugin-autostart = "2"
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+# Permisos de micrófono y cámara de la sala de conferencias (WebView2).
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"

@@ -1,0 +1,25 @@
+{
+  "source": "../MOON STUDIOS ELECCIONES/src/electoral",
+  "files": {
+    "DirectorAjustes.tsx": "435f848838ae7c6b3e1f840a96ccfb66662ae9c79b75b8b9a6458d5a7c5e8ddc",
+    "DirectorCandidaturas.tsx": "82600d2ba9ce3eb7757ec2d1d2a317a7dd45d0d84539ad4c4af26e507304c449",
+    "DirectorComunicados.tsx": "6300f9162d72dbd281d7a7a63adf895735e6a5cf29fabcb3a6dd7a6c295b6adc",
+    "directorShared.tsx": "db0c82406623b78b117328ccbba062e79c03827de579d12552237ec873427b70",
+    "ElectionDirectorWorkspace.tsx": "be3d187256398c57baa892cb20e7da16917b706088a564808f5ba2e4236907c2",
+    "ElectionManagement.tsx": "b0cf61d2f751f86e8a0ec23f75a78b1188c540701d40f141944dc26d3756a107",
+    "electionTypes.ts": "ccb88d867464dfe5e5690a02ac23b7b51526ed8c8c41e2e603f361a0380c5d32",
+    "ElectionWorkspace.tsx": "4dd6423d169f8ff957fca6490fd47c2f2f7fdd324c6002f46f18253fee360831",
+    "electoral-director.css": "08c1a3617c0835685dea90511577dcac9b430fce9ec957e00152a36b6849c477",
+    "electoral-public.css": "392d04f2932301c95f2a574be8d611f93bd2f12618ca928ab392985e88b0229b",
+    "electoral.css": "eb505e799776f29a90257ea1a9cb0f2f93f1783ca2272e6f4576618e7a172270",
+    "ElectoralAccessPanel.tsx": "0792919d8d722704bae79a1128ecde316730c6fd2ed437e76e801c5e5e68d1c7",
+    "ElectoralDialog.tsx": "7210ef83f8930dec2fa4056414bb3c22f583378cea78e26ef43ed2307f934bf1",
+    "ElectoralInvitation.tsx": "2a0aee76e264123954f3c3031f7f52d66633dc31c72919e551d0e59defcd67c5",
+    "ElectoralPublicPanel.tsx": "ef1de9be0876300cabd241bc19ec94870cfd4960db6d29d665101dec13263009",
+    "model.ts": "e001544fe6e0f37c55d761aa57a8669b796603c37406ad4a390ef1ad02063eed",
+    "ProcessEditor.tsx": "b127e184364b980ecb5f84fc79078f593692b4946bdc32091b98679ee701d3db",
+    "types.ts": "2437d5872f61ab38d02972acf26daddf747ea052518f158c99e9679eff9a6ac0",
+    "useElectionSystem.ts": "269c66b1647e9971aad3b9ac065e54fcebf872ff65fab8dcf93ee0b286b5ea17",
+    "useElectoralPublicState.ts": "800a2ef0fb9f46769b1d5e14709aa3919c1698712b3ece2b024858dfaf3bbfa2"
+  }
+}
